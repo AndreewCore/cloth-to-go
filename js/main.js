@@ -29,6 +29,11 @@ document.getElementById("guestBtn").onclick = ()=>{ if(!profile.name) profile.na
 /* ---------------- Eventos ---------------- */
 document.getElementById("openProfile").onclick = ()=>{ editingOrder=null; editingProfile=false; view="profile"; renderSheet(); openSheet(); };
 document.getElementById("openCart").onclick = ()=>{ view="cart"; renderSheet(); openSheet(); };
+document.getElementById("openSurvey").onclick = ()=>{
+  confirmDialog("¿Quieres ayudarnos respondiendo una breve encuesta? Se abrirá en una pestaña nueva.", ()=>{
+    window.open("https://forms.gle/eeu4G4Md877Rp2HV9", "_blank", "noopener");
+  });
+};
 document.getElementById("closeSheet").onclick = closeSheet;
 overlay.onclick = closeSheet;
 

@@ -8,3 +8,6 @@ CLAUDE.md
 
 # Configuración local de Claude Code
 .claude/
+
+# Documentos del proyecto — no necesarios en el deploy
+Documentos/
