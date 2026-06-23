@@ -17,6 +17,25 @@ const SHIPPING_FEE = 4.50;
 const LATE_GRACE_DAYS = 3;     // días hábiles de gracia tras la fecha límite
 const LATE_PENALTY = 15.00;    // penalización si no se devuelve dentro de la gracia
 
+/* ---- Depósito reembolsable con descuento por volumen ----
+   El depósito total se REDUCE mientras más prendas y más días dure el
+   alquiler: premia los pedidos grandes y largos para hacerlos más atractivos.
+   El descuento es un porcentaje sobre la suma de depósitos, con un tope. */
+const DEPOSIT_DISCOUNT_PER_ITEM = 0.06;  // 6% menos por cada prenda adicional
+const DEPOSIT_DISCOUNT_PER_DAY  = 0.02;  // 2% menos por cada día adicional
+const DEPOSIT_DISCOUNT_MAX      = 0.50;  // tope: hasta 50% de descuento
+
+// Tasa de descuento del depósito (0 a DEPOSIT_DISCOUNT_MAX) según la cantidad
+// de prendas y los días de alquiler. La primera prenda y el primer día no
+// descuentan; cada adicional suma. Pura: no depende del estado global.
+function depositDiscountRate(itemCount, days){
+  if(itemCount <= 0) return 0;
+  const extraItems = Math.max(0, itemCount - 1);
+  const extraDays  = Math.max(0, days - 1);
+  const rate = extraItems * DEPOSIT_DISCOUNT_PER_ITEM + extraDays * DEPOSIT_DISCOUNT_PER_DAY;
+  return Math.min(rate, DEPOSIT_DISCOUNT_MAX);
+}
+
 /* ---- Categorías para los filtros ---- */
 const CATS = ["Todo", "Formal", "Fiesta", "Casual", "Invierno"];
 

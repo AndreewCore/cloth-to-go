@@ -72,8 +72,20 @@ function subtotal(){
   const days = rentalDays();
   return cart.reduce((s,c) => s + cents(productById(c.id).price) * days, 0) / 100;
 }
-function depositTotal(){
+// Suma de depósitos del carrito SIN descuento (precio "de lista").
+function depositBaseTotal(){
   return cart.reduce((s,c) => s + cents(productById(c.id).deposit), 0) / 100;
+}
+// Tasa de descuento del depósito del carrito actual (según prendas y días).
+function depositRate(){ return depositDiscountRate(cart.length, rentalDays()); }
+// Depósito a cobrar (ya con el descuento por volumen aplicado).
+function depositTotal(){
+  const base = cents(depositBaseTotal());
+  return Math.round(base * (1 - depositRate())) / 100;
+}
+// Cuánto se ahorra el cliente en el depósito gracias al descuento.
+function depositSavings(){
+  return (cents(depositBaseTotal()) - cents(depositTotal())) / 100;
 }
 function shippingFee(){ return delivery === "ship" ? SHIPPING_FEE : 0; }
 function returnFee(){ return returnMethod === "home" ? SHIPPING_FEE : 0; }
@@ -95,7 +107,9 @@ function orderItemsSubtotal(o){
   return o.items.reduce((s,id) => s + cents(productById(id).price) * days, 0) / 100;
 }
 function orderDeposit(o){
-  return o.items.reduce((s,id) => s + cents(productById(id).deposit), 0) / 100;
+  const base = o.items.reduce((s,id) => s + cents(productById(id).deposit), 0);
+  const rate = depositDiscountRate(o.items.length, daysBetween(o.start, o.end));
+  return Math.round(base * (1 - rate)) / 100;
 }
 // Valor total del cobro de un pedido (incluye depósito reembolsable + envío +
 // devolución). Se usa para guardar/actualizar o.total.

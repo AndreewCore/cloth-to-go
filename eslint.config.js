@@ -14,6 +14,7 @@ const globals = require("globals");
 const PROJECT_GLOBALS = [
   // data.js
   "LOCAL", "SHIPPING_FEE", "LATE_GRACE_DAYS", "LATE_PENALTY",
+  "DEPOSIT_DISCOUNT_PER_ITEM", "DEPOSIT_DISCOUNT_PER_DAY", "DEPOSIT_DISCOUNT_MAX", "depositDiscountRate",
   "IMG", "CATS", "PRODUCTS", "PRODUCT_BY_ID", "productById", "SIZE_ORDER", "SIZES", "REWARDS",
   "escapeHTML", "conditionLabel", "starStr", "fmtDate", "daysBetween", "imgPlaceholder",
   "isValidEmail", "isValidPhone", "isValidName", "isValidAddress",
@@ -26,7 +27,8 @@ const PROJECT_GLOBALS = [
   "donName", "donMethod", "donAddr", "donDate",
   "rentalStart", "rentalEnd",
   "rentalDays", "isLate", "inCart", "unitsAvailable", "cartCount", "cents", "subtotal",
-  "depositTotal", "shippingFee", "returnFee", "grandTotal", "orderPoints",
+  "depositBaseTotal", "depositRate", "depositTotal", "depositSavings",
+  "shippingFee", "returnFee", "grandTotal", "orderPoints",
   "orderItemsSubtotal", "orderDeposit", "orderTotal", "paymentStatusLabel", "isArchivedOrder", "nextOrderId",
   "STORAGE_KEY", "saveState", "loadState",
   // dom.js
