@@ -49,13 +49,19 @@ function renderCart(){
       </div>`;
   }).join("");
 
+  const savings = depositSavings();
+  const discountRow = savings > 0
+    ? `<div class="summary-row deposit"><span>Depósito base</span><span style="text-decoration:line-through;color:var(--muted)">$${depositBaseTotal().toFixed(2)}</span></div>
+       <div class="summary-row deposit"><span>Descuento por volumen <span class="refund-tag">−${Math.round(depositRate()*100)}%</span></span><span>−$${savings.toFixed(2)}</span></div>`
+    : "";
   sheetBody.innerHTML += `
     <div class="summary">
       <div class="summary-row"><span>Subtotal alquiler</span><span>$${subtotal().toFixed(2)}</span></div>
+      ${discountRow}
       <div class="summary-row deposit"><span>Depósito <span class="refund-tag">reembolsable</span></span><span>$${depositTotal().toFixed(2)}</span></div>
       <div class="summary-row total"><span>Total</span><span>$${(subtotal()+depositTotal()).toFixed(2)}</span></div>
     </div>
-    <p class="summary-note">💡 El total incluye un depósito reembolsable de $${depositTotal().toFixed(2)} que se te devuelve al regresar las prendas.</p>`;
+    <p class="summary-note">💡 El total incluye un depósito reembolsable de $${depositTotal().toFixed(2)} que se te devuelve al regresar las prendas.${savings > 0 ? ` <b>¡Ahorras $${savings.toFixed(2)} en depósito por alquilar más prendas y días!</b>` : ` Mientras más prendas y días alquiles, menor es tu depósito.`}</p>`;
 
   sheetFoot.innerHTML = `<button class="pay-btn" data-action="toCheckout">Continuar a entrega →</button>`;
 }
