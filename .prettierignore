@@ -1,0 +1,5 @@
+node_modules
+package-lock.json
+# El catálogo está alineado a mano (tabla legible). Descomenta si no quieres
+# que Prettier lo reformatee:
+# js/data.js

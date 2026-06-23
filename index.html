@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>CLOTH TO GO · Alquiler de Ropa</title>
+<link rel="stylesheet" href="css/base.css" />
+<link rel="stylesheet" href="css/components.css" />
+</head>
+<body>
+<div class="phone">
+  <div class="notch"></div>
+
+  <!-- Pantalla de login (simulada) -->
+  <div class="login" id="login">
+    <div class="login-card">
+      <div class="login-logo">CLOTH TO <span>GO</span></div>
+      <p class="login-sub">Moda circular · alquila por día 🌱</p>
+      <label class="fld">Correo
+        <input type="email" id="loginEmail" placeholder="tucorreo@ejemplo.com" />
+      </label>
+      <label class="fld">Contraseña
+        <input type="password" id="loginPass" placeholder="••••••••" />
+      </label>
+      <small class="login-error" id="loginError" style="display:none"></small>
+      <button class="login-btn" id="loginBtn">Iniciar sesión</button>
+      <button class="login-guest" id="guestBtn">Entrar como invitado</button>
+      <p class="login-note">Demo: el inicio de sesión es solo de muestra.</p>
+    </div>
+  </div>
+
+  <header>
+    <div class="brand">
+      <div>
+        <h1>CLOTH TO <span>GO</span></h1>
+        <div class="tagline" id="greeting">Moda circular · paga por día 🌱</div>
+      </div>
+      <div class="brand-actions">
+<button class="icon-btn" id="openProfile" aria-label="Mi perfil">👤</button>
+        <button class="cart-btn" id="openCart" aria-label="Ver carrito">
+          🛒
+          <span class="cart-badge" id="badge" style="display:none">0</span>
+        </button>
+      </div>
+    </div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+      <input type="search" id="searchInput" placeholder="Buscar prenda…" />
+    </div>
+    <div class="filters" id="filters"></div>
+    <div class="filter-row">
+      <label class="filter-sel">
+        <span>Calidad</span>
+        <select id="qualityFilter">
+          <option value="0">Todas</option>
+          <option value="5">★★★★★ (5)</option>
+          <option value="4">4★ o más</option>
+          <option value="3">3★ o más</option>
+          <option value="2">2★ o más</option>
+        </select>
+      </label>
+      <label class="filter-sel">
+        <span>Talla</span>
+        <select id="sizeFilter"><!-- opciones generadas desde SIZES --></select>
+      </label>
+      <label class="filter-sel">
+        <span>Ordenar por</span>
+        <select id="sortBy">
+          <option value="default">Recomendado</option>
+          <option value="price-asc">Precio: más bajo primero</option>
+          <option value="price-desc">Precio: más alto primero</option>
+          <option value="stars-desc">Mejor calidad</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <main>
+    <div class="results-bar" id="resultsBar"></div>
+    <div class="grid" id="grid"></div>
+    <div class="no-results" id="noResults" style="display:none">
+      No encontramos prendas para tu búsqueda.
+    </div>
+  </main>
+
+  <!-- Overlay + Sheet -->
+  <div class="overlay" id="overlay"></div>
+  <div class="sheet" id="sheet">
+    <div class="grip"></div>
+    <div class="sheet-head">
+      <button class="back-x" id="backBtn" aria-label="Atrás" style="display:none">&larr;</button>
+      <h2 id="sheetTitle">Tu carrito</h2>
+      <button class="close-x" id="closeSheet" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+    <div class="sheet-foot" id="sheetFoot"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<!-- Modal de confirmación in-app (reemplaza confirm() nativo) -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalText">
+      <p class="modal-text" id="modalText"></p>
+      <div class="modal-actions">
+        <button class="modal-btn cancel" id="modalCancel">Cancelar</button>
+        <button class="modal-btn ok" id="modalOk">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Carga en orden de dependencias:
+     data → state → dom → vistas (catalog/checkout/profile) → main (init) -->
+<script src="js/data.js"></script>
+<script src="js/state.js"></script>
+<script src="js/dom.js"></script>
+<script src="js/catalog.js"></script>
+<script src="js/checkout.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

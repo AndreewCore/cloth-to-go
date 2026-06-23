@@ -1,0 +1,90 @@
+/* ============================================================
+   CLOTH TO GO · base.css
+   Variables de tema, reset y marco del celular
+   ============================================================ */
+
+:root {
+  --bg: #f1f4ec;
+  --card: #ffffff;
+  --ink: #1f2a1c;
+  --muted: #5e6a57;        /* oscurecido para cumplir contraste AA sobre fondos claros */
+  --accent: #356b31;       /* acento ligeramente más oscuro: AA también en texto pequeño */
+  --accent-soft: #e3efdc;
+  --star: #6f8420;         /* estrella más oscura para mejor contraste */
+  --ok: #356b31;
+  --line: #e2ebda;
+  --danger: #a1482a;       /* rojo/terracota más oscuro para errores legibles */
+  --shadow: 0 10px 30px rgba(31,42,28,.16);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: #c2cdb6;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+
+/* ---- Marco de celular ---- */
+.phone {
+  width: 390px;
+  max-width: 100%;
+  height: 844px;
+  max-height: 95vh;
+  background: var(--bg);
+  border-radius: 44px;
+  box-shadow: var(--shadow), 0 0 0 12px #1f2a1c, 0 0 0 14px #34402e;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.notch {
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 150px; height: 26px;
+  background: #1f2a1c;
+  border-radius: 0 0 18px 18px;
+  z-index: 60;
+}
+
+/* ============================================================
+   Responsive · en celulares y tablets angostos el "marco de
+   teléfono" se convierte en pantalla completa (sin borde
+   decorativo, sin notch ni centrado). En pantallas grandes se
+   conserva el mockup de escritorio.
+   600 px cubre todos los teléfonos modernos en vertical y tablets
+   angostos; el mockup queda solo para escritorio.
+   ============================================================ */
+@media (max-width: 600px) {
+  body {
+    padding: 0;
+    background: var(--bg);
+    /* overflow:hidden evita el rubber-band scroll del body en iOS */
+    overflow: hidden;
+  }
+  /* position:fixed + inset:0 es el método más fiable para apps de
+     pantalla completa en móvil: evita saltos de altura causados por
+     la barra de dirección del navegador (el problema de 100vh en iOS). */
+  .phone {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .notch { display: none; }
+  /* Respeta el área segura superior (muesca/isla dinámica) en iOS. */
+  header { padding-top: calc(14px + env(safe-area-inset-top, 0px)); }
+  /* Respeta el indicador de inicio en el pie del panel (iPhone sin botón físico). */
+  .sheet-foot { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+}
