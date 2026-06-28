@@ -40,6 +40,7 @@ function renderSheet(){
   else if(view==="profile") renderProfile();
   else if(view==="rewards") renderRewards();
   else if(view==="donate") renderDonate();
+  else if(view==="filters") renderFilterSheet();
 }
 
 /* ---------------- Badge del carrito ---------------- */
@@ -69,7 +70,12 @@ const modalOk = document.getElementById("modalOk");
 const modalCancel = document.getElementById("modalCancel");
 let onConfirmCb = null;
 
-function confirmDialog(message, onConfirm){
+// icon (opcional): emoji/símbolo a mostrar grande y centrado en la parte
+// superior del modal (p. ej. 📝 en la encuesta).
+function confirmDialog(message, onConfirm, icon){
+  const iconEl = document.getElementById("modalIcon");
+  iconEl.textContent = icon || "";
+  iconEl.style.display = icon ? "block" : "none";
   modalText.textContent = message;     // textContent → seguro (no HTML)
   onConfirmCb = onConfirm;
   modalOverlay.classList.add("show");
@@ -79,3 +85,22 @@ function closeModal(){
   modalOverlay.classList.remove("show");
   onConfirmCb = null;
 }
+
+/* ---------------- Pop-up de ahorro de agua ----------------
+   Muestra una felicitación con los litros de agua que el cliente ahorra al
+   alquilar ropa reutilizada (en vez de comprarla nueva). litros → ver
+   garmentWater()/cartWaterSaved() en data.js/state.js. */
+const waterPop = document.getElementById("waterPop");
+const waterAmount = document.getElementById("waterAmount");
+const waterMsg = document.getElementById("waterMsg");
+
+function showWaterPop(liters, garments){
+  if(liters <= 0) return;
+  waterAmount.innerHTML = `<span class="wa-line1">Ahorraste</span>
+    <span class="wa-line2">${fmtLiters(liters)} litros de agua</span>`;
+  const prendas = garments === 1 ? "esta prenda reutilizada" : `estas ${garments} prendas reutilizadas`;
+  waterMsg.textContent = `Al alquilar ${prendas} evitaste fabricar ropa nueva ` +
+    `y todo el agua que eso consume. ¡Gracias por elegir moda circular!`;
+  waterPop.classList.add("show");
+}
+function closeWaterPop(){ waterPop.classList.remove("show"); }

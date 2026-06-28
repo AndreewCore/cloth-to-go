@@ -272,8 +272,12 @@ function placeOrder(){
   // Acreditar puntos por el alquiler completado.
   lastEarnedPoints = orderPoints();
   profile.points += lastEarnedPoints;
+  // Litros de agua ahorrados con este alquiler (el carrito aún está intacto).
+  lastWaterSaved = cartWaterSaved();
   saveState();
   view = "done"; renderSheet(); updateBadge();
+  // Felicitación por el ahorro de agua (moda circular / ropa reutilizada).
+  showWaterPop(lastWaterSaved, cart.length);
 }
 
 /* ---- Confirmación ---- */
@@ -306,6 +310,7 @@ function renderDone(){
         <span style="color:var(--muted)">Depósito reembolsable: $${depositTotal().toFixed(2)} (se devuelve al regresar las prendas)</span>
       </div>
       <div class="earned-points">🌱 Ganaste <b>${lastEarnedPoints}</b> puntos con este alquiler</div>
+      ${lastWaterSaved > 0 ? `<div class="water-saved">💧 Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
     </div>`;
   sheetFoot.innerHTML = `<button class="pay-btn" data-action="finish">Volver al catálogo</button>`;
 }
@@ -314,7 +319,7 @@ function renderDone(){
 function finishOrder(){
   cart = []; delivery = null; address = ""; returnMethod = null; returnAddress = "";
   payMethod = null; card = { number:"", name:"", expiry:"", cvv:"" };
-  lastEarnedPoints = 0;
+  lastEarnedPoints = 0; lastWaterSaved = 0;
   view = "cart";
   saveState();
   updateBadge(); renderGrid(); closeSheet();

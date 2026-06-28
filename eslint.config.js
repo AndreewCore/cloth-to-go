@@ -19,16 +19,19 @@ const PROJECT_GLOBALS = [
   "escapeHTML", "conditionLabel", "starStr", "fmtDate", "daysBetween", "imgPlaceholder",
   "isValidEmail", "isValidPhone", "isValidName", "isValidAddress",
   "isValidCardNumber", "isValidExpiry", "isValidCvv",
+  "WATER_PER_KG", "LITERS_PER_GALLON", "garmentWater", "litersToGallons", "fmtLiters",
+  "MATERIAL_LABELS", "materialLabel", "MATERIAL_ORDER", "MATERIALS",
   // state.js
   "isoOffset", "cart", "orders", "profile", "activeCat", "searchQuery",
-  "qualityFilter", "sizeFilter", "sortBy", "view", "detailId", "delivery", "address",
+  "qualityFilter", "sizeFilter", "materialFilter", "sortBy", "view", "detailId", "delivery", "address",
   "returnMethod", "returnAddress", "payMethod", "card",
-  "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "editingProfile",
+  "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "lastWaterSaved", "editingProfile",
   "donName", "donMethod", "donAddr", "donDate",
   "rentalStart", "rentalEnd",
   "rentalDays", "isLate", "inCart", "unitsAvailable", "cartCount", "cents", "subtotal",
   "depositBaseTotal", "depositRate", "depositTotal", "depositSavings",
   "shippingFee", "returnFee", "grandTotal", "orderPoints",
+  "waterSavedForItems", "cartWaterSaved", "totalWaterSaved",
   "orderItemsSubtotal", "orderDeposit", "orderTotal", "paymentStatusLabel", "isArchivedOrder", "nextOrderId",
   "STORAGE_KEY", "saveState", "loadState",
   // dom.js
@@ -36,8 +39,10 @@ const PROJECT_GLOBALS = [
   "sheetFoot", "sheetTitle", "searchInput", "loginEl", "greeting", "backBtn",
   "SHEET_BACK", "openSheet", "closeSheet", "renderSheet", "updateBadge", "toastTimer", "toast",
   "modalOverlay", "modalText", "modalOk", "modalCancel", "onConfirmCb", "confirmDialog", "closeModal",
+  "waterPop", "waterAmount", "waterMsg", "showWaterPop", "closeWaterPop",
   // catalog.js
   "renderFilters", "sortProducts", "filteredProducts", "anyFilterActive", "clearFilters",
+  "activeFilterCount", "updateFilterBar", "renderFilterSheet",
   "renderGrid", "addToCart", "openDetail", "renderDetail",
   // checkout.js
   "dateBoxHTML", "renderCart", "removeItem", "renderCheckout",

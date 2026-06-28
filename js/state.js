@@ -32,6 +32,7 @@ let orders = [];
 // Perfil: contacto + puntos acumulados + historial de canjes + donaciones.
 let profile = { name:"", email:"", phone:"", points: 0, redeemed: [], donations: [] };
 let lastEarnedPoints = 0;            // puntos ganados en el último pedido (para la confirmación)
+let lastWaterSaved = 0;              // litros de agua ahorrados en el último pedido (para la confirmación/pop-up)
 let editingProfile = false;          // info de contacto en modo edición (perfil)
 // Formulario de donación de prendas (por puntos)
 let donName = "";                    // descripción de la prenda a donar
@@ -42,6 +43,7 @@ let activeCat = "Todo";
 let searchQuery = "";
 let qualityFilter = 0;               // estrellas mínimas (0 = todas)
 let sizeFilter = "Todas";            // filtro por talla
+let materialFilter = "Todos";        // filtro por material
 let sortBy = "default";              // ordenamiento del catálogo
 let view = "cart";                   // cart | checkout | done | detail | profile
 let detailId = null;
@@ -91,6 +93,18 @@ function shippingFee(){ return delivery === "ship" ? SHIPPING_FEE : 0; }
 function returnFee(){ return returnMethod === "home" ? SHIPPING_FEE : 0; }
 function grandTotal(){
   return (cents(subtotal()) + cents(depositTotal()) + cents(shippingFee()) + cents(returnFee())) / 100;
+}
+
+// Litros de agua ahorrados por una lista de prendas (ids) al reutilizarlas en
+// lugar de fabricarlas nuevas. Suma garmentWater() de cada prenda.
+function waterSavedForItems(ids){
+  return ids.reduce((s, id) => s + garmentWater(productById(id)), 0);
+}
+// Litros de agua ahorrados con el carrito actual (para la confirmación del pedido).
+function cartWaterSaved(){ return waterSavedForItems(cart.map(c => c.id)); }
+// Litros de agua ahorrados en total por TODOS los pedidos (para el perfil).
+function totalWaterSaved(){
+  return orders.reduce((s, o) => s + waterSavedForItems(o.items), 0);
 }
 
 // Puntos que otorga el pedido actual: según el monto pagado (no reembolsable),

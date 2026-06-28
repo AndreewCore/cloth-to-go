@@ -10,6 +10,11 @@
   --muted: #5e6a57;        /* oscurecido para cumplir contraste AA sobre fondos claros */
   --accent: #356b31;       /* acento ligeramente más oscuro: AA también en texto pequeño */
   --accent-soft: #e3efdc;
+  /* Verde CTA más vivo para botones de acción primaria (relleno, texto blanco).
+     Ambos tonos mantienen contraste AA (≥4.5:1) con blanco. */
+  --cta: #2d8438;
+  --cta-strong: #1f6b27;
+  --cta-glow: rgba(45,132,56,.35);
   --star: #6f8420;         /* estrella más oscura para mejor contraste */
   --ok: #356b31;
   --line: #e2ebda;

@@ -1,9 +1,12 @@
 node_modules/
+package-lock.json
 *.log
 .DS_Store
 
 # Documentación interna — no necesaria en el deploy
 README*.md
+# …excepto el README principal del proyecto, que sí debe publicarse.
+!README.md
 CLAUDE.md
 
 # Configuración local de Claude Code

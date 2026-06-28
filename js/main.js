@@ -27,12 +27,15 @@ document.getElementById("loginBtn").onclick = ()=>{
 document.getElementById("guestBtn").onclick = ()=>{ if(!profile.name) profile.name = "Invitado"; saveState(); enter("invitado"); };
 
 /* ---------------- Eventos ---------------- */
+// Acciones del header: perfil, carrito y encuesta.
 document.getElementById("openProfile").onclick = ()=>{ editingOrder=null; editingProfile=false; view="profile"; renderSheet(); openSheet(); };
 document.getElementById("openCart").onclick = ()=>{ view="cart"; renderSheet(); openSheet(); };
+// Botón "Filtros" del header: abre el panel de calidad/talla/material.
+document.getElementById("openFilters").onclick = ()=>{ view="filters"; renderSheet(); openSheet(); };
 document.getElementById("openSurvey").onclick = ()=>{
   confirmDialog("¿Quieres ayudarnos respondiendo una breve encuesta? Se abrirá en una pestaña nueva.", ()=>{
     window.open("https://forms.gle/eeu4G4Md877Rp2HV9", "_blank", "noopener");
-  });
+  }, "📝");
 };
 document.getElementById("closeSheet").onclick = closeSheet;
 overlay.onclick = closeSheet;
@@ -48,20 +51,19 @@ document.addEventListener("keydown", e=>{
   if(e.key === "Escape" && modalOverlay.classList.contains("show")) closeModal();
 });
 
+// Pop-up de ahorro de agua (felicitación al confirmar un alquiler)
+document.getElementById("waterClose").onclick = closeWaterPop;
+waterPop.onclick = e=>{ if(e.target === waterPop) closeWaterPop(); };
+document.addEventListener("keydown", e=>{
+  if(e.key === "Escape" && waterPop.classList.contains("show")) closeWaterPop();
+});
+
 searchInput.addEventListener("input", e=>{ searchQuery = e.target.value; renderGrid(); });
 
-document.getElementById("qualityFilter").addEventListener("change", e=>{
-  qualityFilter = +e.target.value; renderGrid();
-});
+// Orden: único <select> que permanece en el header.
 document.getElementById("sortBy").addEventListener("change", e=>{
   sortBy = e.target.value; renderGrid();
 });
-
-// Selector de talla: opciones generadas desde SIZES.
-const sizeSel = document.getElementById("sizeFilter");
-sizeSel.innerHTML = `<option value="Todas">Todas</option>` +
-  SIZES.map(s => `<option value="${s}">${s}</option>`).join("");
-sizeSel.addEventListener("change", e=>{ sizeFilter = e.target.value; renderGrid(); });
 
 // "Limpiar filtros" (se re-renderiza dentro de resultsBar).
 resultsBar.addEventListener("click", e=>{
@@ -121,6 +123,8 @@ sheet.addEventListener("click", e=>{
     case "saveReturn":     saveReturn(+el.dataset.idx); break;
     case "cancelReturn":   closeReturnEditor(); break;
     case "toggleLateInfo": toggleLateInfo(+el.dataset.idx); break;
+    case "clearFiltersSheet": clearFilters(); break;
+    case "closeSheet":     closeSheet(); break;
   }
 });
 
@@ -157,6 +161,10 @@ sheet.addEventListener("change", e=>{
   } else if(t.id === "donDate"){
     donDate = t.value; renderSheet();
   }
+  // Selects del panel de filtros: actualizan en vivo el catálogo de fondo.
+  else if(t.id === "fQuality"){ qualityFilter = +t.value; renderGrid(); renderFilterSheet(); }
+  else if(t.id === "fSize"){ sizeFilter = t.value; renderGrid(); renderFilterSheet(); }
+  else if(t.id === "fMaterial"){ materialFilter = t.value; renderGrid(); renderFilterSheet(); }
 });
 
 // Al salir de una dirección o de un campo de tarjeta, re-render para revalidar el botón.
