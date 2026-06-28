@@ -28,7 +28,8 @@ function filteredProducts(){
     (activeCat === "Todo" || p.cat === activeCat) &&
     (q === "" || p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q)) &&
     (p.stars >= qualityFilter) &&
-    (sizeFilter === "Todas" || p.size === sizeFilter)
+    (sizeFilter === "Todas" || p.size === sizeFilter) &&
+    (materialFilter === "Todos" || p.material === materialFilter)
   );
   return sortProducts(list);
 }
@@ -36,18 +37,79 @@ function filteredProducts(){
 // ¿Hay algún filtro activo? (para mostrar "Limpiar filtros")
 function anyFilterActive(){
   return activeCat !== "Todo" || searchQuery.trim() !== "" ||
-         qualityFilter !== 0 || sizeFilter !== "Todas" || sortBy !== "default";
+         qualityFilter !== 0 || sizeFilter !== "Todas" ||
+         materialFilter !== "Todos" || sortBy !== "default";
 }
 
-// Restablece todos los filtros y el orden (incluye sincronizar los controles del DOM).
+// Nº de filtros activos dentro del panel (calidad/talla/material) — alimenta el
+// badge del botón "Filtros" del header. El orden y la categoría tienen sus
+// propios controles, así que no cuentan aquí.
+function activeFilterCount(){
+  let n = 0;
+  if(qualityFilter !== 0) n++;
+  if(sizeFilter !== "Todas") n++;
+  if(materialFilter !== "Todos") n++;
+  return n;
+}
+
+// Actualiza el badge de conteo del botón "Filtros".
+function updateFilterBar(){
+  const el = document.getElementById("filterCount");
+  if(!el) return;
+  const n = activeFilterCount();
+  el.textContent = n;
+  el.style.display = n > 0 ? "grid" : "none";
+}
+
+// Restablece todos los filtros y el orden. El único <select> del header es el de
+// orden; los de calidad/talla/material viven en el panel y se regeneran desde
+// el estado al re-renderizar.
 function clearFilters(){
-  activeCat = "Todo"; searchQuery = ""; qualityFilter = 0; sizeFilter = "Todas"; sortBy = "default";
+  activeCat = "Todo"; searchQuery = ""; qualityFilter = 0; sizeFilter = "Todas";
+  materialFilter = "Todos"; sortBy = "default";
   searchInput.value = "";
-  document.getElementById("qualityFilter").value = "0";
-  document.getElementById("sizeFilter").value = "Todas";
-  document.getElementById("sortBy").value = "default";
+  const sortSel = document.getElementById("sortBy");
+  if(sortSel) sortSel.value = "default";
   renderFilters();
   renderGrid();
+  updateFilterBar();
+  if(view === "filters" && sheet.classList.contains("show")) renderFilterSheet();
+}
+
+/* ---------------- Panel de filtros (sheet) ---------------- */
+function renderFilterSheet(){
+  sheetTitle.textContent = "Filtros";
+  const qOpts = [[0,"Todas"],[5,"★★★★★ (5)"],[4,"4★ o más"],[3,"3★ o más"],[2,"2★ o más"]];
+  sheetBody.innerHTML = `
+    <div class="filter-sheet">
+      <label class="fs-fld">
+        <span>Calidad</span>
+        <select id="fQuality">
+          ${qOpts.map(([v,l]) => `<option value="${v}" ${qualityFilter===v?"selected":""}>${l}</option>`).join("")}
+        </select>
+      </label>
+      <label class="fs-fld">
+        <span>Talla</span>
+        <select id="fSize">
+          <option value="Todas" ${sizeFilter==="Todas"?"selected":""}>Todas</option>
+          ${SIZES.map(s => `<option value="${s}" ${sizeFilter===s?"selected":""}>${s}</option>`).join("")}
+        </select>
+      </label>
+      <label class="fs-fld">
+        <span>Material</span>
+        <select id="fMaterial">
+          <option value="Todos" ${materialFilter==="Todos"?"selected":""}>Todos</option>
+          ${MATERIALS.map(m => `<option value="${m}" ${materialFilter===m?"selected":""}>${materialLabel(m)}</option>`).join("")}
+        </select>
+      </label>
+    </div>`;
+
+  const n = filteredProducts().length;
+  sheetFoot.innerHTML = `
+    <div class="filter-foot">
+      <button class="fs-clear" data-action="clearFiltersSheet" ${activeFilterCount()?"":"disabled"}>Limpiar</button>
+      <button class="pay-btn fs-apply" data-action="closeSheet">Ver ${n} ${n===1?"prenda":"prendas"}</button>
+    </div>`;
 }
 
 function renderGrid(){
@@ -63,7 +125,7 @@ function renderGrid(){
   grid.innerHTML = list.map(p => {
     const avail = unitsAvailable(p);
     const btn = inCart(p.id)
-      ? `<button class="add-btn" data-add="${p.id}">✓ En carrito</button>`
+      ? `<button class="add-btn in-cart" data-add="${p.id}">✓ En carrito</button>`
       : avail > 0
         ? `<button class="add-btn" data-add="${p.id}">+ Alquilar</button>`
         : `<button class="add-btn" disabled>No disponible</button>`;
@@ -76,15 +138,17 @@ function renderGrid(){
       </div>
       <div class="card-body">
         <div class="card-name" data-detail="${p.id}" role="button" tabindex="0" aria-label="Ver detalle de ${p.name}">${p.name}</div>
-        <div class="card-cat">${p.cat}</div>
+        <div class="card-meta"><span>${p.cat}</span><span class="cm-dot">·</span><span class="cm-mat">🧵 ${materialLabel(p.material)}</span></div>
         <div class="stars">${starStr(p.stars)}<small>calidad</small></div>
         <div class="price-row">
-          <div class="price">$${p.price}<span>/día</span></div>
+          <div class="price"><span class="price-amt">$${p.price}</span><span class="price-per">/día</span></div>
         </div>
         ${btn}
       </div>
     </div>`;
   }).join("");
+
+  updateFilterBar();
 }
 
 /* ---------------- Operación de carrito ---------------- */
@@ -116,6 +180,7 @@ function renderDetail(){
     <p class="detail-desc">${p.desc}</p>
     <div class="detail-facts">
       <div class="fact"><div class="k">Talla</div><div class="v">${p.size}</div></div>
+      <div class="fact"><div class="k">Material</div><div class="v">${materialLabel(p.material)}</div></div>
       <div class="fact"><div class="k">Calidad</div><div class="v">${p.stars}/5 ★</div></div>
       <div class="fact"><div class="k">Depósito</div><div class="v">$${p.deposit}</div></div>
     </div>

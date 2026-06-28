@@ -82,6 +82,14 @@ function renderProfile(){
       <span class="pc-cta">Canjear →</span>
     </button>
 
+    <div class="water-stat" aria-label="Agua ahorrada">
+      <span class="ws-icon">💧</span>
+      <div class="ws-text">
+        <div class="ws-label">Agua ahorrada reutilizando ropa</div>
+        <div class="ws-value">~${fmtLiters(totalWaterSaved())} <span>litros</span></div>
+      </div>
+    </div>
+
     <button class="donate-card" data-action="openDonate" aria-label="Donar ropa por puntos">
       <span class="dc-icon">♻️</span>
       <div class="dc-text">
