@@ -148,7 +148,7 @@ Para que el prototipo sea autocontenido, se **simulan**:
 
 ## 👤 Autor
 
-**Andree Rodríguez** — ESPOL · Emprendimiento e Innovación.
+**GRUPO 5 - Dress to Impress** — ESPOL · Emprendimiento e Innovación.
 
 > Proyecto académico. Las imágenes de catálogo provienen de Unsplash y, si no cargan, se
 > muestra un placeholder.
