@@ -4,27 +4,18 @@
    inicialización. DEBE cargarse al final (usa todo lo anterior).
    ============================================================ */
 
-/* ---------------- Login (simulado) ---------------- */
+/* ---------------- Bienvenida ---------------- */
 function enter(name){
   loginEl.classList.add("hide");
   if(name) greeting.textContent = `Hola, ${name} 🌱`;
 }
-document.getElementById("loginBtn").onclick = ()=>{
-  const email = document.getElementById("loginEmail").value.trim();
-  const pass = document.getElementById("loginPass").value;
-  const err = document.getElementById("loginError");
-  const showErr = msg => { err.textContent = msg; err.style.display = "block"; };
-
-  if(!isValidEmail(email)){ showErr("Ingresa un correo válido (ej: nombre@dominio.com)."); return; }
-  if(pass.length < 4){ showErr("La contraseña debe tener al menos 4 caracteres."); return; }
-  err.style.display = "none";
-
-  profile.email = email;
-  profile.name = email.split("@")[0];
-  saveState();
-  enter(profile.name);
-};
 document.getElementById("guestBtn").onclick = ()=>{ if(!profile.name) profile.name = "Invitado"; saveState(); enter("invitado"); };
+
+// Cuentas: aún no implementadas; se avisa sin bloquear el acceso como invitado.
+const loginHint = document.getElementById("loginHint");
+const showLoginHint = msg => { loginHint.textContent = msg; loginHint.hidden = false; };
+document.getElementById("signinBtn").onclick = ()=> showLoginHint("El inicio de sesión estará disponible muy pronto.");
+document.getElementById("signupBtn").onclick = ()=> showLoginHint("La creación de cuentas estará disponible muy pronto.");
 
 /* ---------------- Eventos ---------------- */
 // Acciones del header: perfil, carrito y encuesta.
