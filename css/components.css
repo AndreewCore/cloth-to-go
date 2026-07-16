@@ -576,7 +576,7 @@ main::-webkit-scrollbar { display: none; }
 .water-msg { margin: 8px 0 18px; font-size: 13px; line-height: 1.55; color: var(--muted); }
 .water-card .modal-btn.ok { width: 100%; }
 
-/* ---- Login (simulado) ---- */
+/* ---- Bienvenida ---- */
 .login {
   position: absolute;
   inset: 0;
@@ -587,18 +587,41 @@ main::-webkit-scrollbar { display: none; }
   justify-content: center;
   padding: 26px;
   transition: opacity .3s, transform .3s;
+  overflow: hidden;
+}
+/* Patrón de fondo: retícula diagonal + halos suaves, por encima del degradado. */
+.login::before {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background:
+    radial-gradient(circle at 20% 12%, rgba(141,206,124,.30), transparent 45%),
+    radial-gradient(circle at 85% 88%, rgba(141,206,124,.20), transparent 45%),
+    repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 2px, transparent 2px 14px),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0 2px, transparent 2px 14px);
+  pointer-events: none;
 }
 .login.hide { opacity: 0; transform: translateY(-12px); pointer-events: none; }
 .login-card {
+  position: relative;
   background: var(--card);
   border-radius: 22px;
-  padding: 26px 22px;
+  padding: 30px 22px 26px;
   width: 100%;
   box-shadow: var(--shadow);
 }
+.login-mark {
+  width: 84px; height: 84px;
+  margin: 0 auto 14px;
+  border-radius: 24px;
+  background: var(--accent-soft);
+  display: grid; place-items: center;
+  box-shadow: 0 6px 18px rgba(31,42,28,.14);
+}
+.login-mark img { width: 62px; height: 62px; object-fit: contain; }
 .login-logo { font-size: 26px; font-weight: 800; letter-spacing: -.5px; text-align: center; }
 .login-logo span { color: var(--accent); }
-.login-sub { text-align: center; color: var(--muted); font-size: 13px; margin: 4px 0 20px; }
+.login-sub { text-align: center; color: var(--muted); font-size: 13px; margin: 4px 0 22px; }
 .fld { display: block; font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 12px; }
 .fld input {
   display: block; width: 100%; margin-top: 5px;
@@ -606,16 +629,25 @@ main::-webkit-scrollbar { display: none; }
   padding: 11px 12px; font-size: 14px; font-family: inherit;
 }
 .fld input:focus { outline: none; border-color: var(--accent); }
-.login-btn {
-  width: 100%; background: var(--accent); color: #fff; border: none;
-  border-radius: 12px; padding: 13px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 4px;
-}
+/* Acción principal: entrar como invitado. */
 .login-guest {
-  width: 100%; background: none; color: var(--accent); border: none;
-  font-size: 13px; font-weight: 700; cursor: pointer; margin-top: 12px;
+  width: 100%; border: none; border-radius: 14px;
+  background: linear-gradient(180deg, var(--cta), var(--cta-strong));
+  color: #fff; padding: 16px; font-size: 16px; font-weight: 800; letter-spacing: .2px;
+  cursor: pointer; box-shadow: 0 8px 20px var(--cta-glow);
+  transition: transform .15s, box-shadow .15s;
 }
-.login-error { display: block; color: var(--danger); font-size: 12px; margin: 0 0 10px; }
-.login-note { text-align: center; color: var(--muted); font-size: 11px; margin: 14px 0 0; }
+.login-guest:hover { transform: translateY(-1px); box-shadow: 0 10px 24px var(--cta-glow); }
+.login-guest:active { transform: translateY(0); }
+/* Acciones secundarias: iniciar sesión / crear cuenta. */
+.login-alt { display: flex; gap: 10px; margin-top: 12px; }
+.login-alt-btn {
+  flex: 1; background: none; color: var(--accent);
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 11px 6px; font-size: 13px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.login-alt-btn:hover { background: var(--accent-soft); border-color: var(--accent-soft); }
+.login-hint { text-align: center; color: var(--muted); font-size: 11px; margin: 14px 0 0; }
 
 /* ---- Buscador ---- */
 .search {
