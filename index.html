@@ -11,21 +11,20 @@
 <div class="phone">
   <div class="notch"></div>
 
-  <!-- Pantalla de login (simulada) -->
+  <!-- Pantalla de bienvenida -->
   <div class="login" id="login">
     <div class="login-card">
+      <span class="login-mark">
+        <img src="img/Cloth%20To%20Go%20Logo.png" alt="Logo CLOTH TO GO" />
+      </span>
       <div class="login-logo">CLOTH TO <span>GO</span></div>
       <p class="login-sub">Moda circular · alquila por día 🌱</p>
-      <label class="fld">Correo
-        <input type="email" id="loginEmail" placeholder="tucorreo@ejemplo.com" />
-      </label>
-      <label class="fld">Contraseña
-        <input type="password" id="loginPass" placeholder="••••••••" />
-      </label>
-      <small class="login-error" id="loginError" style="display:none"></small>
-      <button class="login-btn" id="loginBtn">Iniciar sesión</button>
       <button class="login-guest" id="guestBtn">Entrar como invitado</button>
-      <p class="login-note">Demo: el inicio de sesión es solo de muestra.</p>
+      <div class="login-alt">
+        <button class="login-alt-btn" id="signinBtn">Iniciar sesión</button>
+        <button class="login-alt-btn" id="signupBtn">Crear cuenta</button>
+      </div>
+      <p class="login-hint" id="loginHint" hidden>Muy pronto podrás crear tu cuenta.</p>
     </div>
   </div>
 
