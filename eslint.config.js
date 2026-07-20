@@ -53,7 +53,7 @@ const PROJECT_GLOBALS = [
   "renderRewards", "redeem",
   "openDonate", "donateValid", "renderDonate", "submitDonation",
   // main.js
-  "enter"
+  "enter", "loginHint", "showLoginHint"
 ];
 
 const projectGlobals = Object.fromEntries(PROJECT_GLOBALS.map(n => [n, "writable"]));
@@ -70,7 +70,10 @@ module.exports = [
       "no-undef": "error",
       "no-unused-vars": "off",          // ver nota de cabecera
       "eqeqeq": ["warn", "smart"],
-      "no-redeclare": "error",
+      // builtinGlobals:false — si no, cada nombre de PROJECT_GLOBALS choca con
+      // el archivo que de verdad lo define. Se sigue detectando la redeclaración
+      // real dentro de un mismo archivo, que es lo que interesa.
+      "no-redeclare": ["error", { "builtinGlobals": false }],
       "no-dupe-keys": "error",
       "no-dupe-args": "error",
       "no-unreachable": "error",
