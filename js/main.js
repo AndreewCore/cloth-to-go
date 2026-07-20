@@ -1,19 +1,28 @@
 /* ============================================================
    CLOTH TO GO · main.js
-   Punto de entrada: login (simulado), cableado de eventos e
+   Punto de entrada: pantalla de bienvenida, cableado de eventos e
    inicialización. DEBE cargarse al final (usa todo lo anterior).
    ============================================================ */
 
 /* ---------------- Bienvenida ---------------- */
+/**
+ * Oculta la pantalla de bienvenida y saluda al usuario en el header.
+ * @param {string} name Nombre a mostrar; si es vacío se deja el saludo actual.
+ */
 function enter(name){
   loginEl.classList.add("hide");
   if(name) greeting.textContent = `Hola, ${name} 🌱`;
 }
-document.getElementById("guestBtn").onclick = ()=>{ if(!profile.name) profile.name = "Invitado"; saveState(); enter("invitado"); };
+// Entra como invitado conservando el nombre ya guardado, si lo hay.
+document.getElementById("guestBtn").onclick = ()=>{ if(!profile.name) profile.name = "Invitado"; saveState(); enter(profile.name); };
 
 // Cuentas: aún no implementadas; se avisa sin bloquear el acceso como invitado.
 const loginHint = document.getElementById("loginHint");
-const showLoginHint = msg => { loginHint.textContent = msg; loginHint.hidden = false; };
+/**
+ * Muestra el aviso de "próximamente" bajo los botones de cuenta.
+ * @param {string} msg Texto a anunciar (la región es aria-live).
+ */
+const showLoginHint = msg => { loginHint.hidden = false; loginHint.textContent = msg; };
 document.getElementById("signinBtn").onclick = ()=> showLoginHint("El inicio de sesión estará disponible muy pronto.");
 document.getElementById("signupBtn").onclick = ()=> showLoginHint("La creación de cuentas estará disponible muy pronto.");
 
