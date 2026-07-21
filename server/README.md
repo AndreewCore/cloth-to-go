@@ -41,6 +41,19 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 
 > Los tests asumen que la base fue sembrada (`pnpm db:reset`) antes de correrlos.
 
+## Variables de entorno
+
+| Variable | Qué hace |
+|---|---|
+| `DATABASE_URL` | Conexión de Prisma. `file:./dev.db` en desarrollo. |
+| `PORT` | Puerto del servidor (por defecto `3000`). |
+| `CORS_ORIGINS` | Orígenes autorizados a leer la API, separados por comas. Si está vacía se refleja cualquier origen — cómodo en desarrollo y para abrir el frontend por `file://`, pero **defínela en producción**: `CORS_ORIGINS="https://clothtogo.app"`. |
+
+> CORS limita quién puede **leer** la respuesta, no quién puede **enviar** la
+> petición, así que no protege contra CSRF. Cuando se agregue autenticación, la
+> sesión debe viajar en el header `Authorization` (que el navegador nunca adjunta
+> por su cuenta) en vez de en cookies; así el vector de CSRF no existe.
+
 ## Cómo lo consume el frontend
 
 `js/api.js` intenta `GET {API_BASE}/api/products` al iniciar y, si responde,
