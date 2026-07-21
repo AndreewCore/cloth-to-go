@@ -242,7 +242,7 @@ main::-webkit-scrollbar { display: none; }
 }
 .img-ph svg { width: 30px; height: 30px; opacity: .55; }
 .img-ph .ph-txt { font-size: 10px; font-weight: 700; letter-spacing: .3px; opacity: .7; text-transform: uppercase; }
-.thumb img, .ci-thumb img {
+.thumb img, .ci-thumb img, .detail-img img {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -666,9 +666,13 @@ main::-webkit-scrollbar { display: none; }
 .card .thumb, .card .card-name { cursor: pointer; }
 
 /* ---- Vista de detalle ---- */
+/* La proporción 3:4 coincide con el recorte de origen (600x800), así que la
+   prenda se ve completa sin recorte; el max-height evita que en pantallas altas
+   la foto empuje el botón de "Agregar al carrito" fuera de la hoja. */
 .detail-img {
   position: relative;
-  height: 260px;
+  aspect-ratio: 3 / 4;
+  max-height: 44vh;
   border-radius: 16px;
   overflow: hidden;
   margin-bottom: 14px;
