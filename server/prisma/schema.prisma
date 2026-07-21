@@ -1,0 +1,31 @@
+// Esquema de la base de CLOTH TO GO.
+// SQLite en desarrollo/testeo; para producción se cambia el provider a
+// "postgresql" y la DATABASE_URL, sin tocar el código de la app.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Prenda del catálogo. Refleja los campos que ya usa el frontend (js/data.js).
+/// Segunda mano y única: `disponibles` es 1 por defecto.
+model Product {
+  id          Int    @id
+  name        String
+  cat         String
+  price       Float
+  deposit     Int
+  stars       Int
+  size        String
+  disponibles Int    @default(1)
+  material    String
+  weightKg    Float
+  img         String
+  desc        String
+
+  @@map("products")
+}
