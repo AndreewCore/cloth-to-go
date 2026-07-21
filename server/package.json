@@ -9,7 +9,7 @@
     "start": "node src/server.js",
     "db:push": "prisma db push",
     "db:seed": "node prisma/seed.js",
-    "db:reset": "prisma db push --force-reset && node prisma/seed.js",
+    "db:reset": "node prisma/reset-db.js && prisma db push && node prisma/seed.js",
     "test": "node --test"
   },
   "dependencies": {
