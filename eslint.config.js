@@ -53,7 +53,9 @@ const PROJECT_GLOBALS = [
   "renderRewards", "redeem",
   "openDonate", "donateValid", "renderDonate", "submitDonation",
   // main.js
-  "enter", "loginHint", "showLoginHint"
+  "enter", "loginHint", "showLoginHint",
+  // api.js
+  "API_BASE", "replaceCatalog", "hydrateCatalog"
 ];
 
 const projectGlobals = Object.fromEntries(PROJECT_GLOBALS.map(n => [n, "writable"]));

@@ -184,3 +184,6 @@ sheet.addEventListener("keydown", e=>{
 renderFilters();
 renderGrid();
 updateBadge();
+// Si el backend está levantado, refresca el catálogo desde la base;
+// si no, la app se queda con los datos embebidos (funciona en file://).
+hydrateCatalog();

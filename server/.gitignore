@@ -1,0 +1,8 @@
+node_modules/
+.env
+# Base SQLite local (se regenera con db:reset)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+prisma/dev.db*
