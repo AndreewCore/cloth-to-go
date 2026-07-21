@@ -55,7 +55,7 @@ const PROJECT_GLOBALS = [
   // main.js
   "enter", "loginHint", "showLoginHint",
   // api.js
-  "API_BASE", "replaceCatalog", "hydrateCatalog"
+  "LOCAL_API", "DEPLOYED_API", "resolveApiBase", "API_BASE", "replaceCatalog", "hydrateCatalog"
 ];
 
 const projectGlobals = Object.fromEntries(PROJECT_GLOBALS.map(n => [n, "writable"]));
