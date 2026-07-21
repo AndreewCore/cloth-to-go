@@ -25,7 +25,7 @@ donaciones — todo con una estética de moda circular y un mensaje de impacto a
 Está hecho con **HTML, CSS y JavaScript puro (vanilla)**: sin framework, sin bundler y
 **sin dependencias en tiempo de ejecución**. Se abre directamente con `index.html`.
 
-> ⚠️ **Es un prototipo de clase.** El inicio de sesión, el pago, el stock y los pedidos
+> ⚠️ **Es un prototipo de clase.** El pago, el stock y los pedidos
 > de ejemplo son **simulados**. No hay backend ni pasarela de pago real. Los datos se
 > guardan localmente en el navegador (`localStorage`).
 
@@ -102,7 +102,12 @@ HTML. Los eventos usan **delegación** mediante atributos `data-action`.
 | `js/catalog.js` | Grilla, filtros/orden, panel de filtros, detalle y agregar al carrito. |
 | `js/checkout.js` | Flujo de compra: carrito → entrega/pago → confirmación. |
 | `js/profile.js` | Perfil: contacto, pedidos, puntos, premios y donaciones. |
-| `js/main.js` | Login, cableado de eventos (delegación) y render inicial. **Carga al final.** |
+| `js/api.js` | Puente opcional con el backend: hidrata el catálogo desde la API si está disponible. |
+| `js/main.js` | Pantalla de bienvenida, cableado de eventos (delegación) y render inicial. **Carga al final.** |
+
+> **Backend (opcional).** En `server/` hay una API (Fastify + Prisma + SQLite) que
+> sirve el catálogo. Si está levantada, el frontend la consume; si no, la app usa los
+> datos embebidos y sigue abriéndose por `file://`. Ver [`server/README.md`](server/README.md).
 
 ---
 
@@ -131,7 +136,8 @@ HTML. Los eventos usan **delegación** mediante atributos `data-action`.
 
 Para que el prototipo sea autocontenido, se **simulan**:
 
-- **Autenticación**: el login no valida credenciales reales (también hay modo invitado).
+- **Autenticación**: no existe. Se entra como invitado; "Iniciar sesión" y "Crear cuenta"
+  solo avisan que llegarán con el backend.
 - **Pago**: los datos de tarjeta **no se procesan ni se guardan**; el pago es de muestra.
 - **Stock**: cada prenda es única (segunda mano), con disponibilidad fija en 1.
 - **Persistencia**: carrito, perfil y pedidos se guardan en `localStorage` del navegador.
