@@ -1,0 +1,6 @@
+# Autoriza los scripts de post-instalación de Prisma (descarga de motores y
+# generación del cliente). pnpm v11 bloquea los build scripts por defecto.
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  prisma: true
