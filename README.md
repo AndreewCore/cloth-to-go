@@ -102,7 +102,12 @@ HTML. Los eventos usan **delegación** mediante atributos `data-action`.
 | `js/catalog.js` | Grilla, filtros/orden, panel de filtros, detalle y agregar al carrito. |
 | `js/checkout.js` | Flujo de compra: carrito → entrega/pago → confirmación. |
 | `js/profile.js` | Perfil: contacto, pedidos, puntos, premios y donaciones. |
+| `js/api.js` | Puente opcional con el backend: hidrata el catálogo desde la API si está disponible. |
 | `js/main.js` | Pantalla de bienvenida, cableado de eventos (delegación) y render inicial. **Carga al final.** |
+
+> **Backend (opcional).** En `server/` hay una API (Fastify + Prisma + SQLite) que
+> sirve el catálogo. Si está levantada, el frontend la consume; si no, la app usa los
+> datos embebidos y sigue abriéndose por `file://`. Ver [`server/README.md`](server/README.md).
 
 ---
 
