@@ -40,28 +40,28 @@ function renderCart(){
         <div class="ci-info">
           <div class="ci-name">${escapeHTML(p.name)}</div>
           <div class="ci-stars">${starStr(p.stars)} <span style="color:var(--muted)">${conditionLabel(p.stars)} · Talla ${escapeHTML(p.size)}</span></div>
-          <div class="ci-meta">$${p.price}/día × ${days} ${days===1?'día':'días'} · depósito $${p.deposit}</div>
+          <div class="ci-meta">${days} ${days===1?'día':'días'} · $${(cartItemPrice(p)/days).toFixed(2)}/día · depósito $${depositFor(p)}</div>
         </div>
         <div>
-          <div class="ci-price">$${(p.price*days).toFixed(2)}</div>
+          <div class="ci-price">$${cartItemPrice(p).toFixed(2)}</div>
           <button class="ci-remove" data-action="remove" data-id="${p.id}">Quitar</button>
         </div>
       </div>`;
   }).join("");
 
-  const savings = depositSavings();
+  const savings = volumeSavings();
   const discountRow = savings > 0
-    ? `<div class="summary-row deposit"><span>Depósito base</span><span style="text-decoration:line-through;color:var(--muted)">$${depositBaseTotal().toFixed(2)}</span></div>
-       <div class="summary-row deposit"><span>Descuento por volumen <span class="refund-tag">−${Math.round(depositRate()*100)}%</span></span><span>−$${savings.toFixed(2)}</span></div>`
+    ? `<div class="summary-row"><span>Alquiler sin descuento</span><span style="text-decoration:line-through;color:var(--muted)">$${subtotalBeforeVolume().toFixed(2)}</span></div>
+       <div class="summary-row"><span>Descuento por volumen <span class="refund-tag">−${Math.round(volumeRate()*100)}%</span></span><span>−$${savings.toFixed(2)}</span></div>`
     : "";
   sheetBody.innerHTML += `
     <div class="summary">
-      <div class="summary-row"><span>Subtotal alquiler</span><span>$${subtotal().toFixed(2)}</span></div>
       ${discountRow}
+      <div class="summary-row"><span>Subtotal alquiler</span><span>$${subtotal().toFixed(2)}</span></div>
       <div class="summary-row deposit"><span>Depósito <span class="refund-tag">reembolsable</span></span><span>$${depositTotal().toFixed(2)}</span></div>
       <div class="summary-row total"><span>Total</span><span>$${(subtotal()+depositTotal()).toFixed(2)}</span></div>
     </div>
-    <p class="summary-note">💡 El total incluye un depósito reembolsable de $${depositTotal().toFixed(2)} que se te devuelve al regresar las prendas.${savings > 0 ? ` <b>¡Ahorras $${savings.toFixed(2)} en depósito por alquilar más prendas y días!</b>` : ` Mientras más prendas y días alquiles, menor es tu depósito.`}</p>`;
+    <p class="summary-note">💡 El total incluye un depósito reembolsable de $${depositTotal().toFixed(2)} que se te devuelve al regresar las prendas.${savings > 0 ? ` <b>¡Ahorras $${savings.toFixed(2)} por alquilar varias prendas a la vez!</b>` : ` Mientras más días alquiles, más barato sale cada día; y llevando varias prendas ahorras hasta un ${Math.round(VOLUME_DISCOUNT_MAX*100)}%.`}</p>`;
 
   sheetFoot.innerHTML = `<button class="pay-btn" data-action="toCheckout">Continuar a entrega →</button>`;
 }
@@ -305,7 +305,7 @@ function renderDone(){
         <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
         <b>Pago:</b> ${payText}
         <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        ${cart.map(c=>{const p=productById(c.id);return `· ${escapeHTML(p.name)} — $${(p.price*rentalDays()).toFixed(2)}`;}).join("<br>")}
+        ${cart.map(c=>{const p=productById(c.id);return `· ${escapeHTML(p.name)} — $${cartItemPrice(p).toFixed(2)}`;}).join("<br>")}
         <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
         <span style="color:var(--muted)">Depósito reembolsable: $${depositTotal().toFixed(2)} (se devuelve al regresar las prendas)</span>
       </div>
