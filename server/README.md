@@ -56,7 +56,9 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 
 ## Cómo lo consume el frontend
 
-`js/api.js` intenta `GET {API_BASE}/api/products` al iniciar y, si responde,
+`js/api.js` resuelve el origen del backend con `resolveApiBase()` según dónde
+corra la app, y si hay uno alcanzable intenta `GET {base}/api/products` al
+iniciar; si responde,
 reemplaza el catálogo embebido. Si el servidor no está disponible (o se abre por
 `file://`), la app sigue con los datos locales de `js/data.js` — la demo nunca se
 rompe por falta de backend.
