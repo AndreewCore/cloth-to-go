@@ -15,9 +15,10 @@ function renderFilters(){
 function sortProducts(list){
   const arr = list.slice();           // no mutar PRODUCTS
   switch(sortBy){
-    case "price-asc":  arr.sort((a,b)=> a.price - b.price); break;
-    case "price-desc": arr.sort((a,b)=> b.price - a.price); break;
-    case "stars-desc": arr.sort((a,b)=> b.stars - a.stars || a.price - b.price); break;
+    // Se ordena por el precio del primer día, que es el que muestra la tarjeta.
+    case "price-asc":  arr.sort((a,b)=> rentalPrice(a,1) - rentalPrice(b,1)); break;
+    case "price-desc": arr.sort((a,b)=> rentalPrice(b,1) - rentalPrice(a,1)); break;
+    case "stars-desc": arr.sort((a,b)=> b.stars - a.stars || rentalPrice(a,1) - rentalPrice(b,1)); break;
     default: break;                   // "default" → orden original del catálogo
   }
   return arr;
@@ -141,7 +142,10 @@ function renderGrid(){
         <div class="card-meta"><span>${escapeHTML(p.cat)}</span><span class="cm-dot">·</span><span class="cm-mat">🧵 ${escapeHTML(materialLabel(p.material))}</span></div>
         <div class="stars">${starStr(p.stars)}<small>calidad</small></div>
         <div class="price-row">
-          <div class="price"><span class="price-amt">$${p.price}</span><span class="price-per">/día</span></div>
+          <div class="price"><span class="price-amt">$${rentalPrice(p, 1).toFixed(2)}</span><span class="price-per">1er día</span></div>
+          <div class="price-extra">${nextDayPrice(p) > 0
+            ? `+$${nextDayPrice(p).toFixed(2)} por día extra`
+            : "días extra sin costo"}</div>
         </div>
         ${btn}
       </div>
@@ -174,7 +178,7 @@ function renderDetail(){
         <div class="detail-name">${escapeHTML(p.name)}</div>
         <div class="detail-cat">${escapeHTML(p.cat)}</div>
       </div>
-      <div class="detail-price">$${p.price}<span>/día</span></div>
+      <div class="detail-price">$${rentalPrice(p, 1).toFixed(2)}<span>1er día</span></div>
     </div>
     <div class="detail-stars">${starStr(p.stars)}<small>${conditionLabel(p.stars)}</small></div>
     <p class="detail-desc">${escapeHTML(p.desc)}</p>
@@ -182,7 +186,16 @@ function renderDetail(){
       <div class="fact"><div class="k">Talla</div><div class="v">${escapeHTML(p.size)}</div></div>
       <div class="fact"><div class="k">Material</div><div class="v">${escapeHTML(materialLabel(p.material))}</div></div>
       <div class="fact"><div class="k">Calidad</div><div class="v">${p.stars}/5 ★</div></div>
-      <div class="fact"><div class="k">Depósito</div><div class="v">$${p.deposit}</div></div>
+      <div class="fact"><div class="k">Depósito</div><div class="v">$${depositFor(p)}</div></div>
+    </div>
+    <div class="detail-tarifa">
+      <div class="dt-title">Tarifa por duración</div>
+      ${[1, 3, 7, 14].map(d => `
+        <div class="dt-row">
+          <span>${d} ${d === 1 ? "día" : "días"}</span>
+          <span><b>$${rentalPrice(p, d).toFixed(2)}</b> <small>($${(rentalPrice(p, d) / d).toFixed(2)}/día)</small></span>
+        </div>`).join("")}
+      <p class="dt-note">Mientras más días, más barato sale cada uno. Alquilando varias prendas a la vez ahorras hasta un ${Math.round(VOLUME_DISCOUNT_MAX * 100)}% adicional.</p>
     </div>
     <p class="detail-avail">${unitsAvailable(p) > 0
       ? `✅ Disponible · ${p.disponibles} unidad${p.disponibles===1?'':'es'} (prenda única de segunda mano)`
@@ -191,6 +204,6 @@ function renderDetail(){
   if(inCart(p.id)){
     sheetFoot.innerHTML = `<button class="pay-btn" data-action="goCart">Ver carrito →</button>`;
   } else {
-    sheetFoot.innerHTML = `<button class="pay-btn" data-action="addDetail">Agregar al carrito · $${p.price}/día</button>`;
+    sheetFoot.innerHTML = `<button class="pay-btn" data-action="addDetail">Agregar al carrito · desde $${rentalPrice(p, 1).toFixed(2)}</button>`;
   }
 }

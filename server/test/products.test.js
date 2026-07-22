@@ -37,7 +37,7 @@ test("cada prenda trae los campos que el frontend espera", async () => {
   const res = await app.inject({ method: "GET", url: "/api/products" });
   const [first] = res.json();
   for (const field of [
-    "id", "name", "cat", "price", "deposit", "stars",
+    "id", "name", "cat", "value", "stars",
     "size", "disponibles", "material", "weightKg", "img", "desc",
   ]) {
     assert.ok(field in first, `falta el campo "${field}"`);
