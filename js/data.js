@@ -188,8 +188,8 @@ function imgPlaceholder(p){
         <circle cx="8.5" cy="8.5" r="1.6"/>
         <path d="M21 16l-5-5L5 21"/>
       </svg>
-      <span class="ph-txt">${p.name}</span>
+      <span class="ph-txt">${escapeHTML(p.name)}</span>
     </span>
-    <img src="${p.img}" alt="${p.name}" loading="lazy"
+    <img src="${escapeHTML(p.img)}" alt="${escapeHTML(p.name)}" loading="lazy"
          onerror="this.style.display='none'">`;
 }
