@@ -134,11 +134,11 @@ function renderGrid(){
       <div class="thumb" data-detail="${p.id}">
         ${imgPlaceholder(p)}
         <span class="cond-tag" style="z-index:2">${conditionLabel(p.stars)}</span>
-        <span class="size-tag" style="z-index:2">Talla ${p.size}</span>
+        <span class="size-tag" style="z-index:2">Talla ${escapeHTML(p.size)}</span>
       </div>
       <div class="card-body">
-        <div class="card-name" data-detail="${p.id}" role="button" tabindex="0" aria-label="Ver detalle de ${p.name}">${p.name}</div>
-        <div class="card-meta"><span>${p.cat}</span><span class="cm-dot">·</span><span class="cm-mat">🧵 ${materialLabel(p.material)}</span></div>
+        <div class="card-name" data-detail="${p.id}" role="button" tabindex="0" aria-label="Ver detalle de ${escapeHTML(p.name)}">${escapeHTML(p.name)}</div>
+        <div class="card-meta"><span>${escapeHTML(p.cat)}</span><span class="cm-dot">·</span><span class="cm-mat">🧵 ${escapeHTML(materialLabel(p.material))}</span></div>
         <div class="stars">${starStr(p.stars)}<small>calidad</small></div>
         <div class="price-row">
           <div class="price"><span class="price-amt">$${p.price}</span><span class="price-per">/día</span></div>
@@ -171,16 +171,16 @@ function renderDetail(){
     <div class="detail-img">${imgPlaceholder(p)}</div>
     <div class="detail-head">
       <div>
-        <div class="detail-name">${p.name}</div>
-        <div class="detail-cat">${p.cat}</div>
+        <div class="detail-name">${escapeHTML(p.name)}</div>
+        <div class="detail-cat">${escapeHTML(p.cat)}</div>
       </div>
       <div class="detail-price">$${p.price}<span>/día</span></div>
     </div>
     <div class="detail-stars">${starStr(p.stars)}<small>${conditionLabel(p.stars)}</small></div>
-    <p class="detail-desc">${p.desc}</p>
+    <p class="detail-desc">${escapeHTML(p.desc)}</p>
     <div class="detail-facts">
-      <div class="fact"><div class="k">Talla</div><div class="v">${p.size}</div></div>
-      <div class="fact"><div class="k">Material</div><div class="v">${materialLabel(p.material)}</div></div>
+      <div class="fact"><div class="k">Talla</div><div class="v">${escapeHTML(p.size)}</div></div>
+      <div class="fact"><div class="k">Material</div><div class="v">${escapeHTML(materialLabel(p.material))}</div></div>
       <div class="fact"><div class="k">Calidad</div><div class="v">${p.stars}/5 ★</div></div>
       <div class="fact"><div class="k">Depósito</div><div class="v">$${p.deposit}</div></div>
     </div>
