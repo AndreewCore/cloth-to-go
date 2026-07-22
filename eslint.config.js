@@ -14,7 +14,11 @@ const globals = require("globals");
 const PROJECT_GLOBALS = [
   // data.js
   "LOCAL", "SHIPPING_FEE", "LATE_GRACE_DAYS", "LATE_PENALTY",
-  "DEPOSIT_DISCOUNT_PER_ITEM", "DEPOSIT_DISCOUNT_PER_DAY", "DEPOSIT_DISCOUNT_MAX", "depositDiscountRate",
+  "LAUNDRY_BY_MATERIAL", "OVERHEAD_PER_CYCLE", "CYCLES_PER_STAR", "MIN_MARGIN",
+  "garmentCycles", "cycleCost", "DAY1_RATE_BY_STARS", "DAY_TRAMOS",
+  "VOLUME_DISCOUNT_PER_ITEM", "VOLUME_DISCOUNT_MAX", "volumeDiscountRate",
+  "rentalListPrice", "rentalFloor", "rentalPrice", "nextDayPrice",
+  "DEPOSIT_RATE", "DEPOSIT_MAX", "DEPOSIT_ORDER_MAX", "depositFor", "depositForItems",
   "IMG", "CATS", "PRODUCTS", "PRODUCT_BY_ID", "productById", "SIZE_ORDER", "SIZES", "REWARDS",
   "escapeHTML", "conditionLabel", "starStr", "fmtDate", "daysBetween", "imgPlaceholder",
   "isValidEmail", "isValidPhone", "isValidName", "isValidAddress",
@@ -29,7 +33,7 @@ const PROJECT_GLOBALS = [
   "donName", "donMethod", "donAddr", "donDate",
   "rentalStart", "rentalEnd",
   "rentalDays", "isLate", "inCart", "unitsAvailable", "cartCount", "cents", "subtotal",
-  "depositBaseTotal", "depositRate", "depositTotal", "depositSavings",
+  "cartItemPrice", "subtotalBeforeVolume", "volumeRate", "volumeSavings", "depositTotal",
   "shippingFee", "returnFee", "grandTotal", "orderPoints",
   "waterSavedForItems", "cartWaterSaved", "totalWaterSaved",
   "orderItemsSubtotal", "orderDeposit", "orderTotal", "paymentStatusLabel", "isArchivedOrder", "nextOrderId",
