@@ -38,8 +38,8 @@ function renderCart(){
       <div class="cart-item">
         <div class="ci-thumb">${imgPlaceholder(p)}</div>
         <div class="ci-info">
-          <div class="ci-name">${p.name}</div>
-          <div class="ci-stars">${starStr(p.stars)} <span style="color:var(--muted)">${conditionLabel(p.stars)} · Talla ${p.size}</span></div>
+          <div class="ci-name">${escapeHTML(p.name)}</div>
+          <div class="ci-stars">${starStr(p.stars)} <span style="color:var(--muted)">${conditionLabel(p.stars)} · Talla ${escapeHTML(p.size)}</span></div>
           <div class="ci-meta">$${p.price}/día × ${days} ${days===1?'día':'días'} · depósito $${p.deposit}</div>
         </div>
         <div>
@@ -305,7 +305,7 @@ function renderDone(){
         <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
         <b>Pago:</b> ${payText}
         <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        ${cart.map(c=>{const p=productById(c.id);return `· ${p.name} — $${(p.price*rentalDays()).toFixed(2)}`;}).join("<br>")}
+        ${cart.map(c=>{const p=productById(c.id);return `· ${escapeHTML(p.name)} — $${(p.price*rentalDays()).toFixed(2)}`;}).join("<br>")}
         <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
         <span style="color:var(--muted)">Depósito reembolsable: $${depositTotal().toFixed(2)} (se devuelve al regresar las prendas)</span>
       </div>

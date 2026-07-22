@@ -55,7 +55,9 @@ const PROJECT_GLOBALS = [
   // main.js
   "enter", "loginHint", "showLoginHint",
   // api.js
-  "API_BASE", "replaceCatalog", "hydrateCatalog"
+  "DEPLOYED_API", "LOCAL_API_PORT", "API_OVERRIDE_KEY", "API_OFF_REASONS",
+  "readApiOverride", "backendForHost", "isMixedContent",
+  "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog"
 ];
 
 const projectGlobals = Object.fromEntries(PROJECT_GLOBALS.map(n => [n, "writable"]));
