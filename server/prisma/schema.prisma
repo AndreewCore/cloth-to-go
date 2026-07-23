@@ -30,3 +30,18 @@ model Product {
 
   @@map("products")
 }
+
+/// Usuario autenticado con Google. `googleSub` es el identificador estable
+/// que Google garantiza (el email puede cambiar; el sub no). Se registra
+/// (upsert) la primera vez que /api/auth/google verifica su ID token, y se
+/// actualiza en cada login por si el nombre/foto cambiaron en Google.
+model User {
+  id        Int      @id @default(autoincrement())
+  googleSub String   @unique
+  email     String
+  name      String
+  picture   String?
+  createdAt DateTime @default(now())
+
+  @@map("users")
+}
