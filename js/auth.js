@@ -87,16 +87,28 @@ function signOut(){
 }
 
 /**
- * Callback de GSI al recibir la credencial: pide al backend que verifique de
- * verdad la firma del token (si hay backend) y, si no, cae al decode local
- * (modo demo); con la identidad ya resuelta, activa la sesión y entra a la app.
+ * Callback de GSI al recibir la credencial: resuelve la identidad y entra.
+ *
+ * Si hay backend desplegado, la identidad DEBE venir verificada por el servidor
+ * (firma comprobada): si la verificación falla o rechaza el token, NO se inicia
+ * sesión — caer al decode local anularía justamente esa verificación. El decode
+ * local sin firma queda reservado al modo demo, cuando de verdad no hay backend
+ * (file://, sin desplegar), donde no hay nada que autorizar.
  * @param {{credential:string}} resp Respuesta de Google con el ID token.
  */
 async function onGoogleCredential(resp){
   const token = resp && resp.credential;
-  // El backend autoriza (firma verificada); sin él solo identificamos, igual
-  // que antes — así el login sigue funcionando en file:// o sin servidor.
-  const claims = (await verifyGoogleCredential(token)) || decodeJwt(token);
+  let claims;
+  if(backend.enabled){
+    claims = await verifyGoogleCredential(token);
+    if(!claims){
+      toast("No se pudo verificar tu sesión. Intenta de nuevo.");
+      return;
+    }
+  } else {
+    // Modo demo: sin servidor no hay firma que comprobar (solo identifica).
+    claims = decodeJwt(token);
+  }
   if(!claims || !claims.sub){
     toast("No se pudo iniciar sesión con Google");
     return;

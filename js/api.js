@@ -143,10 +143,11 @@ async function hydrateCatalog() {
 }
 
 /**
- * Verifica un ID token de Google contra el backend (POST /api/auth/google),
- * si hay uno disponible. Devuelve null cuando no hay backend o falla el
- * fetch, para que quien llame caiga sin sobresaltos al modo demo
- * (auth.js decodifica el token en el cliente sin comprobar la firma).
+ * Verifica un ID token de Google contra el backend (POST /api/auth/google).
+ * Devuelve la identidad verificada, o null si la verificación no fue posible
+ * (sin backend, fetch fallido, o token rechazado). Con backend presente, quien
+ * llama trata ese null como fallo de sesión — NO como permiso para entrar sin
+ * verificar; el modo demo (decode local) solo aplica cuando no hay backend.
  * @param {string} credential ID token de Google recibido de GSI.
  * @returns {Promise<{sub:string,name:string,email:string,picture:string}|null>}
  */
