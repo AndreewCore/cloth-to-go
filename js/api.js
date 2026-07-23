@@ -7,8 +7,100 @@
    cuándo hidratar.
    ============================================================ */
 
-// Origen del backend. Ajustar si el servidor corre en otra máquina o puerto.
-const API_BASE = "http://localhost:3000";
+// URL https del backend desplegado. Sigue en null mientras no exista.
+const DEPLOYED_API = null;
+
+// Puerto donde escucha el backend en desarrollo (el PORT de server/.env).
+const LOCAL_API_PORT = 3000;
+
+// Permite apuntar el sitio desplegado a un backend de prueba sin tocar el
+// código: basta con escribir la clave en localStorage desde la consola.
+const API_OVERRIDE_KEY = "clothToGo:apiBase";
+
+// Motivo por el que no se consulta al backend. Se guarda junto al resultado
+// para que el mensaje de consola diga *qué* pasó y no solo que no hubo API.
+const API_OFF_REASONS = {
+  file: "La app se abrió por file://, que no permite peticiones al backend.",
+  override: `El valor de ${API_OVERRIDE_KEY} en localStorage no es una URL http(s) válida.`,
+  undeployed: "No hay backend publicado para este dominio todavía.",
+  mixed: "Una página https no puede consultar un backend http (mixed content).",
+};
+
+/**
+ * Lee el origen forzado desde localStorage, aceptándolo solo si es una URL
+ * http(s). Sin validar, un valor suelto como "hola" o "javascript:…" acabaría
+ * usándose como destino de los fetch.
+ * @returns {{ok: true, base: string}|{ok: false}|null} null si no hay override.
+ */
+function readApiOverride() {
+  let raw;
+  try {
+    // Leer localStorage lanza si el almacenamiento está bloqueado (Safari en
+    // modo privado, iframe con sandbox). Sin esto, la excepción subiría hasta
+    // el nivel superior del script y dejaría la app sin arrancar.
+    raw = localStorage.getItem(API_OVERRIDE_KEY);
+  } catch {
+    return null;
+  }
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return { ok: false };
+    return { ok: true, base: url.origin };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/**
+ * Backend que le corresponde al host actual, o null si no hay ninguno.
+ *
+ * En desarrollo se deriva del propio host en vez de fijar "localhost": así la
+ * demo abierta desde el móvil (http://192.168.x.x:8000) apunta a la laptop que
+ * la sirve y no al teléfono. Producción va siempre por https, de modo que una
+ * prueba en la red local nunca puede acabar hablando con el backend real.
+ *
+ * @returns {string|null} Origen del backend.
+ */
+function backendForHost() {
+  if (location.protocol === "https:") return DEPLOYED_API;
+  return `http://${location.hostname}:${LOCAL_API_PORT}`;
+}
+
+/**
+ * Indica si pedir a `base` sería contenido mixto. El navegador bloquea esas
+ * peticiones antes de que salgan, así que conviene ni intentarlo.
+ * @param {string} base Origen del backend.
+ */
+function isMixedContent(base) {
+  return location.protocol === "https:" && base.startsWith("http://");
+}
+
+/**
+ * Decide contra qué backend hablar según dónde se esté ejecutando la app.
+ *
+ * Devuelve el motivo cuando no hay backend alcanzable, en vez de un null mudo:
+ * "file://", "sin desplegar" y "mixed content" son situaciones muy distintas a
+ * la hora de diagnosticar por qué la demo se quedó con los datos locales.
+ *
+ * @returns {{enabled: true, base: string}|{enabled: false, reason: string}}
+ */
+function resolveApiBase() {
+  const override = readApiOverride();
+  if (override && !override.ok) return { enabled: false, reason: "override" };
+
+  if (location.protocol === "file:") return { enabled: false, reason: "file" };
+
+  // El override elige el destino, pero no exime de las reglas del navegador:
+  // las comprobaciones siguientes valen para cualquier origen.
+  const base = override ? override.base : backendForHost();
+  if (!base) return { enabled: false, reason: "undeployed" };
+  if (isMixedContent(base)) return { enabled: false, reason: "mixed" };
+
+  return { enabled: true, base };
+}
+
+const backend = resolveApiBase();
 
 /**
  * Reemplaza in situ el catálogo embebido (PRODUCTS y su índice PRODUCT_BY_ID)
@@ -29,8 +121,12 @@ function replaceCatalog(items) {
  * @returns {Promise<boolean>} true si el catálogo se hidrató desde la API.
  */
 async function hydrateCatalog() {
+  if (!backend.enabled) {
+    console.info(`${API_OFF_REASONS[backend.reason]} Se usa el catálogo local.`);
+    return false;
+  }
   try {
-    const res = await fetch(`${API_BASE}/api/products`);
+    const res = await fetch(`${backend.base}/api/products`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const items = await res.json();
     if (Array.isArray(items) && items.length) {

@@ -280,14 +280,18 @@ main::-webkit-scrollbar { display: none; }
 .card-meta .cm-mat { color: var(--accent); font-weight: 700; }
 .stars { font-size: 12px; letter-spacing: 1px; color: var(--star); }
 .stars small { color: var(--muted); margin-left: 3px; letter-spacing: 0; }
+/* El precio ya no es lineal por día, así que la tarjeta ancla en el primer día
+   y deja el coste del día extra debajo, en vez de en la misma línea. */
 .price-row {
   margin-top: auto;
   padding-top: 4px;
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
 }
-.price { display: inline-flex; align-items: baseline; gap: 2px; }
+.price-extra { font-size: 11px; color: var(--muted); font-weight: 600; }
+.price { display: inline-flex; align-items: baseline; gap: 4px; }
 .price .price-amt { font-size: 18px; font-weight: 800; color: var(--accent); letter-spacing: -.3px; }
 .price .price-per { font-size: 11px; color: var(--muted); font-weight: 600; }
 /* Acción primaria de la card: relleno vivo para destacar en el catálogo. */
@@ -693,6 +697,28 @@ main::-webkit-scrollbar { display: none; }
 }
 .fact .k { font-size: 11px; color: var(--muted); }
 .fact .v { font-size: 15px; font-weight: 800; color: var(--ink); margin-top: 2px; }
+
+/* Tabla de tarifa por duración en el detalle: hace visible que el precio por
+   día baja con los días, que es el argumento de venta del modelo. */
+.detail-tarifa {
+  margin: 16px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card-2, transparent);
+}
+.dt-title { font-size: 12px; font-weight: 800; color: var(--ink); margin-bottom: 8px; }
+.dt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  padding: 4px 0;
+  color: var(--ink);
+}
+.dt-row + .dt-row { border-top: 1px solid var(--line); }
+.dt-row small { color: var(--muted); font-weight: 600; font-size: 11px; }
+.dt-note { font-size: 11px; color: var(--muted); line-height: 1.4; margin: 8px 0 0; }
 
 /* ---- Selector de fechas de alquiler ---- */
 .date-box {
