@@ -20,11 +20,11 @@
       <div class="login-logo">CLOTH TO <span>GO</span></div>
       <p class="login-sub">Moda circular · alquila por día 🌱</p>
       <button class="login-guest" id="guestBtn">Entrar como invitado</button>
-      <div class="login-alt">
-        <button class="login-alt-btn" id="signinBtn">Iniciar sesión</button>
-        <button class="login-alt-btn" id="signupBtn">Crear cuenta</button>
-      </div>
-      <p class="login-hint" id="loginHint" role="status" hidden>Muy pronto podrás crear tu cuenta.</p>
+      <p class="login-guest-note">Nada queda registrado.</p>
+      <div class="login-sep"><span>o</span></div>
+      <!-- Botón de Google (lo pinta GSI en initGoogleAuth); oculto por file:// -->
+      <div class="login-google" id="googleBtn"></div>
+      <p class="login-hint" id="loginHint" role="status" hidden></p>
     </div>
   </div>
 
@@ -134,6 +134,8 @@
 
 <!-- Carga en orden de dependencias:
      data → state → dom → vistas (catalog/checkout/profile) → main (init) -->
+<!-- SDK de Google Identity: dependencia externa, sin efecto por file:// (initGoogleAuth degrada a invitado). -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="js/data.js"></script>
 <script src="js/state.js"></script>
 <script src="js/dom.js"></script>
@@ -141,6 +143,7 @@
 <script src="js/checkout.js"></script>
 <script src="js/profile.js"></script>
 <script src="js/api.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
