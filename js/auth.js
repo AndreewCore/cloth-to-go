@@ -2,14 +2,15 @@
    CLOTH TO GO · auth.js
    Sesión de usuario con Google Identity Services (GSI).
 
-   En GitHub Pages no hay backend: el navegador recibe un ID token FIRMADO por
-   Google y de ahí sacamos la identidad (nombre, email, foto, sub). NO se
-   verifica la firma aquí — sin servidor no hay con qué, y por eso el token
-   sirve para IDENTIFICAR (demo), no para AUTORIZAR. La verificación real llega
-   en la fase de backend (feature/auth-verify).
+   Con backend disponible, el ID token se manda a POST /api/auth/google, que
+   verifica la firma de verdad con google-auth-library (ver server/). Sin
+   backend (GitHub Pages sin desplegar, file://) se cae a decodeJwt(): el
+   navegador solo LEE el token sin comprobar la firma, así que identifica
+   (demo) pero no autoriza. onGoogleCredential decide cuál de los dos usar.
 
    Depende de state.js (activeStorageKey, storageKeyFor, resetStateToDefaults,
-   loadState, profile). Se carga antes que main.js.
+   loadState, profile) y de api.js (backend, verifyGoogleCredential). Se carga
+   antes que main.js.
    ============================================================ */
 
 // Client ID público de Google Cloud Console (no es secreto: la app se protege
@@ -87,12 +88,28 @@ function signOut(){
 }
 
 /**
- * Callback de GSI al recibir la credencial: extrae la identidad, activa la
- * sesión del usuario y entra a la app.
+ * Callback de GSI al recibir la credencial: resuelve la identidad y entra.
+ *
+ * Si hay backend desplegado, la identidad DEBE venir verificada por el servidor
+ * (firma comprobada): si la verificación falla o rechaza el token, NO se inicia
+ * sesión — caer al decode local anularía justamente esa verificación. El decode
+ * local sin firma queda reservado al modo demo, cuando de verdad no hay backend
+ * (file://, sin desplegar), donde no hay nada que autorizar.
  * @param {{credential:string}} resp Respuesta de Google con el ID token.
  */
-function onGoogleCredential(resp){
-  const claims = decodeJwt(resp && resp.credential);
+async function onGoogleCredential(resp){
+  const token = resp && resp.credential;
+  let claims;
+  if(backend.enabled){
+    claims = await verifyGoogleCredential(token);
+    if(!claims){
+      toast("No se pudo verificar tu sesión. Intenta de nuevo.");
+      return;
+    }
+  } else {
+    // Modo demo: sin servidor no hay firma que comprobar (solo identifica).
+    claims = decodeJwt(token);
+  }
   if(!claims || !claims.sub){
     toast("No se pudo iniciar sesión con Google");
     return;
