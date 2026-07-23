@@ -4,6 +4,7 @@
   "private": true,
   "description": "API backend de CLOTH TO GO (Fastify + Prisma + SQLite).",
   "type": "module",
+  "packageManager": "pnpm@11.3.0",
   "scripts": {
     "dev": "node src/server.js",
     "start": "node src/server.js",
