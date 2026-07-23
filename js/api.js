@@ -141,3 +141,29 @@ async function hydrateCatalog() {
   }
   return false;
 }
+
+/**
+ * Verifica un ID token de Google contra el backend (POST /api/auth/google).
+ * Devuelve la identidad verificada, o null si la verificación no fue posible
+ * (sin backend, fetch fallido, o token rechazado). Con backend presente, quien
+ * llama trata ese null como fallo de sesión — NO como permiso para entrar sin
+ * verificar; el modo demo (decode local) solo aplica cuando no hay backend.
+ * @param {string} credential ID token de Google recibido de GSI.
+ * @returns {Promise<{sub:string,name:string,email:string,picture:string}|null>}
+ */
+async function verifyGoogleCredential(credential) {
+  if (!backend.enabled) return null;
+  try {
+    const res = await fetch(`${backend.base}/api/auth/google`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { user } = await res.json();
+    return user ?? null;
+  } catch (err) {
+    console.info("No se pudo verificar el login con el backend; se usa el modo demo.", err.message);
+    return null;
+  }
+}

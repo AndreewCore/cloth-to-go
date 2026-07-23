@@ -62,7 +62,7 @@ const PROJECT_GLOBALS = [
   // api.js
   "DEPLOYED_API", "LOCAL_API_PORT", "API_OVERRIDE_KEY", "API_OFF_REASONS",
   "readApiOverride", "backendForHost", "isMixedContent",
-  "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog",
+  "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog", "verifyGoogleCredential",
   // auth.js  (`google` lo aporta el SDK externo de Google Identity)
   "google", "GOOGLE_CLIENT_ID", "currentUser", "authAvailable", "decodeJwt",
   "activateUserSession", "onGoogleCredential", "initGoogleAuth", "signOut"
