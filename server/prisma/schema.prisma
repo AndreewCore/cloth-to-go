@@ -13,12 +13,13 @@ datasource db {
 
 /// Prenda del catálogo. Refleja los campos que ya usa el frontend (js/data.js).
 /// Segunda mano y única: `disponibles` es 1 por defecto.
+/// No guarda precio ni depósito: ambos se derivan de `value` (coste de
+/// reposición) mediante rentalPrice()/depositFor() en js/data.js.
 model Product {
   id          Int    @id
   name        String
   cat         String
-  price       Float
-  deposit     Int
+  value       Float
   stars       Int
   size        String
   disponibles Int    @default(1)
