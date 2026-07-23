@@ -150,28 +150,50 @@ function nextOrderId(){ return orders.reduce((m,o) => Math.max(m, o.id), 1000) +
    Guarda solo los datos que deben sobrevivir a la recarga:
    carrito, perfil y prendas en alquiler. NO es backend: es
    almacenamiento del navegador. Si no está disponible, la app
-   sigue funcionando en memoria (try/catch). */
-const STORAGE_KEY = "clothToGo:v3";   // v3: sin datos demo, arranque limpio
+   sigue funcionando en memoria (try/catch).
+
+   El estado se guarda POR USUARIO: cada cuenta de Google tiene su propia
+   clave `clothToGo:v4:user:<sub>`, para que dos cuentas en el mismo navegador
+   no se pisen. El invitado NO persiste (clave nula): su carrito y pedidos
+   viven solo en memoria y se descartan al cerrar — es una sesión de demo que
+   no deja registro, tal como se le anuncia. La clave activa la fija la sesión
+   (ver activateUserSession() en auth.js), no se conoce al cargar el archivo;
+   por eso loadState() ya no se auto-ejecuta aquí. */
+const STORAGE_PREFIX = "clothToGo:v4:user:";
+let activeStorageKey = null;          // null = invitado (sin persistencia)
+
+// Perfil recién inicializado (evita compartir referencia entre sesiones).
+function defaultProfile(){ return { name:"", email:"", phone:"", points:0, redeemed:[], donations:[] }; }
+
+// Clave de almacenamiento de un usuario, o null para el invitado (efímero).
+function storageKeyFor(user){ return user && user.sub ? STORAGE_PREFIX + user.sub : null; }
+
+// Restablece el estado a sus valores iniciales (arranque limpio al cambiar de
+// sesión: al entrar como invitado o con otra cuenta).
+function resetStateToDefaults(){
+  cart = [];
+  orders = [];
+  profile = defaultProfile();
+}
 
 function saveState(){
+  if(!activeStorageKey) return;       // invitado: nada queda registrado
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ cart, profile, orders }));
+    localStorage.setItem(activeStorageKey, JSON.stringify({ cart, profile, orders }));
   } catch(e){ /* almacenamiento no disponible: continúa en memoria */ }
 }
 function loadState(){
+  if(!activeStorageKey) return;       // invitado: sin datos previos que cargar
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(activeStorageKey);
     if(!raw) return;
     const s = JSON.parse(raw);
     if(Array.isArray(s.cart)) cart = s.cart;
     if(Array.isArray(s.orders)) orders = s.orders;
     if(s.profile && typeof s.profile === "object"){
-      profile = Object.assign({ name:"", email:"", phone:"", points:0, redeemed:[], donations:[] }, s.profile);
+      profile = Object.assign(defaultProfile(), s.profile);
       if(!Array.isArray(profile.redeemed)) profile.redeemed = [];
       if(!Array.isArray(profile.donations)) profile.donations = [];
     }
   } catch(e){ /* datos corruptos: se usan los valores por defecto */ }
 }
-
-// Cargar el estado persistido al iniciar (sobre los valores por defecto).
-loadState();
