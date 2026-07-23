@@ -72,6 +72,11 @@ function renderProfile(){
         <div class="profile-name">${escapeHTML(profile.name) || "Sin nombre"}</div>
         <div class="profile-email">${escapeHTML(profile.email) || "—"}</div>
       </div>
+      <button class="logout-btn" data-action="signOut" aria-label="Cerrar sesión" title="Cerrar sesión">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
     </div>
 
     <button class="points-card" data-action="openRewards" aria-label="Ver premios y canjear puntos">
