@@ -37,7 +37,8 @@ const PROJECT_GLOBALS = [
   "shippingFee", "returnFee", "grandTotal", "orderPoints",
   "waterSavedForItems", "cartWaterSaved", "totalWaterSaved",
   "orderItemsSubtotal", "orderDeposit", "orderTotal", "paymentStatusLabel", "isArchivedOrder", "nextOrderId",
-  "STORAGE_KEY", "saveState", "loadState",
+  "STORAGE_PREFIX", "activeStorageKey", "defaultProfile", "storageKeyFor",
+  "resetStateToDefaults", "saveState", "loadState",
   // dom.js
   "grid", "noResults", "resultsBar", "filtersEl", "overlay", "sheet", "sheetBody",
   "sheetFoot", "sheetTitle", "searchInput", "loginEl", "greeting", "backBtn",
@@ -57,11 +58,14 @@ const PROJECT_GLOBALS = [
   "renderRewards", "redeem",
   "openDonate", "donateValid", "renderDonate", "submitDonation",
   // main.js
-  "enter", "loginHint", "showLoginHint",
+  "enter",
   // api.js
   "DEPLOYED_API", "LOCAL_API_PORT", "API_OVERRIDE_KEY", "API_OFF_REASONS",
   "readApiOverride", "backendForHost", "isMixedContent",
-  "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog"
+  "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog",
+  // auth.js  (`google` lo aporta el SDK externo de Google Identity)
+  "google", "GOOGLE_CLIENT_ID", "currentUser", "authAvailable", "decodeJwt",
+  "activateUserSession", "onGoogleCredential", "initGoogleAuth", "signOut"
 ];
 
 const projectGlobals = Object.fromEntries(PROJECT_GLOBALS.map(n => [n, "writable"]));
