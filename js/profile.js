@@ -38,8 +38,8 @@ function renderProfile(){
         <div class="order-item">
           <div class="ci-thumb">${imgPlaceholder(p)}</div>
           <div class="oi-info">
-            <div class="oi-name">${p.name}</div>
-            <div class="oi-meta">Talla ${p.size} · $${p.price}/día</div>
+            <div class="oi-name">${escapeHTML(p.name)}</div>
+            <div class="oi-meta">Talla ${escapeHTML(p.size)} · $${rentalPrice(p, days, o.items.length).toFixed(2)}</div>
           </div>
         </div>`; }).join("")}
 
