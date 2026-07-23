@@ -62,8 +62,9 @@ function activateUserSession(user){
   loadState();
   // La identidad de Google rellena el perfil (el usuario puede editar el resto).
   if(user){
-    if(user.name)  profile.name  = user.name;
-    if(user.email) profile.email = user.email;
+    if(user.name)    profile.name    = user.name;
+    if(user.email)   profile.email   = user.email;
+    if(user.picture) profile.picture = user.picture;
     saveState();
   }
 }

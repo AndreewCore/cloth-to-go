@@ -163,7 +163,7 @@ const STORAGE_PREFIX = "clothToGo:v4:user:";
 let activeStorageKey = null;          // null = invitado (sin persistencia)
 
 // Perfil recién inicializado (evita compartir referencia entre sesiones).
-function defaultProfile(){ return { name:"", email:"", phone:"", points:0, redeemed:[], donations:[] }; }
+function defaultProfile(){ return { name:"", email:"", phone:"", picture:"", points:0, redeemed:[], donations:[] }; }
 
 // Clave de almacenamiento de un usuario, o null para el invitado (efímero).
 function storageKeyFor(user){ return user && user.sub ? STORAGE_PREFIX + user.sub : null; }
