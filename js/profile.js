@@ -12,6 +12,18 @@ function renderProfile(){
   const initial = escapeHTML(profile.name.trim().charAt(0) || "?").toUpperCase();
   const payNames = { cash:"💵 Efectivo", credit:"💳 Crédito", debit:"🏦 Débito" };
 
+  // Distingue la cuenta de Google (identidad real) del invitado (demo efímera).
+  const isUser = !!currentUser;
+  // Avatar: foto de Google si la hay; si no, la inicial en círculo de color.
+  // referrerpolicy=no-referrer: las fotos de Google fallan si se manda referer.
+  const avatarInner = profile.picture
+    ? `<img class="avatar-img" src="${esc(profile.picture)}" alt="" referrerpolicy="no-referrer" />`
+    : initial;
+  const sessionBadge = isUser
+    ? `<span class="session-badge user">✓ Cuenta de Google</span>`
+    : `<span class="session-badge guest">Invitado · nada se guarda</span>`;
+  const logoutLabel = isUser ? "Cerrar sesión" : "Salir de invitado";
+
   const ordersWithIdx   = orders.map((o, i) => ({ o, i }));
   const activeOrders    = ordersWithIdx.filter(({ o }) => !isArchivedOrder(o));
   const archivedOrders  = ordersWithIdx.filter(({ o }) =>  isArchivedOrder(o));
@@ -67,12 +79,13 @@ function renderProfile(){
 
   sheetBody.innerHTML = `
     <div class="profile-head">
-      <div class="avatar">${initial}</div>
+      <div class="avatar${profile.picture ? " has-img" : ""}">${avatarInner}</div>
       <div class="ph-info">
         <div class="profile-name">${escapeHTML(profile.name) || "Sin nombre"}</div>
-        <div class="profile-email">${escapeHTML(profile.email) || "—"}</div>
+        ${isUser ? `<div class="profile-email">${escapeHTML(profile.email) || "—"}</div>` : ""}
+        ${sessionBadge}
       </div>
-      <button class="logout-btn" data-action="signOut" aria-label="Cerrar sesión" title="Cerrar sesión">
+      <button class="logout-btn" data-action="signOut" aria-label="${logoutLabel}" title="${logoutLabel}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
         </svg>
