@@ -13,18 +13,13 @@ function enter(name){
   loginEl.classList.add("hide");
   if(name) greeting.textContent = `Hola, ${name} 🌱`;
 }
-// Entra como invitado conservando el nombre ya guardado, si lo hay.
-document.getElementById("guestBtn").onclick = ()=>{ if(!profile.name) profile.name = "Invitado"; saveState(); enter(profile.name); };
-
-// Cuentas: aún no implementadas; se avisa sin bloquear el acceso como invitado.
-const loginHint = document.getElementById("loginHint");
-/**
- * Muestra el aviso de "próximamente" bajo los botones de cuenta.
- * @param {string} msg Texto a anunciar (la región es aria-live).
- */
-const showLoginHint = msg => { loginHint.hidden = false; loginHint.textContent = msg; };
-document.getElementById("signinBtn").onclick = ()=> showLoginHint("El inicio de sesión estará disponible muy pronto.");
-document.getElementById("signupBtn").onclick = ()=> showLoginHint("La creación de cuentas estará disponible muy pronto.");
+// Entra como invitado: sesión efímera (sin persistencia) y arranque limpio.
+// El inicio de sesión con Google lo cablea initGoogleAuth() (ver auth.js).
+document.getElementById("guestBtn").onclick = ()=>{
+  activateUserSession(null);
+  profile.name = "Invitado";
+  enter(profile.name);
+};
 
 /* ---------------- Eventos ---------------- */
 // Acciones del header: perfil, carrito y encuesta.
@@ -110,6 +105,7 @@ sheet.addEventListener("click", e=>{
     case "finish":         finishOrder(); break;
     case "goCart":         view="cart"; renderSheet(); break;
     case "addDetail":      addToCart(detailId); renderSheet(); break;
+    case "signOut":        signOut(); break;
     case "saveProfile":    saveProfile(); break;
     case "editProfile":    editProfile(); break;
     case "cancelProfileEdit": cancelProfileEdit(); break;
@@ -184,6 +180,8 @@ sheet.addEventListener("keydown", e=>{
 renderFilters();
 renderGrid();
 updateBadge();
+// Pinta el botón de Google (o lo oculta por file://) una vez cargado el SDK.
+initGoogleAuth();
 // Si el backend está levantado, refresca el catálogo desde la base;
 // si no, la app se queda con los datos embebidos (funciona en file://).
 hydrateCatalog();

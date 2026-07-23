@@ -1,0 +1,59 @@
+name: CI
+
+# Corre lint (raíz) y tests (server/) en cada push y pull request, para
+# detectar roturas antes de que lleguen a dev/staging/main.
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint (ESLint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Sin `version`: toma la de `packageManager` en package.json (pnpm 11),
+      # única fuente de verdad. Fijarla aquí además choca con packageManager.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install
+      - run: pnpm run lint
+
+  test-server:
+    name: Tests del servidor (API)
+    runs-on: ubuntu-latest
+    # SQLite de archivo: basta un DATABASE_URL de CI, no persiste entre runs.
+    env:
+      DATABASE_URL: "file:./dev.db"
+    steps:
+      - uses: actions/checkout@v4
+
+      # Sin `version`: toma la de `packageManager` en package.json (pnpm 11),
+      # única fuente de verdad. Fijarla aquí además choca con packageManager.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: server/pnpm-lock.yaml
+
+      - name: Instalar dependencias
+        working-directory: server
+        run: pnpm install
+
+      # db push crea el esquema; db:reset además borra y siembra el catálogo
+      # que los tests esperan encontrar (ver server/README.md).
+      - name: Preparar base SQLite (esquema + seed)
+        working-directory: server
+        run: pnpm db:reset
+
+      - name: Ejecutar tests
+        working-directory: server
+        run: pnpm test
