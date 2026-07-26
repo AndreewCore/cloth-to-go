@@ -5,6 +5,7 @@
   "description": "Prototipo front-end de alquiler de ropa por día (demo de clase).",
   "packageManager": "pnpm@11.3.0",
   "scripts": {
+    "test": "node --test \"test/**/*.test.js\"",
     "lint": "eslint js",
     "lint:fix": "eslint js --fix",
     "format": "prettier --write \"**/*.{js,css,html,md}\"",
