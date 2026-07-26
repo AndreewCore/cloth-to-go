@@ -908,6 +908,8 @@ main::-webkit-scrollbar { display: none; }
   border-radius: 12px; padding: 12px; margin-top: 14px;
   font-size: 14px; font-weight: 700; text-align: center;
 }
+/* Pedido pendiente (efectivo): los puntos aún no se acreditan → tono neutro. */
+.earned-points.pending { background: var(--bg); color: var(--muted); }
 /* Agua ahorrada (confirmación) */
 .water-saved {
   background: rgba(43,140,209,.12); color: #2b8cd1;
@@ -940,6 +942,14 @@ main::-webkit-scrollbar { display: none; }
   font-size: 11px; font-weight: 700; cursor: pointer; padding: 4px 0 0; text-decoration: underline;
   display: inline-block;
 }
+/* Confirmar pago de un pedido pendiente (efectivo): acción destacada. */
+.pay-confirm {
+  display: block; width: 100%; margin: 8px 0 2px;
+  background: linear-gradient(135deg, var(--cta), var(--cta-strong)); color: #fff;
+  border: none; border-radius: 10px; padding: 10px;
+  font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.pay-confirm:active { transform: scale(.99); }
 
 /* ---- Editor in-line del modo de devolución ---- */
 .ret-editor {

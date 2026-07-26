@@ -268,21 +268,36 @@ function placeOrder(){
     status: payMethod === "cash" ? "pending" : "settled",
   };
   order.total = orderTotal(order);   // valor total del cobro del pedido
+  // Puntos que otorga el pedido; se calculan con el carrito aún intacto.
+  order.points = orderPoints();
+  order.pointsCredited = false;
   orders.push(order);
-  // Acreditar puntos por el alquiler completado.
-  lastEarnedPoints = orderPoints();
-  profile.points += lastEarnedPoints;
+  // Los puntos SOLO se acreditan cuando el pedido está pagado (settled): la
+  // tarjeta ya se cobró. El efectivo (pending) los acredita al confirmar el
+  // pago desde el perfil (confirmPayment), no antes de cobrar.
+  if(order.status === "settled"){
+    profile.points += order.points;
+    order.pointsCredited = true;
+  }
+  lastEarnedPoints = order.points;
   // Litros de agua ahorrados con este alquiler (el carrito aún está intacto).
   lastWaterSaved = cartWaterSaved();
+  // La confirmación se pinta desde el pedido, no del carrito: lo vaciamos ya
+  // para que cerrar la hoja sin pulsar "finalizar" no permita repedir lo mismo.
+  lastOrder = order;
+  cart = [];
   saveState();
   view = "done"; renderSheet(); updateBadge();
   // Felicitación por el ahorro de agua (moda circular / ropa reutilizada).
-  showWaterPop(lastWaterSaved, cart.length);
+  showWaterPop(lastWaterSaved, order.items.length);
 }
 
 /* ---- Confirmación ---- */
 function renderDone(){
   sheetTitle.textContent = "¡Listo!";
+  if(!lastOrder) return;              // sin pedido reciente no hay nada que confirmar
+  const o = lastOrder;
+  const days = daysBetween(o.start, o.end);
   const isShip = delivery==="ship";
   const payNames = { cash:"💵 Efectivo", credit:"💳 Tarjeta de crédito", debit:"🏦 Tarjeta de débito" };
   const last4 = card.number.replace(/\s+/g, "").slice(-4);
@@ -305,21 +320,24 @@ function renderDone(){
         <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
         <b>Pago:</b> ${payText}
         <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        ${cart.map(c=>{const p=productById(c.id);return `· ${escapeHTML(p.name)} — $${cartItemPrice(p).toFixed(2)}`;}).join("<br>")}
+        ${o.items.map(id=>{const p=productById(id);return `· ${escapeHTML(p.name)} — $${rentalPrice(p, days, o.items.length).toFixed(2)}`;}).join("<br>")}
         <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        <span style="color:var(--muted)">Depósito reembolsable: $${depositTotal().toFixed(2)} (se devuelve al regresar las prendas)</span>
+        <span style="color:var(--muted)">Depósito reembolsable: $${orderDeposit(o).toFixed(2)} (se devuelve al regresar las prendas)</span>
       </div>
-      <div class="earned-points">🌱 Ganaste <b>${lastEarnedPoints}</b> puntos con este alquiler</div>
+      ${o.status === "settled"
+        ? `<div class="earned-points">🌱 Ganaste <b>${o.points}</b> puntos con este alquiler</div>`
+        : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos al confirmar el pago</div>`}
       ${lastWaterSaved > 0 ? `<div class="water-saved">💧 Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
     </div>`;
   sheetFoot.innerHTML = `<button class="pay-btn" data-action="finish">Volver al catálogo</button>`;
 }
 
-// Cierra el flujo: limpia carrito/entrega y vuelve al catálogo.
+// Cierra el flujo y vuelve al catálogo. El carrito ya se vació en placeOrder;
+// aquí se restablecen entrega/pago y el pedido de la confirmación.
 function finishOrder(){
   cart = []; delivery = null; address = ""; returnMethod = null; returnAddress = "";
   payMethod = null; card = { number:"", name:"", expiry:"", cvv:"" };
-  lastEarnedPoints = 0; lastWaterSaved = 0;
+  lastEarnedPoints = 0; lastWaterSaved = 0; lastOrder = null;
   view = "cart";
   saveState();
   updateBadge(); renderGrid(); closeSheet();

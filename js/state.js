@@ -31,8 +31,11 @@ let cart = [];                       // [{id}] — una unidad por prenda
 let orders = [];
 // Perfil: contacto + puntos acumulados + historial de canjes + donaciones.
 let profile = { name:"", email:"", phone:"", points: 0, redeemed: [], donations: [] };
-let lastEarnedPoints = 0;            // puntos ganados en el último pedido (para la confirmación)
+let lastEarnedPoints = 0;            // puntos del último pedido (para la confirmación)
 let lastWaterSaved = 0;              // litros de agua ahorrados en el último pedido (para la confirmación/pop-up)
+let lastOrder = null;                // último pedido confirmado: la pantalla de
+                                     // confirmación se pinta desde aquí, no del
+                                     // carrito (que ya se vació en placeOrder).
 let editingProfile = false;          // info de contacto en modo edición (perfil)
 // Formulario de donación de prendas (por puntos)
 let donName = "";                    // descripción de la prenda a donar
@@ -189,7 +192,16 @@ function loadState(){
     if(!raw) return;
     const s = JSON.parse(raw);
     if(Array.isArray(s.cart)) cart = s.cart;
-    if(Array.isArray(s.orders)) orders = s.orders;
+    if(Array.isArray(s.orders)){
+      orders = s.orders;
+      // Migración: los pedidos guardados antes de "puntos al pagar" ya recibieron
+      // sus puntos con la lógica anterior. Los marcamos como acreditados para que
+      // confirmPayment() no los vuelva a sumar (doble conteo).
+      for(const o of orders){
+        if(o.pointsCredited === undefined) o.pointsCredited = true;
+        if(o.points === undefined) o.points = 0;
+      }
+    }
     if(s.profile && typeof s.profile === "object"){
       profile = Object.assign(defaultProfile(), s.profile);
       if(!Array.isArray(profile.redeemed)) profile.redeemed = [];
