@@ -31,7 +31,9 @@ globalThis.__APP__ = {
   isValidCardNumber, isValidExpiry, isValidCvv,
   PRODUCTS, productById,
   // --- Estado y cálculos derivados (state.js) ---
-  isoOffset, cents, rentalDays, isLate, isArchivedOrder, isRented, unitsAvailable, inCart,
+  isoOffset, cents, rentalDays, isLate, isArchivedOrder, isCancelledOrder, isPastOrder,
+  canCancelOrder, isDelivered, creditDeliveredPoints, isRented, unitsAvailable, inCart,
+  totalWaterSaved,
   subtotal, subtotalBeforeVolume, volumeSavings, depositTotal, grandTotal,
   orderItemsSubtotal, orderDeposit, orderTotal, paymentStatusLabel, orderPoints,
   // --- Control del estado mutable para los tests ---

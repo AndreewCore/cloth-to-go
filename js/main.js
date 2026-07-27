@@ -116,6 +116,7 @@ sheet.addEventListener("click", e=>{
     case "pickReturn":     editRet = el.dataset.value; renderProfile(); break;
     case "saveReturn":     saveReturn(+el.dataset.idx); break;
     case "cancelReturn":   closeReturnEditor(); break;
+    case "cancelOrder":    cancelOrder(+el.dataset.idx); break;
     case "toggleLateInfo": toggleLateInfo(+el.dataset.idx); break;
     case "clearFiltersSheet": clearFilters(); break;
     case "closeSheet":     closeSheet(); break;
