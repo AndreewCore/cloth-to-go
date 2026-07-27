@@ -26,6 +26,26 @@ const backBtn = document.getElementById("backBtn");
 function openSheet(){ overlay.classList.add("show"); sheet.classList.add("show"); }
 function closeSheet(){ overlay.classList.remove("show"); sheet.classList.remove("show"); }
 
+/**
+ * Desplaza el contenido del panel hasta un elemento suyo (por id).
+ * No se usa scrollIntoView(): ese método desplaza TODOS los ancestros
+ * desplazables, incluido el marco `.phone` (overflow:hidden también se puede
+ * desplazar por código), lo que descuadraba el encabezado y dejaba el panel
+ * asomando abajo sin forma de volver. Aquí solo se mueve `.sheet-body`.
+ * @param {string} id Id del elemento destino dentro del panel.
+ * @param {number} [margin=8] Aire en px que queda sobre el elemento.
+ */
+function scrollSheetTo(id, margin = 8){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const top = Math.max(0, sheetBody.scrollTop
+    + (el.getBoundingClientRect().top - sheetBody.getBoundingClientRect().top)
+    - margin);
+  // scrollTo() no existe en entornos sin layout (jsdom de las pruebas).
+  if(sheetBody.scrollTo) sheetBody.scrollTo({ top, behavior: "smooth" });
+  else sheetBody.scrollTop = top;
+}
+
 // Vista → paso anterior (define cuándo se muestra el botón "atrás").
 const SHEET_BACK = { checkout: "cart", payment: "checkout", rewards: "profile", donate: "profile" };
 
@@ -86,21 +106,5 @@ function closeModal(){
   onConfirmCb = null;
 }
 
-/* ---------------- Pop-up de ahorro de agua ----------------
-   Muestra una felicitación con los litros de agua que el cliente ahorra al
-   alquilar ropa reutilizada (en vez de comprarla nueva). litros → ver
-   garmentWater()/cartWaterSaved() en data.js/state.js. */
-const waterPop = document.getElementById("waterPop");
-const waterAmount = document.getElementById("waterAmount");
-const waterMsg = document.getElementById("waterMsg");
-
-function showWaterPop(liters, garments){
-  if(liters <= 0) return;
-  waterAmount.innerHTML = `<span class="wa-line1">Ahorraste</span>
-    <span class="wa-line2">${fmtLiters(liters)} litros de agua</span>`;
-  const prendas = garments === 1 ? "esta prenda reutilizada" : `estas ${garments} prendas reutilizadas`;
-  waterMsg.textContent = `Al alquilar ${prendas} evitaste fabricar ropa nueva ` +
-    `y todo el agua que eso consume. ¡Gracias por elegir moda circular!`;
-  waterPop.classList.add("show");
-}
-function closeWaterPop(){ waterPop.classList.remove("show"); }
+// El ahorro de agua ya no se muestra en un pop-up aparte: se integró en la
+// pantalla de confirmación del pedido (renderDone en checkout.js).

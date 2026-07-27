@@ -74,6 +74,7 @@ Solo para linting/formateo del código; **no son necesarias para que la app func
 npm install      # instala eslint y prettier
 npm run lint     # ESLint sobre js/
 npm run format   # Prettier sobre js/css/html/md
+npm test         # pruebas del modelo de precios y helpers (runner nativo de Node)
 ```
 
 ---
@@ -148,7 +149,8 @@ Para que el prototipo sea autocontenido, se **simulan**:
 
 - Backend real (autenticación, catálogo, pedidos) e integración de pasarela de pago.
 - Imágenes de prendas alojadas localmente.
-- Pruebas automatizadas (diferidas a la fase de backend).
+- Ampliar la cobertura de pruebas (checkout, perfil, flujo completo). El modelo
+  de precios y los helpers puros ya tienen tests: `pnpm test`.
 
 ---
 

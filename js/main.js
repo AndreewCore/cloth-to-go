@@ -46,12 +46,6 @@ document.addEventListener("keydown", e=>{
   if(e.key === "Escape" && modalOverlay.classList.contains("show")) closeModal();
 });
 
-// Pop-up de ahorro de agua (felicitación al confirmar un alquiler)
-document.getElementById("waterClose").onclick = closeWaterPop;
-waterPop.onclick = e=>{ if(e.target === waterPop) closeWaterPop(); };
-document.addEventListener("keydown", e=>{
-  if(e.key === "Escape" && waterPop.classList.contains("show")) closeWaterPop();
-});
 
 searchInput.addEventListener("input", e=>{ searchQuery = e.target.value; renderGrid(); });
 
@@ -103,7 +97,11 @@ sheet.addEventListener("click", e=>{
     case "setPay":         payMethod = el.dataset.value; renderSheet(); break;
     case "placeOrder":     placeOrder(); break;
     case "finish":         finishOrder(); break;
+    case "goToOrders":     goToOrders(); break;
     case "goCart":         view="cart"; renderSheet(); break;
+    // Desde el detalle de una prenda ya alquilada: lleva a sus pedidos sin
+    // tocar el checkout en curso (a diferencia de goToOrders, que lo limpia).
+    case "goProfile":      editingOrder=null; editingProfile=false; view="profile"; renderSheet(); break;
     case "addDetail":      addToCart(detailId); renderSheet(); break;
     case "signOut":        signOut(); break;
     case "saveProfile":    saveProfile(); break;
