@@ -26,6 +26,26 @@ const backBtn = document.getElementById("backBtn");
 function openSheet(){ overlay.classList.add("show"); sheet.classList.add("show"); }
 function closeSheet(){ overlay.classList.remove("show"); sheet.classList.remove("show"); }
 
+/**
+ * Desplaza el contenido del panel hasta un elemento suyo (por id).
+ * No se usa scrollIntoView(): ese método desplaza TODOS los ancestros
+ * desplazables, incluido el marco `.phone` (overflow:hidden también se puede
+ * desplazar por código), lo que descuadraba el encabezado y dejaba el panel
+ * asomando abajo sin forma de volver. Aquí solo se mueve `.sheet-body`.
+ * @param {string} id Id del elemento destino dentro del panel.
+ * @param {number} [margin=8] Aire en px que queda sobre el elemento.
+ */
+function scrollSheetTo(id, margin = 8){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const top = Math.max(0, sheetBody.scrollTop
+    + (el.getBoundingClientRect().top - sheetBody.getBoundingClientRect().top)
+    - margin);
+  // scrollTo() no existe en entornos sin layout (jsdom de las pruebas).
+  if(sheetBody.scrollTo) sheetBody.scrollTo({ top, behavior: "smooth" });
+  else sheetBody.scrollTop = top;
+}
+
 // Vista → paso anterior (define cuándo se muestra el botón "atrás").
 const SHEET_BACK = { checkout: "cart", payment: "checkout", rewards: "profile", donate: "profile" };
 

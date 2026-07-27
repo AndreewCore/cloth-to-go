@@ -42,7 +42,7 @@ const PROJECT_GLOBALS = [
   // dom.js
   "grid", "noResults", "resultsBar", "filtersEl", "overlay", "sheet", "sheetBody",
   "sheetFoot", "sheetTitle", "searchInput", "loginEl", "greeting", "backBtn",
-  "SHEET_BACK", "openSheet", "closeSheet", "renderSheet", "updateBadge", "toastTimer", "toast",
+  "SHEET_BACK", "openSheet", "closeSheet", "renderSheet", "scrollSheetTo", "updateBadge", "toastTimer", "toast",
   "modalOverlay", "modalText", "modalOk", "modalCancel", "onConfirmCb", "confirmDialog", "closeModal",
   // catalog.js
   "renderFilters", "sortProducts", "filteredProducts", "anyFilterActive", "clearFilters",
