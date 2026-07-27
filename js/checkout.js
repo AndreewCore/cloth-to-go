@@ -288,7 +288,9 @@ function placeOrder(){
   lastOrder = order;
   cart = [];
   saveState();
-  view = "done"; renderSheet(); updateBadge();
+  // renderGrid: las prendas del pedido pasan a estar alquiladas y salen del
+  // catálogo ya mismo, sin esperar a que se cierre la confirmación.
+  view = "done"; renderSheet(); updateBadge(); renderGrid();
 }
 
 /* ---- Confirmación ----
