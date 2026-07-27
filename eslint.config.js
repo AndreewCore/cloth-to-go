@@ -29,7 +29,7 @@ const PROJECT_GLOBALS = [
   "isoOffset", "cart", "orders", "profile", "activeCat", "searchQuery",
   "qualityFilter", "sizeFilter", "materialFilter", "sortBy", "view", "detailId", "delivery", "address",
   "returnMethod", "returnAddress", "payMethod", "card",
-  "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "lastWaterSaved", "editingProfile",
+  "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "lastWaterSaved", "lastOrder", "editingProfile",
   "donName", "donMethod", "donAddr", "donDate",
   "rentalStart", "rentalEnd",
   "rentalDays", "isLate", "inCart", "unitsAvailable", "cartCount", "cents", "subtotal",
