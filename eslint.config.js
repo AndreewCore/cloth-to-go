@@ -32,7 +32,7 @@ const PROJECT_GLOBALS = [
   "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "lastWaterSaved", "lastOrder", "editingProfile",
   "donName", "donMethod", "donAddr", "donDate",
   "rentalStart", "rentalEnd",
-  "rentalDays", "isLate", "inCart", "unitsAvailable", "cartCount", "cents", "subtotal",
+  "rentalDays", "isLate", "inCart", "isRented", "unitsAvailable", "cartCount", "cents", "subtotal",
   "cartItemPrice", "subtotalBeforeVolume", "volumeRate", "volumeSavings", "depositTotal",
   "shippingFee", "returnFee", "grandTotal", "orderPoints",
   "waterSavedForItems", "cartWaterSaved", "totalWaterSaved",

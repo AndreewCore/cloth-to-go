@@ -98,3 +98,29 @@ test("isArchivedOrder: pagado Y con el período ya terminado", () => {
   assert.ok(!A.isArchivedOrder({ status: "settled", end: A.isoOffset(2) })); // aún vigente
   assert.ok(!A.isArchivedOrder({ status: "pending", end: A.isoOffset(-2) })); // sin pagar
 });
+
+/* ---- Stock: prenda única fuera del catálogo mientras está alquilada ---- */
+test("isRented: la prenda de un pedido vigente está alquilada; la de uno archivado no", () => {
+  const vigente  = { items: [7], status: "pending",  end: A.isoOffset(2) };
+  const devuelto = { items: [1], status: "settled",  end: A.isoOffset(-2) };
+  A.setState({ orders: [vigente, devuelto] });
+  assert.ok(A.isRented(7));    // sigue fuera
+  assert.ok(!A.isRented(1));   // pedido archivado → vuelve al catálogo
+  assert.ok(!A.isRented(3));   // nunca se alquiló
+});
+
+test("unitsAvailable: alquilada → 0; en el carrito → 0; libre → su stock", () => {
+  const p = A.productById(7);
+  A.setState({ orders: [{ items: [7], status: "settled", end: A.isoOffset(2) }], cart: [] });
+  assert.equal(A.unitsAvailable(p), 0);          // alquilada
+  A.setState({ orders: [], cart: [{ id: 7 }] });
+  assert.equal(A.unitsAvailable(p), 0);          // reservada en el carrito
+  A.setState({ orders: [], cart: [] });
+  assert.equal(A.unitsAvailable(p), p.disponibles);
+});
+
+test("unitsAvailable nunca baja de 0 aunque coincidan alquiler y carrito", () => {
+  const p = A.productById(7);
+  A.setState({ orders: [{ items: [7], status: "settled", end: A.isoOffset(2) }], cart: [{ id: 7 }] });
+  assert.equal(A.unitsAvailable(p), 0);
+});
