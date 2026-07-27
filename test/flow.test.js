@@ -1,7 +1,7 @@
 /**
- * Pruebas de FLUJO sobre un DOM real (jsdom): confirmación de pedido, la nueva
- * regla de puntos (solo al pagar) + "Confirmar pago", el vaciado del carrito en
- * placeOrder, estados de botones y el escape anti-XSS en la vista renderizada.
+ * Pruebas de FLUJO sobre un DOM real (jsdom): confirmación de pedido, la regla
+ * de puntos (se acreditan al ENTREGAR, no al cobrar), anulación de pedidos, el
+ * vaciado del carrito en placeOrder, estados de botones y el escape anti-XSS.
  * Cargan la app con test/helpers/load-dom.js.
  */
 const { test, beforeEach } = require("node:test");
@@ -51,16 +51,41 @@ test("placeOrder con tarjeta: pedido settled, puntos acreditados y carrito vací
 });
 
 /* ---- placeOrder: efectivo ---- */
-test("placeOrder en efectivo: pedido pending, NO acredita puntos aún", () => {
+test("efectivo entregado hoy: acredita puntos aunque el cobro siga pendiente", () => {
   readyCheckout("cash");
   win.placeOrder();
 
   const o = app.orders[0];
-  assert.equal(o.status, "pending");
-  assert.ok(!o.pointsCredited);
-  assert.ok(o.points > 0);                 // los guarda, pero…
-  assert.equal(app.profile.points, 0);     // …no los acredita todavía
-  assert.match(doc.getElementById("sheetBody").innerHTML, /Ganarás/); // "Ganarás …"
+  assert.equal(o.status, "pending");        // el cobro sigue pendiente…
+  assert.ok(o.pointsCredited);              // …pero la prenda ya se entregó
+  assert.equal(app.profile.points, o.points);
+  assert.match(doc.getElementById("sheetBody").innerHTML, /Ganaste/);
+});
+
+test("pedido que empieza más adelante: los puntos quedan reservados", () => {
+  readyCheckout("credit");                  // pagado, pero aún no entregado
+  app.setCheckout({ rentalStart: app.isoOffset(2), rentalEnd: app.isoOffset(5) });
+  win.placeOrder();
+
+  const o = app.orders[0];
+  assert.equal(o.status, "settled");
+  assert.ok(!o.pointsCredited);             // pagar no acredita: entregar sí
+  assert.ok(o.points > 0);
+  assert.equal(app.profile.points, 0);
+  assert.match(doc.getElementById("sheetBody").innerHTML, /Ganarás/);
+});
+
+test("los puntos reservados se acreditan cuando llega el día de entrega", () => {
+  readyCheckout("cash");
+  app.setCheckout({ rentalStart: app.isoOffset(2), rentalEnd: app.isoOffset(5) });
+  win.placeOrder();
+  const o = app.orders[0];
+  assert.equal(app.profile.points, 0);
+
+  o.start = app.isoOffset(0);               // llegó el día: la prenda se entrega
+  assert.equal(win.creditDeliveredPoints(), o.points);
+  assert.equal(app.profile.points, o.points);
+  assert.equal(win.creditDeliveredPoints(), 0);   // no vuelve a acreditar
 });
 
 /* ---- Vaciado del carrito ---- */
@@ -80,10 +105,7 @@ test("un pedido en efectivo no expone acción de auto-confirmación al cliente",
   // No hay ningún control para que el cliente marque su pago como cobrado.
   assert.equal(doc.querySelectorAll('[data-action="confirmPayment"]').length, 0);
   assert.doesNotMatch(html, /Confirmar pago/);
-  // Sí ve, de forma pasiva, los puntos que quedaron reservados.
-  assert.match(html, /Ganarás \d+ pts cuando se registre tu pago/);
   assert.equal(app.orders[0].status, "pending");
-  assert.equal(app.profile.points, 0);
 });
 
 /* ---- Confirmación rediseñada: sin desglose + acceso a "Mis pedidos" ---- */
@@ -232,4 +254,128 @@ test("addToCart ignora una prenda ya alquilada", () => {
 
   win.addToCart(7);
   assert.equal(app.cart.length, 0);                // no se puede volver a alquilar
+});
+
+/* ---- Anular un pedido ---- */
+// Deja un pedido confirmado y devuelve su índice; `start` permite simular uno ya
+// entregado (fecha de inicio pasada).
+function placedOrder(start) {
+  readyCheckout("cash");
+  if (start) app.setCheckout({ rentalStart: start });
+  win.placeOrder();
+  return app.orders.length - 1;
+}
+
+test("anular un pedido devuelve sus prendas al catálogo", () => {
+  win.renderGrid();
+  const grid = doc.getElementById("grid");
+  const i = placedOrder();
+  assert.ok(!win.filteredProducts().some(p => p.id === 7));   // fuera del catálogo
+
+  win.cancelOrder(i);
+  app.confirmModalOk();                                        // el usuario confirma
+
+  assert.equal(app.orders[i].status, "cancelled");
+  assert.ok(win.filteredProducts().some(p => p.id === 7));      // volvió
+  assert.match(grid.innerHTML, /Esmoquin clásico/);             // y ya está pintado
+  assert.equal(app.cart.length, 0);                             // no se rearma el carrito
+});
+
+test("el diálogo resume pedido, prendas y período, sin explicaciones de logística", () => {
+  const i = placedOrder();
+  win.cancelOrder(i);
+  const html = app.modalHTML;
+  assert.match(html, /¿Anular este pedido\?/);
+  assert.match(html, /#\d{4}/);                     // número de pedido
+  assert.match(html, /Esmoquin clásico/);           // la prenda
+  assert.match(html, /\d+ días/);                   // el período
+  // El estado del envío no se le pregunta al cliente: si el botón existe,
+  // el pedido todavía no salió.
+  assert.doesNotMatch(html, /reparto|en camino|retiraste/i);
+  app.confirmModalOk();
+});
+
+test("un efectivo pendiente no promete reembolso: no se ha cobrado nada", () => {
+  const i = placedOrder();
+  win.cancelOrder(i);
+  assert.doesNotMatch(app.modalHTML, /Reembolso|devolverá/i);
+  app.confirmModalOk();
+});
+
+test("un pedido ya cobrado muestra el monto a reembolsar", () => {
+  readyCheckout("credit");                 // tarjeta → cobrado
+  win.placeOrder();
+  const total = app.orders[0].total.toFixed(2);
+  win.cancelOrder(0);
+  assert.match(app.modalHTML, /Reembolso a tu tarjeta/);
+  assert.match(app.modalHTML, new RegExp(`\\$${total.replace(".", "\\.")}`));
+});
+
+test("sin confirmar el diálogo, el pedido sigue vigente", () => {
+  const i = placedOrder();
+  win.cancelOrder(i);                 // se abre el modal y no se acepta
+  assert.equal(app.orders[i].status, "pending");
+  assert.ok(!win.filteredProducts().some(p => p.id === 7));
+});
+
+test("la opción de anular desaparece si el alquiler ya está con el cliente", () => {
+  placedOrder(app.isoOffset(-1));     // empezó ayer → entregado
+  win.renderProfile();
+  assert.equal(doc.querySelectorAll('[data-action="cancelOrder"]').length, 0);
+});
+
+test("la opción de anular desaparece cuando el pedido ya terminó", () => {
+  const i = placedOrder();
+  const o = app.orders[i];
+  o.status = "settled";
+  o.start = app.isoOffset(-5);
+  o.end = app.isoOffset(-1);          // pagado y vencido → archivado
+  win.renderProfile();
+  assert.equal(doc.querySelectorAll('[data-action="cancelOrder"]').length, 0);
+});
+
+test("anular un pedido ya pagado revierte los puntos acreditados", () => {
+  readyCheckout("credit");            // tarjeta → settled y puntos acreditados
+  win.placeOrder();
+  const o = app.orders[0];
+  assert.ok(o.pointsCredited);
+  assert.ok(app.profile.points > 0);
+
+  win.cancelOrder(0);
+  app.confirmModalOk();
+
+  assert.equal(app.profile.points, 0);   // devueltos
+  assert.ok(!app.orders[0].pointsCredited);
+});
+
+test("un pedido anulado se lista en el historial, no entre los activos", () => {
+  const i = placedOrder();
+  win.cancelOrder(i);
+  app.confirmModalOk();
+  win.renderProfile();
+  const html = doc.getElementById("sheetBody").innerHTML;
+  assert.match(html, /No tienes pedidos activos/);   // ya no está entre los vigentes
+  assert.match(html, /Alquileres anteriores/);
+  assert.match(html, /Anulado/);
+});
+
+test("anular un pedido descuenta sus litros de agua ahorrada", () => {
+  const i = placedOrder();
+  const conPedido = win.totalWaterSaved();
+  assert.ok(conPedido > 0);
+
+  win.cancelOrder(i);
+  app.confirmModalOk();
+
+  // El alquiler no llegó a ocurrir: no reutilizó ropa ni ahorró agua.
+  assert.equal(win.totalWaterSaved(), 0);
+  assert.match(doc.getElementById("sheetBody").innerHTML, /Agua ahorrada/);
+});
+
+test("la tarjeta del pedido muestra el depósito reembolsable junto al total", () => {
+  const i = placedOrder();
+  win.renderProfile();
+  const dep = app.orderDeposit(app.orders[i]).toFixed(2);
+  const html = doc.getElementById("sheetBody").innerHTML;
+  assert.match(html, new RegExp(`↩ \\$${dep.replace(".", "\\.")} se te devuelve`));
 });
