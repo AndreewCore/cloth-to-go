@@ -25,16 +25,18 @@ function renderProfile(){
   const logoutLabel = isUser ? "Cerrar sesión" : "Salir de invitado";
 
   const ordersWithIdx   = orders.map((o, i) => ({ o, i }));
-  const activeOrders    = ordersWithIdx.filter(({ o }) => !isArchivedOrder(o));
-  const archivedOrders  = ordersWithIdx.filter(({ o }) =>  isArchivedOrder(o));
+  const activeOrders    = ordersWithIdx.filter(({ o }) => !isPastOrder(o));
+  const archivedOrders  = ordersWithIdx.filter(({ o }) =>  isPastOrder(o));
 
   const orderCardHTML = ({ o, i }, archived) => {
     const days = daysBetween(o.start, o.end);
-    const late = !archived && isLate(o);
+    const voided = isCancelledOrder(o);
+    // Un pedido anulado nunca está "vencido": no hay prenda que devolver.
+    const late = !archived && !voided && isLate(o);
     const retLabel = o.ret === "home" ? "🚚 Devolución a domicilio" : "🏬 Devolución en local";
-    const stClass  = o.status === "settled" ? "settled" : "pending";
+    const stClass  = voided ? "cancelled" : (o.status === "settled" ? "settled" : "pending");
     return `
-    <div class="order${late ? " late" : ""}${archived ? " archived" : ""}">
+    <div class="order${late ? " late" : ""}${archived ? " archived" : ""}${voided ? " cancelled" : ""}">
       <div class="order-head">
         <div class="order-head-main">
           <div class="order-id">Pedido #${o.id}</div>
@@ -43,6 +45,7 @@ function renderProfile(){
         <div class="order-badges">
           <span class="pay-status ${stClass}">${paymentStatusLabel(o)}</span>
           ${!archived ? `<span class="rent-tag${late ? " late" : ""}">${late ? "⚠ Vencida" : "En alquiler"}</span>` : ""}
+          ${voided ? `<span class="rent-tag void">Sin efecto</span>` : ""}
         </div>
       </div>
 
@@ -58,16 +61,20 @@ function renderProfile(){
       <div class="order-period">📅 ${fmtDate(o.start)} → ${fmtDate(o.end)} · ${days} ${days === 1 ? "día" : "días"}</div>
 
       <div class="order-charge">
-        <span>${archived ? "Total cobrado" : "Total del cobro"}</span>
+        <span>${voided ? "Cobro anulado" : (archived ? "Total cobrado" : "Total del cobro")}</span>
         <b>$${o.total.toFixed(2)}</b>
       </div>
 
-      <div class="ci-ret">${retLabel}${o.ret === "home" && o.retAddr ? ` · <span class="ret-addr">📍 ${escapeHTML(o.retAddr)}</span>` : ""}</div>
+      ${voided
+        ? `<div class="ci-ret">✖ Anulado el ${fmtDate(o.cancelledAt)} · las prendas volvieron al catálogo</div>`
+        : `<div class="ci-ret">${retLabel}${o.ret === "home" && o.retAddr ? ` · <span class="ret-addr">📍 ${escapeHTML(o.retAddr)}</span>` : ""}</div>`}
       ${!archived ? `
         ${o.status === "pending" && !o.pointsCredited ? `
           <div class="points-pending">🌱 Ganarás ${o.points} pts cuando se registre tu pago</div>` : ""}
         <button class="ret-edit" data-action="editReturn" data-idx="${i}">✏️ Cambiar modo de devolución</button>
         ${editingOrder === i ? returnEditorHTML(i) : ""}
+        ${canCancelOrder(o) ? `
+          <button class="order-cancel" data-action="cancelOrder" data-idx="${i}">✖ Anular pedido</button>` : ""}
         ${late ? `
           <button class="late-info-btn" data-action="toggleLateInfo" data-idx="${i}">ⓘ Penalización por atraso</button>
           <div class="late-info" id="lateInfo${i}">
@@ -254,6 +261,56 @@ function saveReturn(i){
   } else {
     apply();
   }
+}
+
+/**
+ * Anula un pedido que aún no llegó a manos del cliente y devuelve sus prendas
+ * al catálogo (el stock se deriva de `orders`, así que basta con marcarlo).
+ *
+ * El diálogo pide confirmar que el pedido NO va en camino: sin logística real
+ * la app no puede saberlo, y anular algo ya despachado dejaría la prenda
+ * disponible en el catálogo mientras viaja hacia el cliente.
+ * @param {number} i Índice del pedido en `orders`.
+ */
+function cancelOrder(i){
+  const o = orders[i];
+  // Revalidamos aquí y no solo al pintar: entre el render y el clic pudo cruzarse
+  // la medianoche (la fecha de inicio se compara contra el día local).
+  if(!o || !canCancelOrder(o)){
+    toast("Este pedido ya no se puede anular");
+    renderProfile();
+    return;
+  }
+
+  const enCamino = o.delivery === "ship"
+    ? "Confirma que el pedido AÚN NO salió a reparto ni va en camino a tu dirección."
+    : "Confirma que AÚN NO retiraste las prendas en el local.";
+  const reembolso = o.status === "settled"
+    ? `\n\nYa pagaste $${o.total.toFixed(2)}: el reembolso lo procesa la tienda.`
+    : "";
+  const puntos = o.pointsCredited ? `\n\nSe te descontarán los ${o.points} pts de este pedido.` : "";
+
+  confirmDialog(
+    `Vas a anular el pedido #${o.id}.\n\n${enCamino}\n\nLas prendas volverán al catálogo.${reembolso}${puntos}\n\n¿Anular el pedido?`,
+    ()=>{
+      o.status = "cancelled";
+      o.cancelledAt = isoOffset(0);
+      // Los puntos solo se revierten si llegaron a acreditarse; los de un pedido
+      // pendiente nunca entraron al saldo, así que no hay nada que restar.
+      if(o.pointsCredited){
+        profile.points = Math.max(0, profile.points - o.points);
+        o.pointsCredited = false;
+      }
+      // El editor de devolución guarda un índice: dejarlo abierto sobre un
+      // pedido que ya no se muestra como activo lo dejaría huérfano.
+      editingOrder = null; editRet = null; editRetAddr = "";
+      saveState();
+      renderProfile();
+      renderGrid();             // las prendas reaparecen en el catálogo al instante
+      toast("Pedido anulado · prendas devueltas al catálogo");
+    },
+    "✖"
+  );
 }
 
 // Mostrar/ocultar la nota de penalización de una prenda vencida.

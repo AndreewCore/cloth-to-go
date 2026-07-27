@@ -124,3 +124,26 @@ test("unitsAvailable nunca baja de 0 aunque coincidan alquiler y carrito", () =>
   A.setState({ orders: [{ items: [7], status: "settled", end: A.isoOffset(2) }], cart: [{ id: 7 }] });
   assert.equal(A.unitsAvailable(p), 0);
 });
+
+/* ---- Anulación de pedido ---- */
+test("canCancelOrder: solo mientras las prendas no estén en manos del cliente", () => {
+  const base = { items: [7], status: "pending", end: A.isoOffset(5) };
+  // Aún no empieza (o empieza hoy) → se puede anular.
+  assert.ok(A.canCancelOrder({ ...base, start: A.isoOffset(2) }));
+  assert.ok(A.canCancelOrder({ ...base, start: A.isoOffset(0) }));
+  // Ya empezó → la prenda está con el cliente.
+  assert.ok(!A.canCancelOrder({ ...base, start: A.isoOffset(-1) }));
+  // Terminado (pagado y vencido) o ya anulado → tampoco.
+  assert.ok(!A.canCancelOrder({ items: [7], status: "settled", start: A.isoOffset(-5), end: A.isoOffset(-2) }));
+  assert.ok(!A.canCancelOrder({ ...base, start: A.isoOffset(2), status: "cancelled" }));
+});
+
+test("un pedido anulado libera sus prendas y se etiqueta 'Anulado'", () => {
+  const anulado = { items: [7], status: "cancelled", start: A.isoOffset(0), end: A.isoOffset(3) };
+  A.setState({ orders: [anulado], cart: [] });
+  assert.ok(!A.isRented(7));                       // vuelve al catálogo
+  assert.ok(A.isPastOrder(anulado));               // sale de los activos
+  assert.ok(!A.isArchivedOrder(anulado));          // pero no es un alquiler cumplido
+  // "Cancelado" aquí significa PAGADO: un pedido anulado no puede llamarse así.
+  assert.equal(A.paymentStatusLabel(anulado), "Anulado");
+});
