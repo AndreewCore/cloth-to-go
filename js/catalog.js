@@ -26,6 +26,9 @@ function sortProducts(list){
 function filteredProducts(){
   const q = searchQuery.trim().toLowerCase();
   const list = PRODUCTS.filter(p =>
+    // Prenda única: si está alquilada en un pedido vigente sale del catálogo
+    // (no hay otra unidad que ofrecer). Vuelve cuando el pedido se archiva.
+    !isRented(p.id) &&
     (activeCat === "Todo" || p.cat === activeCat) &&
     (q === "" || p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q)) &&
     (p.stars >= qualityFilter) &&
@@ -158,6 +161,7 @@ function renderGrid(){
 /* ---------------- Operación de carrito ---------------- */
 function addToCart(id){
   if(inCart(id)){ toast("Ya está en tu carrito"); return; }
+  if(isRented(id)){ toast("Ya la tienes alquilada"); renderGrid(); return; }
   cart.push({ id });
   saveState();
   updateBadge();
@@ -199,9 +203,13 @@ function renderDetail(){
     </div>
     <p class="detail-avail">${unitsAvailable(p) > 0
       ? `✅ Disponible · ${p.disponibles} unidad${p.disponibles===1?'':'es'} (prenda única de segunda mano)`
-      : "⛔ Ya está en tu carrito (prenda única)"}</p>`;
+      : isRented(p.id)
+        ? "⛔ Alquilada ahora mismo · vuelve al catálogo cuando termine el alquiler"
+        : "⛔ Ya está en tu carrito (prenda única)"}</p>`;
 
-  if(inCart(p.id)){
+  if(isRented(p.id)){
+    sheetFoot.innerHTML = `<button class="pay-btn" data-action="goProfile">Ver mis pedidos →</button>`;
+  } else if(inCart(p.id)){
     sheetFoot.innerHTML = `<button class="pay-btn" data-action="goCart">Ver carrito →</button>`;
   } else {
     sheetFoot.innerHTML = `<button class="pay-btn" data-action="addDetail">Agregar al carrito · desde $${rentalPrice(p, 1).toFixed(2)}</button>`;

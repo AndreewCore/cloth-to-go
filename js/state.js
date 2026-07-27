@@ -31,8 +31,11 @@ let cart = [];                       // [{id}] — una unidad por prenda
 let orders = [];
 // Perfil: contacto + puntos acumulados + historial de canjes + donaciones.
 let profile = { name:"", email:"", phone:"", points: 0, redeemed: [], donations: [] };
-let lastEarnedPoints = 0;            // puntos ganados en el último pedido (para la confirmación)
+let lastEarnedPoints = 0;            // puntos del último pedido (para la confirmación)
 let lastWaterSaved = 0;              // litros de agua ahorrados en el último pedido (para la confirmación/pop-up)
+let lastOrder = null;                // último pedido confirmado: la pantalla de
+                                     // confirmación se pinta desde aquí, no del
+                                     // carrito (que ya se vació en placeOrder).
 let editingProfile = false;          // info de contacto en modo edición (perfil)
 // Formulario de donación de prendas (por puntos)
 let donName = "";                    // descripción de la prenda a donar
@@ -64,8 +67,22 @@ let rentalEnd = isoOffset(3);        // hoy + 3 días
 function rentalDays(){ return daysBetween(rentalStart, rentalEnd); }
 function isLate(r){ return r.end < isoOffset(0); }   // fecha límite ya pasó (ISO comparable)
 function inCart(id){ return cart.some(c => c.id === id); }
-// Unidades realmente disponibles (stock menos lo que ya está en el carrito).
-function unitsAvailable(p){ return p.disponibles - (inCart(p.id) ? 1 : 0); }
+/**
+ * ¿La prenda está fuera, alquilada en un pedido vigente?
+ * El stock NO se guarda en el producto: se deriva de `orders`, así sobrevive a
+ * la recarga y la prenda vuelve sola al catálogo cuando el pedido se archiva
+ * (mismo criterio que "prendas en alquiler" del perfil).
+ * @param {number} id Id de la prenda.
+ */
+function isRented(id){
+  return orders.some(o => !isArchivedOrder(o) && o.items.includes(id));
+}
+// Unidades realmente disponibles: stock menos lo alquilado y lo ya puesto en el
+// carrito. Al ser ropa de segunda mano (`disponibles` = 1), alquilar una prenda
+// la deja en 0 y desaparece del catálogo.
+function unitsAvailable(p){
+  return Math.max(0, p.disponibles - (isRented(p.id) ? 1 : 0) - (inCart(p.id) ? 1 : 0));
+}
 function cartCount(){ return cart.length; }
 // Los montos se SUMAN en centavos (enteros) para evitar el arrastre de
 // error de los float (p. ej. 0.1 + 0.2). Se devuelven en USD para la vista.
@@ -189,7 +206,19 @@ function loadState(){
     if(!raw) return;
     const s = JSON.parse(raw);
     if(Array.isArray(s.cart)) cart = s.cart;
-    if(Array.isArray(s.orders)) orders = s.orders;
+    if(Array.isArray(s.orders)){
+      orders = s.orders;
+      // Migración: los pedidos guardados antes de "puntos al pagar" ya recibieron
+      // sus puntos con la lógica anterior (y ya están en profile.points). Los
+      // marcamos como acreditados para que ningún consumidor de pointsCredited
+      // (la nota de "puntos pendientes", o el futuro backend/panel de cobros) los
+      // trate como pendientes ni los vuelva a sumar. El centinela es `undefined`:
+      // un pending NUEVO trae pointsCredited:false y NO debe pisarse a true.
+      for(const o of orders){
+        if(o.pointsCredited === undefined) o.pointsCredited = true;
+        if(o.points === undefined) o.points = 0;
+      }
+    }
     if(s.profile && typeof s.profile === "object"){
       profile = Object.assign(defaultProfile(), s.profile);
       if(!Array.isArray(profile.redeemed)) profile.redeemed = [];
