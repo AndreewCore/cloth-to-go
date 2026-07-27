@@ -289,57 +289,55 @@ function placeOrder(){
   cart = [];
   saveState();
   view = "done"; renderSheet(); updateBadge();
-  // Felicitación por el ahorro de agua (moda circular / ropa reutilizada).
-  showWaterPop(lastWaterSaved, order.items.length);
 }
 
-/* ---- Confirmación ---- */
+/* ---- Confirmación ----
+   No se desglosa aquí la compra: el detalle del pedido (prendas, período,
+   entrega, depósito, estado del pago) vive en el perfil. La confirmación queda
+   como un acuse breve + el ahorro de agua (antes un pop-up aparte) + un acceso
+   directo a "Mis pedidos". */
 function renderDone(){
   sheetTitle.textContent = "¡Listo!";
   if(!lastOrder) return;              // sin pedido reciente no hay nada que confirmar
   const o = lastOrder;
-  const days = daysBetween(o.start, o.end);
-  const isShip = delivery==="ship";
-  const payNames = { cash:"💵 Efectivo", credit:"💳 Tarjeta de crédito", debit:"🏦 Tarjeta de débito" };
-  const last4 = card.number.replace(/\s+/g, "").slice(-4);
-  const payText = (payNames[payMethod] || "—") + (payMethod!=="cash" && last4 ? ` ····${last4}` : "");
   sheetBody.innerHTML = `
     <div class="confirm">
       <div class="big">🎉</div>
       <h2>Alquiler confirmado</h2>
       <p>Gracias por elegir CLOTH TO GO. Cuida tus prendas y devuélvelas a tiempo 💚</p>
-      <div class="box">
-        <b>📅 Período:</b> ${fmtDate(rentalStart)} → ${fmtDate(rentalEnd)} (${rentalDays()} ${rentalDays()===1?'día':'días'})<br>
-        <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        ${isShip
-          ? `<b>🚚 Envío a domicilio</b><br>${escapeHTML(address)}<br><span style="color:var(--muted)">Llega en 24–48 h.</span>`
-          : `<b>🏬 Retiro en local</b><br>${LOCAL.nombre}<br>${LOCAL.direccion}<br><span style="color:var(--muted)">${LOCAL.horario}</span>`}
-        <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        ${returnMethod==='home'
-          ? `<b>🚚 Devolución: retiro a domicilio</b><br>${escapeHTML(returnAddress)}<br><span style="color:var(--muted)">Coordinaremos el retiro al terminar el alquiler.</span>`
-          : `<b>🏬 Devolución en local</b><br>${LOCAL.nombre}<br>${LOCAL.direccion}<br><span style="color:var(--muted)">${LOCAL.horario}</span>`}
-        <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        <b>Pago:</b> ${payText}
-        <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        ${o.items.map(id=>{const p=productById(id);return `· ${escapeHTML(p.name)} — $${rentalPrice(p, days, o.items.length).toFixed(2)}`;}).join("<br>")}
-        <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        <span style="color:var(--muted)">Depósito reembolsable: $${orderDeposit(o).toFixed(2)} (se devuelve al regresar las prendas)</span>
-      </div>
       ${o.status === "settled"
         ? `<div class="earned-points">🌱 Ganaste <b>${o.points}</b> puntos con este alquiler</div>`
         : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos cuando se registre tu pago</div>`}
       ${lastWaterSaved > 0 ? `<div class="water-saved">💧 Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
+      <button class="pay-btn ver-pedidos" data-action="goToOrders">Ver mis pedidos →</button>
     </div>`;
-  sheetFoot.innerHTML = `<button class="pay-btn" data-action="finish">Volver al catálogo</button>`;
+  sheetFoot.innerHTML = `<button class="pay-btn ghost" data-action="finish">Volver al catálogo</button>`;
 }
 
-// Cierra el flujo y vuelve al catálogo. El carrito ya se vació en placeOrder;
-// aquí solo se restablecen entrega/pago y el pedido de la confirmación.
-function finishOrder(){
+// Restablece el estado de checkout tras cerrar un pedido (el carrito ya se vació
+// en placeOrder). Compartido por "Volver al catálogo" y "Ver mis pedidos".
+function resetCheckoutState(){
   delivery = null; address = ""; returnMethod = null; returnAddress = "";
   payMethod = null; card = { number:"", name:"", expiry:"", cvv:"" };
   lastEarnedPoints = 0; lastWaterSaved = 0; lastOrder = null;
+}
+
+// "Volver al catálogo": cierra el flujo y vuelve a la grilla.
+function finishOrder(){
+  resetCheckoutState();
   view = "cart";
   saveState();
   updateBadge(); renderGrid(); closeSheet();
+}
+
+// "Ver mis pedidos": cierra el flujo y abre el perfil desplazado a la sección de
+// pedidos (activos/vigentes). Los finalizados quedan en su desplegable.
+function goToOrders(){
+  resetCheckoutState();
+  editingOrder = null; editingProfile = false;
+  view = "profile";
+  saveState();
+  updateBadge(); renderGrid(); renderSheet();
+  const el = document.getElementById("misPedidos");
+  if(el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }

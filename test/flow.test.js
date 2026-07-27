@@ -86,6 +86,35 @@ test("un pedido en efectivo no expone acción de auto-confirmación al cliente",
   assert.equal(app.profile.points, 0);
 });
 
+/* ---- Confirmación rediseñada: sin desglose + acceso a "Mis pedidos" ---- */
+test("renderDone no desglosa la compra e integra el ahorro de agua", () => {
+  readyCheckout("credit");
+  win.placeOrder();
+  const html = doc.getElementById("sheetBody").innerHTML;
+  assert.match(html, /data-action="goToOrders"/);       // botón "Ver mis pedidos"
+  assert.doesNotMatch(html, /Depósito reembolsable/);    // no se desglosa el pedido
+  assert.doesNotMatch(html, /📅 Período/);
+  assert.match(html, /litros<\/b> de agua/);             // agua integrada (ya no es pop-up)
+});
+
+test("no queda pop-up de agua en el DOM (se integró en la confirmación)", () => {
+  assert.equal(doc.getElementById("waterPop"), null);
+});
+
+test("goToOrders abre el perfil en la sección de pedidos y limpia el checkout", () => {
+  readyCheckout("cash");
+  win.placeOrder();
+  assert.equal(app.view, "done");
+
+  win.goToOrders();
+  assert.equal(app.view, "profile");
+  assert.equal(app.lastOrder, null);   // estado de checkout restablecido
+  assert.equal(app.payMethod, null);
+  const body = doc.getElementById("sheetBody");
+  assert.ok(body.querySelector("#misPedidos"));        // destino del scroll
+  assert.match(body.innerHTML, /Pedido #/);            // el pedido aparece como activo
+});
+
 /* ---- Estados de botón ---- */
 test("botón de pago: deshabilitado sin datos de tarjeta, habilitado al completarlos", () => {
   app.cart = [{ id: 7 }];

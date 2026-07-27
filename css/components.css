@@ -489,6 +489,13 @@ main::-webkit-scrollbar { display: none; }
 }
 .pay-btn:disabled { background: #c9bfb2; box-shadow: none; cursor: not-allowed; }
 .pay-btn:active:not(:disabled) { transform: scale(.99); }
+/* Acceso directo a "Mis pedidos" desde la confirmación (acción principal). */
+.pay-btn.ver-pedidos { margin-top: 18px; }
+/* "Volver al catálogo": acción secundaria, sin relleno de color. */
+.pay-btn.ghost {
+  background: none; color: var(--accent);
+  box-shadow: none; border: 1px solid var(--line);
+}
 
 /* ---- Confirmación ---- */
 .confirm { text-align: center; padding: 30px 20px; }
@@ -561,24 +568,6 @@ main::-webkit-scrollbar { display: none; }
 .modal-btn.cancel { background: var(--accent-soft); color: var(--accent); }
 .modal-btn.ok { background: var(--accent); color: #fff; }
 .modal-btn:active { transform: scale(.98); }
-
-/* ---- Pop-up de ahorro de agua ---- */
-.water-pop { z-index: 95; }                 /* por encima del sheet y del overlay */
-.water-card { text-align: center; max-width: 320px; }
-.water-card .water-drop {
-  font-size: 60px; line-height: 1;
-  animation: waterPulse 1.6s ease-in-out infinite;
-}
-@keyframes waterPulse {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50%      { transform: translateY(-6px) scale(1.08); }
-}
-.water-title { margin: 10px 0 4px; font-size: 20px; font-weight: 800; }
-.water-amount { margin: 8px 0; line-height: 1.15; }
-.wa-line1 { display: block; font-size: 15px; font-weight: 700; color: var(--ink); }
-.wa-line2 { display: block; font-size: 28px; font-weight: 800; color: #2b8cd1; }  /* azul agua */
-.water-msg { margin: 8px 0 18px; font-size: 13px; line-height: 1.55; color: var(--muted); }
-.water-card .modal-btn.ok { width: 100%; }
 
 /* ---- Bienvenida ---- */
 .login {
