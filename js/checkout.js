@@ -5,6 +5,28 @@
    Depende de data.js, state.js y dom.js.
    ============================================================ */
 
+/**
+ * Fila de total del resumen, con el depósito reembolsable a la IZQUIERDA del
+ * monto a pagar.
+ *
+ * El depósito va en cada pantalla del flujo y no solo en la nota al pie: el
+ * total se ve más caro de lo que realmente cuesta el alquiler, y saber de un
+ * vistazo cuánto vuelve evita el abandono en el paso de pago.
+ * @param {string} label Etiqueta de la fila ("Total", "Total a pagar"…).
+ * @param {number} total Monto a cobrar (ya incluye el depósito).
+ */
+function totalRowHTML(label, total){
+  const dep = depositTotal();
+  return `
+    <div class="summary-row total">
+      <span>${label}</span>
+      <span class="total-vals">
+        ${dep > 0 ? `<span class="refund-inline" title="Depósito que se te devuelve al terminar el alquiler">↩ $${dep.toFixed(2)} se te devuelve</span>` : ""}
+        <span class="total-amount">$${total.toFixed(2)}</span>
+      </span>
+    </div>`;
+}
+
 /* ---- Bloque reutilizable: selector de fechas ---- */
 function dateBoxHTML(){
   return `
@@ -59,9 +81,9 @@ function renderCart(){
       ${discountRow}
       <div class="summary-row"><span>Subtotal alquiler</span><span>$${subtotal().toFixed(2)}</span></div>
       <div class="summary-row deposit"><span>Depósito <span class="refund-tag">reembolsable</span></span><span>$${depositTotal().toFixed(2)}</span></div>
-      <div class="summary-row total"><span>Total</span><span>$${(subtotal()+depositTotal()).toFixed(2)}</span></div>
+      ${totalRowHTML("Total", subtotal()+depositTotal())}
     </div>
-    <p class="summary-note">💡 El total incluye un depósito reembolsable de $${depositTotal().toFixed(2)} que se te devuelve al regresar las prendas.${savings > 0 ? ` <b>¡Ahorras $${savings.toFixed(2)} por alquilar varias prendas a la vez!</b>` : ` Mientras más días alquiles, más barato sale cada día; y llevando varias prendas ahorras hasta un ${Math.round(VOLUME_DISCOUNT_MAX*100)}%.`}</p>`;
+    <p class="summary-note">💡 El depósito se devuelve al regresar las prendas en buen estado.${savings > 0 ? ` <b>¡Ahorras $${savings.toFixed(2)} por alquilar varias prendas a la vez!</b>` : ` Mientras más días alquiles, más barato sale cada día; y llevando varias prendas ahorras hasta un ${Math.round(VOLUME_DISCOUNT_MAX*100)}%.`}</p>`;
 
   sheetFoot.innerHTML = `<button class="pay-btn" data-action="toCheckout">Continuar a entrega →</button>`;
 }
@@ -143,9 +165,9 @@ function renderCheckout(){
       <div class="summary-row deposit"><span>Depósito <span class="refund-tag">reembolsable</span></span><span>$${depositTotal().toFixed(2)}</span></div>
       <div class="summary-row"><span>Envío</span><span>${delivery==='ship'?'$'+ship.toFixed(2):delivery==='pickup'?'$0.00':'—'}</span></div>
       <div class="summary-row"><span>Devolución</span><span>${returnMethod==='home'?'$'+ship.toFixed(2):returnMethod==='store'?'$0.00':'—'}</span></div>
-      <div class="summary-row total"><span>Total a pagar</span><span>$${total.toFixed(2)}</span></div>
+      ${totalRowHTML("Total a pagar", total)}
     </div>
-    <p class="summary-note">💡 Incluye depósito reembolsable de $${depositTotal().toFixed(2)} (se devuelve al regresar las prendas).</p>
+    <p class="summary-note">💡 El depósito se devuelve al regresar las prendas en buen estado.</p>
   `;
 
   const valid = checkoutValid();
@@ -225,9 +247,9 @@ function renderPayment(){
       <div class="pickup-detail">💵 Pagarás <b>$${total.toFixed(2)}</b> en efectivo al recibir o retirar tu pedido.</div>` : ``}
 
     <div class="summary">
-      <div class="summary-row total"><span>Total a pagar</span><span>$${total.toFixed(2)}</span></div>
+      ${totalRowHTML("Total a pagar", total)}
     </div>
-    <p class="summary-note">💡 Incluye depósito reembolsable de $${depositTotal().toFixed(2)} (se devuelve al regresar las prendas).</p>
+    <p class="summary-note">💡 El depósito se devuelve al regresar las prendas en buen estado.</p>
   `;
 
   const valid = paymentValid();
@@ -272,14 +294,10 @@ function placeOrder(){
   order.points = orderPoints();
   order.pointsCredited = false;
   orders.push(order);
-  // Los puntos SOLO se acreditan cuando el pedido está pagado (settled): la
-  // tarjeta ya se cobró. El efectivo nace pending con sus puntos RESERVADOS
-  // (pointsCredited=false); su cobro y acreditación los hará el negocio/backend
-  // (el cliente no puede confirmar su propio pago).
-  if(order.status === "settled"){
-    profile.points += order.points;
-    order.pointsCredited = true;
-  }
+  // Los puntos se acreditan al ENTREGAR, no al cobrar: si el alquiler empieza
+  // hoy, entran ya; si empieza más adelante, quedan reservados hasta que
+  // creditDeliveredPoints() los liquide al abrir la app ese día.
+  creditDeliveredPoints();
   lastEarnedPoints = order.points;
   // Litros de agua ahorrados con este alquiler (el carrito aún está intacto).
   lastWaterSaved = cartWaterSaved();
@@ -307,9 +325,9 @@ function renderDone(){
       <div class="big">🎉</div>
       <h2>Alquiler confirmado</h2>
       <p>Gracias por elegir CLOTH TO GO. Cuida tus prendas y devuélvelas a tiempo 💚</p>
-      ${o.status === "settled"
+      ${o.pointsCredited
         ? `<div class="earned-points">🌱 Ganaste <b>${o.points}</b> puntos con este alquiler</div>`
-        : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos cuando se registre tu pago</div>`}
+        : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos cuando recibas tus prendas</div>`}
       ${lastWaterSaved > 0 ? `<div class="water-saved">💧 Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
       <button class="pay-btn ver-pedidos" data-action="goToOrders">Ver mis pedidos →</button>
     </div>`;
