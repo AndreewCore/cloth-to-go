@@ -333,9 +333,9 @@ function renderDone(){
 }
 
 // Cierra el flujo y vuelve al catálogo. El carrito ya se vació en placeOrder;
-// aquí se restablecen entrega/pago y el pedido de la confirmación.
+// aquí solo se restablecen entrega/pago y el pedido de la confirmación.
 function finishOrder(){
-  cart = []; delivery = null; address = ""; returnMethod = null; returnAddress = "";
+  delivery = null; address = ""; returnMethod = null; returnAddress = "";
   payMethod = null; card = { number:"", name:"", expiry:"", cvv:"" };
   lastEarnedPoints = 0; lastWaterSaved = 0; lastOrder = null;
   view = "cart";
