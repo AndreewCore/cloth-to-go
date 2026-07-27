@@ -52,6 +52,10 @@ globalThis.__APP__ = {
   // Simula pulsar "Aceptar" en el confirmDialog() (dom.js) y ejecuta su callback.
   confirmModal(){ const cb = onConfirmCb; closeModal(); if(cb) cb(); },
   isModalOpen(){ return modalOverlay.classList.contains("show"); },
+  // Persistencia, para probar la migración de loadState: fija la clave activa
+  // (normalmente la pone activateUserSession) y carga lo sembrado en localStorage.
+  STORAGE_PREFIX,
+  loadFromKey(key){ activeStorageKey = key; loadState(); },
   // Puros, para aserciones sin recalcular a mano.
   orderPoints, orderTotal, orderDeposit, isoOffset, productById,
 };
