@@ -942,14 +942,13 @@ main::-webkit-scrollbar { display: none; }
   font-size: 11px; font-weight: 700; cursor: pointer; padding: 4px 0 0; text-decoration: underline;
   display: inline-block;
 }
-/* Confirmar pago de un pedido pendiente (efectivo): acción destacada. */
-.pay-confirm {
-  display: block; width: 100%; margin: 8px 0 2px;
-  background: linear-gradient(135deg, var(--cta), var(--cta-strong)); color: #fff;
-  border: none; border-radius: 10px; padding: 10px;
-  font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+/* Nota pasiva en un pedido en efectivo pendiente: informa los puntos
+   reservados. NO es una acción: el cliente no confirma su propio pago. */
+.points-pending {
+  margin: 8px 0 2px; padding: 8px 10px;
+  background: var(--bg); border-radius: 10px;
+  font-size: 12px; font-weight: 700; color: var(--muted);
 }
-.pay-confirm:active { transform: scale(.99); }
 
 /* ---- Editor in-line del modo de devolución ---- */
 .ret-editor {

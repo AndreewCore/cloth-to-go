@@ -54,7 +54,7 @@ const PROJECT_GLOBALS = [
   "checkoutValid", "renderPayment", "paymentValid", "placeOrder", "renderDone", "finishOrder",
   // profile.js
   "renderProfile", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
-  "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn", "confirmPayment",
+  "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn",
   "renderRewards", "redeem",
   "openDonate", "donateValid", "renderDonate", "submitDonation",
   // main.js

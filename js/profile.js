@@ -64,8 +64,8 @@ function renderProfile(){
 
       <div class="ci-ret">${retLabel}${o.ret === "home" && o.retAddr ? ` · <span class="ret-addr">📍 ${escapeHTML(o.retAddr)}</span>` : ""}</div>
       ${!archived ? `
-        ${o.status === "pending" ? `
-          <button class="pay-confirm" data-action="confirmPayment" data-idx="${i}">💳 Confirmar pago ($${o.total.toFixed(2)})${o.pointsCredited ? "" : ` · +${o.points} pts`}</button>` : ""}
+        ${o.status === "pending" && !o.pointsCredited ? `
+          <div class="points-pending">🌱 Ganarás ${o.points} pts cuando se registre tu pago</div>` : ""}
         <button class="ret-edit" data-action="editReturn" data-idx="${i}">✏️ Cambiar modo de devolución</button>
         ${editingOrder === i ? returnEditorHTML(i) : ""}
         ${late ? `
@@ -261,24 +261,11 @@ function toggleLateInfo(i){
   document.getElementById("lateInfo"+i).classList.toggle("show");
 }
 
-// Confirma el pago de un pedido pendiente (efectivo): lo pasa a "settled" y
-// acredita sus puntos si aún no se acreditaron. Los puntos de un alquiler se
-// ganan al pagar, no al reservar; por eso el efectivo no puntúa hasta aquí.
-function confirmPayment(i){
-  const o = orders[i];
-  if(!o || o.status !== "pending") return;
-  const pointsLine = o.pointsCredited ? "" : `Se te acreditarán ${o.points} puntos.\n\n`;
-  confirmDialog(`Confirmar el pago del pedido #${o.id} por $${o.total.toFixed(2)}.\n\n${pointsLine}¿Confirmar?`, ()=>{
-    o.status = "settled";
-    if(!o.pointsCredited){
-      profile.points += o.points;
-      o.pointsCredited = true;
-    }
-    saveState();
-    renderProfile();
-    toast("Pago confirmado ✓");
-  });
-}
+// Nota: confirmar el cobro de un pedido en efectivo es una acción del NEGOCIO,
+// no del cliente. Este prototipo es de cara al cliente y no tiene panel de
+// administración, así que el efectivo queda "pendiente" y su cobro/acreditación
+// de puntos los hará el backend/panel admin (fuera de alcance). Un pending del
+// cliente NO se puede auto-confirmar aquí.
 
 /* ---- Premios / canje de puntos ---- */
 function renderRewards(){

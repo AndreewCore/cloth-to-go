@@ -1,7 +1,7 @@
 /**
  * Carga la app COMPLETA en un DOM real (jsdom) para probar el flujo de UI:
  * render de vistas, estados de botones, escape en pantalla y los side effects
- * de placeOrder()/confirmPayment(). Complementa a load-app.js (que solo prueba
+ * de placeOrder() y la migración. Complementa a load-app.js (que solo prueba
  * la lógica pura de data.js/state.js sin DOM).
  *
  * Se cargan los classic scripts en el ORDEN de index.html, salvo main.js: los
@@ -49,9 +49,6 @@ globalThis.__APP__ = {
     if('rentalStart'   in p) rentalStart   = p.rentalStart;
     if('rentalEnd'     in p) rentalEnd     = p.rentalEnd;
   },
-  // Simula pulsar "Aceptar" en el confirmDialog() (dom.js) y ejecuta su callback.
-  confirmModal(){ const cb = onConfirmCb; closeModal(); if(cb) cb(); },
-  isModalOpen(){ return modalOverlay.classList.contains("show"); },
   // Persistencia, para probar la migración de loadState: fija la clave activa
   // (normalmente la pone activateUserSession) y carga lo sembrado en localStorage.
   STORAGE_PREFIX,
