@@ -104,15 +104,17 @@ function confirmDialog(message, onConfirm, icon, opts = {}){
   const titleEl = document.getElementById("modalTitle");
   const detailEl = document.getElementById("modalDetail");
   iconEl.textContent = icon || "";
-  iconEl.style.display = icon ? "block" : "none";
+  // Se oculta por clase, no por style.display: un `display:block` inline pisaría
+  // el `display:flex` del CSS y descentraría el emoji dentro de su disco.
+  iconEl.classList.toggle("is-hidden", !icon);
   // El icono de una acción destructiva va en rojo, no en el verde de marca.
   iconEl.classList.toggle("danger", !!opts.danger);
   titleEl.textContent = opts.title || "";
-  titleEl.style.display = opts.title ? "block" : "none";
+  titleEl.classList.toggle("is-hidden", !opts.title);
   modalText.textContent = message;     // textContent → seguro (no HTML)
-  modalText.style.display = message ? "block" : "none";
+  modalText.classList.toggle("is-hidden", !message);
   detailEl.innerHTML = opts.detailHTML || "";
-  detailEl.style.display = opts.detailHTML ? "block" : "none";
+  detailEl.classList.toggle("is-hidden", !opts.detailHTML);
   modalOk.textContent = opts.okLabel || "Confirmar";
   modalOk.classList.toggle("danger", !!opts.danger);
   onConfirmCb = onConfirm;

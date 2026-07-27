@@ -279,14 +279,22 @@ function cancelOrder(i){
   }
 
   const days = daysBetween(o.start, o.end);
-  const items = o.items.map(id => escapeHTML(productById(id).name)).join(" · ");
-  // Solo hay reembolso si el pedido ya se cobró; un efectivo pendiente no ha
-  // movido dinero, así que no se menciona nada.
-  const refundHTML = o.status === "settled" ? `
-    <div class="md-refund">
-      <span>${o.pay === "cash" ? "💵 Se te devolverá en el local" : "💳 Reembolso a tu tarjeta"}</span>
-      <b>$${o.total.toFixed(2)}</b>
-    </div>` : "";
+  const prendas = o.items.map(id => productById(id));
+  const items = prendas.map(p => escapeHTML(p.name)).join(" · ");
+  // Miniaturas de lo que se anula: reconocer la prenda de un vistazo evita
+  // anular el pedido equivocado cuando hay varios abiertos.
+  const thumbsHTML = `<div class="md-thumbs">${prendas.map(p => `
+    <div class="ci-thumb">${imgPlaceholder(p)}</div>`).join("")}</div>`;
+  // El reembolso se muestra SIEMPRE, también cuando es $0: que la cifra falte
+  // deja al cliente preguntándose si perdió el dinero.
+  const cobrado = o.status === "settled";
+  const refundHTML = `
+    <div class="md-refund${cobrado ? "" : " zero"}">
+      <span>${cobrado
+        ? (o.pay === "cash" ? "💵 Se te devolverá en el local" : "💳 Reembolso a tu tarjeta")
+        : "💵 No se te ha cobrado nada"}</span>
+      <b>$${(cobrado ? o.total : 0).toFixed(2)}</b>
+    </div>`;
 
   confirmDialog(
     "",
@@ -313,6 +321,7 @@ function cancelOrder(i){
       okLabel: "Sí, anular",
       danger: true,
       detailHTML: `
+        ${thumbsHTML}
         <div class="md-row"><span class="md-k">Pedido</span><span class="md-v">#${o.id}</span></div>
         <div class="md-row"><span class="md-k">${o.items.length === 1 ? "Prenda" : "Prendas"}</span><span class="md-v">${items}</span></div>
         <div class="md-row"><span class="md-k">Período</span><span class="md-v">${fmtDate(o.start)} → ${fmtDate(o.end)} · ${days} ${days === 1 ? "día" : "días"}</span></div>
