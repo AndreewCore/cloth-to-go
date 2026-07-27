@@ -44,14 +44,14 @@ const PROJECT_GLOBALS = [
   "sheetFoot", "sheetTitle", "searchInput", "loginEl", "greeting", "backBtn",
   "SHEET_BACK", "openSheet", "closeSheet", "renderSheet", "updateBadge", "toastTimer", "toast",
   "modalOverlay", "modalText", "modalOk", "modalCancel", "onConfirmCb", "confirmDialog", "closeModal",
-  "waterPop", "waterAmount", "waterMsg", "showWaterPop", "closeWaterPop",
   // catalog.js
   "renderFilters", "sortProducts", "filteredProducts", "anyFilterActive", "clearFilters",
   "activeFilterCount", "updateFilterBar", "renderFilterSheet",
   "renderGrid", "addToCart", "openDetail", "renderDetail",
   // checkout.js
   "dateBoxHTML", "renderCart", "removeItem", "renderCheckout",
-  "checkoutValid", "renderPayment", "paymentValid", "placeOrder", "renderDone", "finishOrder",
+  "checkoutValid", "renderPayment", "paymentValid", "placeOrder", "renderDone",
+  "resetCheckoutState", "finishOrder", "goToOrders",
   // profile.js
   "renderProfile", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
   "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn",

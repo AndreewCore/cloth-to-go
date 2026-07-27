@@ -148,7 +148,7 @@ function renderProfile(){
     </div>
     `}
 
-    <div class="section-label">Mis pedidos</div>
+    <div class="section-label" id="misPedidos">Mis pedidos</div>
     ${activeOrders.length
       ? activeOrders.map(pair => orderCardHTML(pair, false)).join("")
       : `<div class="empty" style="padding:30px 20px"><div class="em">👕</div><p>No tienes pedidos activos.<br>Alquila algo del catálogo.</p></div>`}
