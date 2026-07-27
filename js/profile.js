@@ -25,16 +25,18 @@ function renderProfile(){
   const logoutLabel = isUser ? "Cerrar sesión" : "Salir de invitado";
 
   const ordersWithIdx   = orders.map((o, i) => ({ o, i }));
-  const activeOrders    = ordersWithIdx.filter(({ o }) => !isArchivedOrder(o));
-  const archivedOrders  = ordersWithIdx.filter(({ o }) =>  isArchivedOrder(o));
+  const activeOrders    = ordersWithIdx.filter(({ o }) => !isPastOrder(o));
+  const archivedOrders  = ordersWithIdx.filter(({ o }) =>  isPastOrder(o));
 
   const orderCardHTML = ({ o, i }, archived) => {
     const days = daysBetween(o.start, o.end);
-    const late = !archived && isLate(o);
+    const voided = isCancelledOrder(o);
+    // Un pedido anulado nunca está "vencido": no hay prenda que devolver.
+    const late = !archived && !voided && isLate(o);
     const retLabel = o.ret === "home" ? "🚚 Devolución a domicilio" : "🏬 Devolución en local";
-    const stClass  = o.status === "settled" ? "settled" : "pending";
+    const stClass  = voided ? "cancelled" : (o.status === "settled" ? "settled" : "pending");
     return `
-    <div class="order${late ? " late" : ""}${archived ? " archived" : ""}">
+    <div class="order${late ? " late" : ""}${archived ? " archived" : ""}${voided ? " cancelled" : ""}">
       <div class="order-head">
         <div class="order-head-main">
           <div class="order-id">Pedido #${o.id}</div>
@@ -43,6 +45,7 @@ function renderProfile(){
         <div class="order-badges">
           <span class="pay-status ${stClass}">${paymentStatusLabel(o)}</span>
           ${!archived ? `<span class="rent-tag${late ? " late" : ""}">${late ? "⚠ Vencida" : "En alquiler"}</span>` : ""}
+          ${voided ? `<span class="rent-tag void">Sin efecto</span>` : ""}
         </div>
       </div>
 
@@ -58,16 +61,23 @@ function renderProfile(){
       <div class="order-period">📅 ${fmtDate(o.start)} → ${fmtDate(o.end)} · ${days} ${days === 1 ? "día" : "días"}</div>
 
       <div class="order-charge">
-        <span>${archived ? "Total cobrado" : "Total del cobro"}</span>
-        <b>$${o.total.toFixed(2)}</b>
+        <span>${voided ? "Cobro anulado" : (archived ? "Total cobrado" : "Total del cobro")}</span>
+        <span class="total-vals">
+          ${!voided && orderDeposit(o) > 0 ? `<span class="refund-inline">↩ $${orderDeposit(o).toFixed(2)} ${archived ? "devuelto" : "se te devuelve"}</span>` : ""}
+          <b>$${o.total.toFixed(2)}</b>
+        </span>
       </div>
 
-      <div class="ci-ret">${retLabel}${o.ret === "home" && o.retAddr ? ` · <span class="ret-addr">📍 ${escapeHTML(o.retAddr)}</span>` : ""}</div>
+      ${voided
+        ? `<div class="ci-ret">✖ Anulado el ${fmtDate(o.cancelledAt)} · las prendas volvieron al catálogo</div>`
+        : `<div class="ci-ret">${retLabel}${o.ret === "home" && o.retAddr ? ` · <span class="ret-addr">📍 ${escapeHTML(o.retAddr)}</span>` : ""}</div>`}
       ${!archived ? `
-        ${o.status === "pending" && !o.pointsCredited ? `
-          <div class="points-pending">🌱 Ganarás ${o.points} pts cuando se registre tu pago</div>` : ""}
+        ${!o.pointsCredited ? `
+          <div class="points-pending">🌱 Ganarás ${o.points} pts cuando recibas tus prendas</div>` : ""}
         <button class="ret-edit" data-action="editReturn" data-idx="${i}">✏️ Cambiar modo de devolución</button>
         ${editingOrder === i ? returnEditorHTML(i) : ""}
+        ${canCancelOrder(o) ? `
+          <button class="order-cancel" data-action="cancelOrder" data-idx="${i}">✖ Anular pedido</button>` : ""}
         ${late ? `
           <button class="late-info-btn" data-action="toggleLateInfo" data-idx="${i}">ⓘ Penalización por atraso</button>
           <div class="late-info" id="lateInfo${i}">
@@ -254,6 +264,73 @@ function saveReturn(i){
   } else {
     apply();
   }
+}
+
+/**
+ * Anula un pedido que aún no llegó a manos del cliente y devuelve sus prendas
+ * al catálogo (el stock se deriva de `orders`, así que basta con marcarlo).
+ * @param {number} i Índice del pedido en `orders`.
+ */
+function cancelOrder(i){
+  const o = orders[i];
+  // Revalidamos aquí y no solo al pintar: entre el render y el clic pudo cruzarse
+  // la medianoche (la fecha de inicio se compara contra el día local).
+  if(!o || !canCancelOrder(o)){
+    toast("Este pedido ya no se puede anular");
+    renderProfile();
+    return;
+  }
+
+  const days = daysBetween(o.start, o.end);
+  const prendas = o.items.map(id => productById(id));
+  const items = prendas.map(p => escapeHTML(p.name)).join(" · ");
+  // Miniaturas de lo que se anula: reconocer la prenda de un vistazo evita
+  // anular el pedido equivocado cuando hay varios abiertos.
+  const thumbsHTML = `<div class="md-thumbs">${prendas.map(p => `
+    <div class="ci-thumb">${imgPlaceholder(p)}</div>`).join("")}</div>`;
+  // El reembolso se muestra SIEMPRE, también cuando es $0: que la cifra falte
+  // deja al cliente preguntándose si perdió el dinero.
+  const cobrado = o.status === "settled";
+  const refundHTML = `
+    <div class="md-refund${cobrado ? "" : " zero"}">
+      <span>${cobrado
+        ? (o.pay === "cash" ? "💵 Se te devolverá en el local" : "💳 Reembolso a tu tarjeta")
+        : "💵 No se te ha cobrado nada"}</span>
+      <b>$${(cobrado ? o.total : 0).toFixed(2)}</b>
+    </div>`;
+
+  confirmDialog(
+    "",
+    ()=>{
+      o.status = "cancelled";
+      o.cancelledAt = isoOffset(0);
+      // Los puntos solo se revierten si llegaron a acreditarse; los de un pedido
+      // pendiente nunca entraron al saldo, así que no hay nada que restar.
+      if(o.pointsCredited){
+        profile.points = Math.max(0, profile.points - o.points);
+        o.pointsCredited = false;
+      }
+      // El editor de devolución guarda un índice: dejarlo abierto sobre un
+      // pedido que ya no se muestra como activo lo dejaría huérfano.
+      editingOrder = null; editRet = null; editRetAddr = "";
+      saveState();
+      renderProfile();
+      renderGrid();             // las prendas reaparecen en el catálogo al instante
+      toast("Pedido anulado · prendas devueltas al catálogo");
+    },
+    "🗑",
+    {
+      title: "¿Anular este pedido?",
+      okLabel: "Sí, anular",
+      danger: true,
+      detailHTML: `
+        ${thumbsHTML}
+        <div class="md-row"><span class="md-k">Pedido</span><span class="md-v">#${o.id}</span></div>
+        <div class="md-row"><span class="md-k">${o.items.length === 1 ? "Prenda" : "Prendas"}</span><span class="md-v">${items}</span></div>
+        <div class="md-row"><span class="md-k">Período</span><span class="md-v">${fmtDate(o.start)} → ${fmtDate(o.end)} · ${days} ${days === 1 ? "día" : "días"}</span></div>
+        ${refundHTML}`
+    }
+  );
 }
 
 // Mostrar/ocultar la nota de penalización de una prenda vencida.

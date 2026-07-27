@@ -465,6 +465,15 @@ main::-webkit-scrollbar { display: none; }
 .summary-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; color: var(--muted); }
 .summary-row.total { color: var(--ink); font-weight: 800; font-size: 17px; border-top: 1px dashed var(--line); margin-top: 6px; padding-top: 10px; }
 .summary-note { font-size: 11px; color: var(--muted); line-height: 1.4; margin: 8px 2px 0; }
+/* Fila de total: el depósito reembolsable va pegado a la izquierda del monto,
+   para que el número grande nunca se lea sin su contrapeso. */
+.total-vals { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.refund-inline {
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  background: var(--accent-soft); border-radius: 20px; padding: 3px 8px;
+  white-space: nowrap;
+}
+.total-amount { white-space: nowrap; }
 
 /* ---- Foco visible (accesibilidad por teclado) ---- */
 :focus-visible {
@@ -541,32 +550,75 @@ main::-webkit-scrollbar { display: none; }
 .modal-overlay.show { opacity: 1; pointer-events: auto; }
 .modal {
   background: var(--card);
-  border-radius: 18px;
-  padding: 20px;
+  border-radius: 20px;
+  padding: 22px 20px 18px;
   width: 100%;
-  max-width: 300px;
-  box-shadow: var(--shadow);
-  transform: scale(.96);
-  transition: transform .2s;
+  max-width: 310px;
+  box-shadow: 0 18px 40px rgba(0,0,0,.28);
+  /* Sube unos píxeles al aparecer: da sensación de "emerge", no de "aparece". */
+  transform: scale(.94) translateY(8px);
+  transition: transform .22s cubic-bezier(.2,.9,.3,1.2);
 }
-.modal-overlay.show .modal { transform: scale(1); }
+.modal-overlay.show .modal { transform: scale(1) translateY(0); }
+/* Icono dentro de un disco de color: ancla visual del diálogo. */
 .modal-icon {
-  font-size: 46px;
-  line-height: 1;
-  text-align: center;
-  margin-bottom: 12px;
+  width: 54px; height: 54px; margin: 0 auto 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px; line-height: 1;
+  background: var(--accent-soft); border-radius: 50%;
+}
+.modal-icon.danger { background: #fbeee8; }
+.modal-title {
+  margin: 0 0 6px; text-align: center;
+  font-size: 17px; font-weight: 800; color: var(--ink);
 }
 .modal-text {
   font-size: 14px; line-height: 1.5; color: var(--ink);
   margin: 0 0 18px; white-space: pre-line;        /* respeta los saltos \n */
 }
+.modal-title + .modal-text { text-align: center; color: var(--muted); font-size: 13px; }
+
+/* ---- Ficha de datos del modal ---- */
+.modal-detail {
+  background: var(--bg); border-radius: 14px;
+  padding: 10px 12px; margin: 14px 0 18px;
+}
+.md-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  flex-wrap: wrap; padding: 5px 0; font-size: 12px;
+}
+.md-row + .md-row { border-top: 1px solid var(--line); }
+.md-k { color: var(--muted); flex: 0 0 auto; }
+/* Con varias prendas el valor puede ser largo: que baje a su propia línea en
+   vez de partirse en una columna estrecha contra la etiqueta. */
+.md-v { color: var(--ink); font-weight: 700; text-align: right; flex: 1 1 auto; min-width: 0; }
+.md-refund {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  margin-top: 8px; padding: 8px 10px;
+  background: var(--accent-soft); border-radius: 10px;
+  font-size: 12px; font-weight: 700; color: var(--accent);
+}
+.md-refund b { font-size: 14px; }
+/* Reembolso $0: nada que devolver todavía. Gris neutro, no verde de "recibirás". */
+.md-refund.zero { background: var(--card); color: var(--muted); border: 1px solid var(--line); }
+
+/* Miniaturas de las prendas del pedido dentro del modal. */
+.md-thumbs { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; padding: 4px 0 10px; }
+
+/* Oculta partes opcionales sin usar style.display inline, que rompería el
+   layout (flex/grid) que cada una define en su propia regla. */
+.is-hidden { display: none !important; }
+
 .modal-actions { display: flex; gap: 10px; }
 .modal-btn {
   flex: 1; border: none; border-radius: 12px;
   padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+  transition: filter .15s;
 }
 .modal-btn.cancel { background: var(--accent-soft); color: var(--accent); }
 .modal-btn.ok { background: var(--accent); color: #fff; }
+.modal-btn.ok.danger { background: var(--danger); }
+.modal-btn:hover { filter: brightness(1.06); }
 .modal-btn:active { transform: scale(.98); }
 
 /* ---- Bienvenida ---- */
@@ -1010,6 +1062,9 @@ main::-webkit-scrollbar { display: none; }
 }
 .pay-status.settled { background: var(--accent-soft); color: var(--accent); }
 .pay-status.pending { background: #f6e6cf; color: #8a4b13; }   /* ámbar AA sobre fondo claro */
+/* Anulado: gris neutro. NO usa el rojo de --danger porque anular es una acción
+   normal del cliente, no un error ni un atraso. */
+.pay-status.cancelled { background: #e6e6e6; color: #555; }
 
 .order-item {
   display: flex; gap: 10px; align-items: center;
@@ -1093,6 +1148,19 @@ main::-webkit-scrollbar { display: none; }
   opacity: .8;
   border-style: dashed;
 }
+
+/* ---- Anular pedido ---- */
+.order-cancel {
+  background: none; border: none; color: var(--danger);
+  font-size: 11px; font-weight: 700; cursor: pointer;
+  padding: 6px 0 0; text-decoration: underline;
+  display: block;
+}
+.rent-tag.void { background: #e6e6e6; color: #555; }
+/* El pedido anulado sigue listado (historial), pero atenuado y tachado en su
+   total para que no se confunda con uno vigente. */
+.order.cancelled { opacity: .75; }
+.order.cancelled .order-charge b { text-decoration: line-through; color: var(--muted); }
 
 /* ============================================================
    Responsive mobile — ajustes para pantallas pequeñas y el
