@@ -294,14 +294,10 @@ function placeOrder(){
   order.points = orderPoints();
   order.pointsCredited = false;
   orders.push(order);
-  // Los puntos SOLO se acreditan cuando el pedido está pagado (settled): la
-  // tarjeta ya se cobró. El efectivo nace pending con sus puntos RESERVADOS
-  // (pointsCredited=false); su cobro y acreditación los hará el negocio/backend
-  // (el cliente no puede confirmar su propio pago).
-  if(order.status === "settled"){
-    profile.points += order.points;
-    order.pointsCredited = true;
-  }
+  // Los puntos se acreditan al ENTREGAR, no al cobrar: si el alquiler empieza
+  // hoy, entran ya; si empieza más adelante, quedan reservados hasta que
+  // creditDeliveredPoints() los liquide al abrir la app ese día.
+  creditDeliveredPoints();
   lastEarnedPoints = order.points;
   // Litros de agua ahorrados con este alquiler (el carrito aún está intacto).
   lastWaterSaved = cartWaterSaved();
@@ -329,9 +325,9 @@ function renderDone(){
       <div class="big">🎉</div>
       <h2>Alquiler confirmado</h2>
       <p>Gracias por elegir CLOTH TO GO. Cuida tus prendas y devuélvelas a tiempo 💚</p>
-      ${o.status === "settled"
+      ${o.pointsCredited
         ? `<div class="earned-points">🌱 Ganaste <b>${o.points}</b> puntos con este alquiler</div>`
-        : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos cuando se registre tu pago</div>`}
+        : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos cuando recibas tus prendas</div>`}
       ${lastWaterSaved > 0 ? `<div class="water-saved">💧 Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
       <button class="pay-btn ver-pedidos" data-action="goToOrders">Ver mis pedidos →</button>
     </div>`;
