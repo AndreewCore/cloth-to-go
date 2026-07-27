@@ -36,7 +36,8 @@ const PROJECT_GLOBALS = [
   "cartItemPrice", "subtotalBeforeVolume", "volumeRate", "volumeSavings", "depositTotal",
   "shippingFee", "returnFee", "grandTotal", "orderPoints",
   "waterSavedForItems", "cartWaterSaved", "totalWaterSaved",
-  "orderItemsSubtotal", "orderDeposit", "orderTotal", "paymentStatusLabel", "isArchivedOrder", "nextOrderId",
+  "orderItemsSubtotal", "orderDeposit", "orderTotal", "paymentStatusLabel", "isArchivedOrder",
+  "isCancelledOrder", "isPastOrder", "canCancelOrder", "nextOrderId",
   "STORAGE_PREFIX", "activeStorageKey", "defaultProfile", "storageKeyFor",
   "resetStateToDefaults", "saveState", "loadState",
   // dom.js
@@ -54,7 +55,7 @@ const PROJECT_GLOBALS = [
   "resetCheckoutState", "finishOrder", "goToOrders",
   // profile.js
   "renderProfile", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
-  "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn",
+  "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn", "cancelOrder",
   "renderRewards", "redeem",
   "openDonate", "donateValid", "renderDonate", "submitDonation",
   // main.js

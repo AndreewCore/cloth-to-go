@@ -1010,6 +1010,9 @@ main::-webkit-scrollbar { display: none; }
 }
 .pay-status.settled { background: var(--accent-soft); color: var(--accent); }
 .pay-status.pending { background: #f6e6cf; color: #8a4b13; }   /* ámbar AA sobre fondo claro */
+/* Anulado: gris neutro. NO usa el rojo de --danger porque anular es una acción
+   normal del cliente, no un error ni un atraso. */
+.pay-status.cancelled { background: #e6e6e6; color: #555; }
 
 .order-item {
   display: flex; gap: 10px; align-items: center;
@@ -1093,6 +1096,19 @@ main::-webkit-scrollbar { display: none; }
   opacity: .8;
   border-style: dashed;
 }
+
+/* ---- Anular pedido ---- */
+.order-cancel {
+  background: none; border: none; color: var(--danger);
+  font-size: 11px; font-weight: 700; cursor: pointer;
+  padding: 6px 0 0; text-decoration: underline;
+  display: block;
+}
+.rent-tag.void { background: #e6e6e6; color: #555; }
+/* El pedido anulado sigue listado (historial), pero atenuado y tachado en su
+   total para que no se confunda con uno vigente. */
+.order.cancelled { opacity: .75; }
+.order.cancelled .order-charge b { text-decoration: line-through; color: var(--muted); }
 
 /* ============================================================
    Responsive mobile — ajustes para pantallas pequeñas y el

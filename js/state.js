@@ -22,11 +22,14 @@ let cart = [];                       // [{id}] — una unidad por prenda
 // PEDIDOS (orders): cada alquiler confirmado se guarda como UN pedido que
 // agrupa sus prendas y registra el cobro. Forma de un pedido:
 //   { id, date, items:[productId], start, end, delivery, ret, retAddr,
-//     pay:'cash'|'credit'|'debit', status:'settled'|'pending', total }
+//     pay:'cash'|'credit'|'debit', status:'settled'|'pending'|'cancelled', total }
 // - total : valor total del cobro del pedido (incluye depósito reembolsable).
 //           Se recalcula si se edita el modo de devolución (cambia la tarifa).
 // - status: 'settled' = pagado/cobrado → etiqueta "Cancelado";
-//           'pending'  = pendiente de cobro/pago → etiqueta "Pendiente".
+//           'pending'  = pendiente de cobro/pago → etiqueta "Pendiente";
+//           'cancelled' = pedido anulado por el cliente → etiqueta "Anulado".
+//   Ojo con el vocabulario: aquí "Cancelado" significa PAGADO (uso corriente en
+//   Ecuador), por eso un pedido anulado NO puede llamarse "cancelado" en la UI.
 // loadState() puede sobreescribir esto si hay datos guardados.
 let orders = [];
 // Perfil: contacto + puntos acumulados + historial de canjes + donaciones.
@@ -75,7 +78,7 @@ function inCart(id){ return cart.some(c => c.id === id); }
  * @param {number} id Id de la prenda.
  */
 function isRented(id){
-  return orders.some(o => !isArchivedOrder(o) && o.items.includes(id));
+  return orders.some(o => !isPastOrder(o) && o.items.includes(id));
 }
 // Unidades realmente disponibles: stock menos lo alquilado y lo ya puesto en el
 // carrito. Al ser ropa de segunda mano (`disponibles` = 1), alquilar una prenda
@@ -155,11 +158,27 @@ function orderTotal(o){
 //   "Cancelado" = ya pagado/cobrado (status 'settled', sea efectivo o tarjeta).
 //   "Pendiente" = aún por cobrar/pagar.
 function paymentStatusLabel(o){
+  if(o.status === "cancelled") return "Anulado";
   return o.status === "settled" ? "Cancelado" : "Pendiente";
 }
 // Un pedido pasa al historial ("Alquileres anteriores") cuando ya fue pagado
 // (Cancelado) Y su período de alquiler terminó (la fecha de fin ya pasó).
 function isArchivedOrder(o){ return o.status === "settled" && o.end < isoOffset(0); }
+// Pedido anulado por el cliente antes de recibir las prendas.
+function isCancelledOrder(o){ return o.status === "cancelled"; }
+// Pedidos que ya NO están en curso: ni retienen prendas del catálogo ni se
+// listan como activos. Agrupa los dos finales posibles (cumplido y anulado).
+function isPastOrder(o){ return isArchivedOrder(o) || isCancelledOrder(o); }
+/**
+ * ¿El cliente todavía puede anular este pedido?
+ * Solo mientras las prendas no estén en su poder: una vez llegada la fecha de
+ * inicio ya fueron entregadas (o retiradas en local), y un pedido terminado o
+ * ya anulado tampoco se toca. La app no tiene logística real, así que no puede
+ * SABER si el paquete salió a reparto; eso se confirma con el cliente en el
+ * diálogo de cancelOrder().
+ * @param {object} o Pedido.
+ */
+function canCancelOrder(o){ return !isPastOrder(o) && isoOffset(0) <= o.start; }
 // Siguiente número de pedido (correlativo a partir de 1000).
 function nextOrderId(){ return orders.reduce((m,o) => Math.max(m, o.id), 1000) + 1; }
 

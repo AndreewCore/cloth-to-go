@@ -233,3 +233,85 @@ test("addToCart ignora una prenda ya alquilada", () => {
   win.addToCart(7);
   assert.equal(app.cart.length, 0);                // no se puede volver a alquilar
 });
+
+/* ---- Anular un pedido ---- */
+// Deja un pedido confirmado y devuelve su índice; `start` permite simular uno ya
+// entregado (fecha de inicio pasada).
+function placedOrder(start) {
+  readyCheckout("cash");
+  if (start) app.setCheckout({ rentalStart: start });
+  win.placeOrder();
+  return app.orders.length - 1;
+}
+
+test("anular un pedido devuelve sus prendas al catálogo", () => {
+  win.renderGrid();
+  const grid = doc.getElementById("grid");
+  const i = placedOrder();
+  assert.ok(!win.filteredProducts().some(p => p.id === 7));   // fuera del catálogo
+
+  win.cancelOrder(i);
+  app.confirmModalOk();                                        // el usuario confirma
+
+  assert.equal(app.orders[i].status, "cancelled");
+  assert.ok(win.filteredProducts().some(p => p.id === 7));      // volvió
+  assert.match(grid.innerHTML, /Esmoquin clásico/);             // y ya está pintado
+  assert.equal(app.cart.length, 0);                             // no se rearma el carrito
+});
+
+test("el diálogo pide confirmar que el pedido no va en camino", () => {
+  const i = placedOrder();
+  app.setCheckout({ delivery: "ship" });
+  app.orders[i].delivery = "ship";
+  win.cancelOrder(i);
+  assert.match(app.modalMessage, /AÚN NO salió a reparto/);
+  app.confirmModalOk();
+});
+
+test("sin confirmar el diálogo, el pedido sigue vigente", () => {
+  const i = placedOrder();
+  win.cancelOrder(i);                 // se abre el modal y no se acepta
+  assert.equal(app.orders[i].status, "pending");
+  assert.ok(!win.filteredProducts().some(p => p.id === 7));
+});
+
+test("la opción de anular desaparece si el alquiler ya está con el cliente", () => {
+  placedOrder(app.isoOffset(-1));     // empezó ayer → entregado
+  win.renderProfile();
+  assert.equal(doc.querySelectorAll('[data-action="cancelOrder"]').length, 0);
+});
+
+test("la opción de anular desaparece cuando el pedido ya terminó", () => {
+  const i = placedOrder();
+  const o = app.orders[i];
+  o.status = "settled";
+  o.start = app.isoOffset(-5);
+  o.end = app.isoOffset(-1);          // pagado y vencido → archivado
+  win.renderProfile();
+  assert.equal(doc.querySelectorAll('[data-action="cancelOrder"]').length, 0);
+});
+
+test("anular un pedido ya pagado revierte los puntos acreditados", () => {
+  readyCheckout("credit");            // tarjeta → settled y puntos acreditados
+  win.placeOrder();
+  const o = app.orders[0];
+  assert.ok(o.pointsCredited);
+  assert.ok(app.profile.points > 0);
+
+  win.cancelOrder(0);
+  app.confirmModalOk();
+
+  assert.equal(app.profile.points, 0);   // devueltos
+  assert.ok(!app.orders[0].pointsCredited);
+});
+
+test("un pedido anulado se lista en el historial, no entre los activos", () => {
+  const i = placedOrder();
+  win.cancelOrder(i);
+  app.confirmModalOk();
+  win.renderProfile();
+  const html = doc.getElementById("sheetBody").innerHTML;
+  assert.match(html, /No tienes pedidos activos/);   // ya no está entre los vigentes
+  assert.match(html, /Alquileres anteriores/);
+  assert.match(html, /Anulado/);
+});

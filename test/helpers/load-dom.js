@@ -53,6 +53,10 @@ globalThis.__APP__ = {
   // (normalmente la pone activateUserSession) y carga lo sembrado en localStorage.
   STORAGE_PREFIX,
   loadFromKey(key){ activeStorageKey = key; loadState(); },
+  // Acepta el modal de confirmación: replica lo que hace modalOk.onclick en
+  // main.js (excluido de esta carga), necesario para las acciones que confirman.
+  confirmModalOk(){ const cb = onConfirmCb; closeModal(); if(cb) cb(); },
+  get modalMessage(){ return modalText.textContent; },
   // Puros, para aserciones sin recalcular a mano.
   orderPoints, orderTotal, orderDeposit, isoOffset, productById,
 };
