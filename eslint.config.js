@@ -29,10 +29,10 @@ const PROJECT_GLOBALS = [
   "isoOffset", "cart", "orders", "profile", "activeCat", "searchQuery",
   "qualityFilter", "sizeFilter", "materialFilter", "sortBy", "view", "detailId", "delivery", "address",
   "returnMethod", "returnAddress", "payMethod", "card",
-  "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "lastWaterSaved", "editingProfile",
+  "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "lastWaterSaved", "lastOrder", "editingProfile",
   "donName", "donMethod", "donAddr", "donDate",
   "rentalStart", "rentalEnd",
-  "rentalDays", "isLate", "inCart", "unitsAvailable", "cartCount", "cents", "subtotal",
+  "rentalDays", "isLate", "inCart", "isRented", "unitsAvailable", "cartCount", "cents", "subtotal",
   "cartItemPrice", "subtotalBeforeVolume", "volumeRate", "volumeSavings", "depositTotal",
   "shippingFee", "returnFee", "grandTotal", "orderPoints",
   "waterSavedForItems", "cartWaterSaved", "totalWaterSaved",
@@ -42,16 +42,16 @@ const PROJECT_GLOBALS = [
   // dom.js
   "grid", "noResults", "resultsBar", "filtersEl", "overlay", "sheet", "sheetBody",
   "sheetFoot", "sheetTitle", "searchInput", "loginEl", "greeting", "backBtn",
-  "SHEET_BACK", "openSheet", "closeSheet", "renderSheet", "updateBadge", "toastTimer", "toast",
+  "SHEET_BACK", "openSheet", "closeSheet", "renderSheet", "scrollSheetTo", "updateBadge", "toastTimer", "toast",
   "modalOverlay", "modalText", "modalOk", "modalCancel", "onConfirmCb", "confirmDialog", "closeModal",
-  "waterPop", "waterAmount", "waterMsg", "showWaterPop", "closeWaterPop",
   // catalog.js
   "renderFilters", "sortProducts", "filteredProducts", "anyFilterActive", "clearFilters",
   "activeFilterCount", "updateFilterBar", "renderFilterSheet",
   "renderGrid", "addToCart", "openDetail", "renderDetail",
   // checkout.js
   "dateBoxHTML", "renderCart", "removeItem", "renderCheckout",
-  "checkoutValid", "renderPayment", "paymentValid", "placeOrder", "renderDone", "finishOrder",
+  "checkoutValid", "renderPayment", "paymentValid", "placeOrder", "renderDone",
+  "resetCheckoutState", "finishOrder", "goToOrders",
   // profile.js
   "renderProfile", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
   "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn",

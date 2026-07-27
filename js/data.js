@@ -216,8 +216,9 @@ function fmtLiters(liters){ return Math.round(liters).toLocaleString("es-EC"); }
 const CATS = ["Todo", "Formal", "Fiesta", "Casual", "Invierno"];
 
 /* ---- Catálogo ----
-   Las imágenes son URLs de internet (Unsplash) de PRENDAS solas (sin personas).
-   Si alguna no carga (onerror), se muestra el placeholder de imgPlaceholder().
+   Las imágenes se sirven localmente desde img/products/ (webp optimizado ~600×800).
+   Alojarlas en el repo evita la dependencia de red de Unsplash: cargan también
+   en file:// y offline. Si alguna falta (onerror), queda el placeholder de imgPlaceholder().
    - value       : coste de reponer la prenda en Ecuador, segunda mano (USD).
                    Es la base de TODO el precio: el alquiler sale de rentalPrice()
                    y el depósito de depositFor(). No hay precio fijo por prenda.
@@ -229,27 +230,26 @@ const CATS = ["Todo", "Formal", "Fiesta", "Casual", "Invierno"];
    - material    : fibra principal (algodon/lana/cuero/lino/sintetico) → intensidad hídrica.
    - weightKg    : peso aproximado de la prenda. material + weightKg definen el
                    ahorro de agua por reutilizarla (ver garmentWater()). */
-const IMG = "?w=600&h=800&fit=crop&q=70&auto=format";
 const PRODUCTS = [
-  { id:1, name:"Blazer de lino", cat:"Formal", value:35, stars:5, size:"M",  disponibles:1, material:"lino",      weightKg:0.5, img:"https://images.unsplash.com/photo-1592343516109-362f7bd871aa"+IMG,
+  { id:1, name:"Blazer de lino", cat:"Formal", value:35, stars:5, size:"M",  disponibles:1, material:"lino",      weightKg:0.5, img:"img/products/1.webp",
     desc:"Blazer de lino fresco, corte recto. Ideal para eventos formales y de oficina." },
-  { id:2, name:"Vestido de gala", cat:"Fiesta", value:45, stars:4, size:"S",  disponibles:1, material:"sintetico", weightKg:0.4, img:"https://images.unsplash.com/photo-1604531825858-a8e24ed6b43d"+IMG,
+  { id:2, name:"Vestido de gala", cat:"Fiesta", value:45, stars:4, size:"S",  disponibles:1, material:"sintetico", weightKg:0.4, img:"img/products/2.webp",
     desc:"Vestido largo de gala con caída elegante. Perfecto para bodas y galas." },
-  { id:3, name:"Jeans vintage", cat:"Casual", value:15, stars:3, size:"M",  disponibles:1, material:"algodon",   weightKg:0.8, img:"https://images.unsplash.com/photo-1542272604-787c3835535d"+IMG,
+  { id:3, name:"Jeans vintage", cat:"Casual", value:15, stars:3, size:"M",  disponibles:1, material:"algodon",   weightKg:0.8, img:"img/products/3.webp",
     desc:"Jeans de tiro alto estilo retro. Cómodos para el día a día." },
-  { id:4, name:"Abrigo de lana", cat:"Invierno", value:55, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.2, img:"https://images.unsplash.com/photo-1539533113208-f6df8cc8b543"+IMG,
+  { id:4, name:"Abrigo de lana", cat:"Invierno", value:55, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.2, img:"img/products/4.webp",
     desc:"Abrigo de lana cálido y de gran caída. Abriga sin perder estilo." },
-  { id:5, name:"Camisa formal", cat:"Formal", value:14, stars:4, size:"M",  disponibles:1, material:"algodon",   weightKg:0.2, img:"https://images.unsplash.com/photo-1621773881532-fe65715b5137"+IMG,
+  { id:5, name:"Camisa formal", cat:"Formal", value:14, stars:4, size:"M",  disponibles:1, material:"algodon",   weightKg:0.2, img:"img/products/5.webp",
     desc:"Camisa formal de algodón, fácil de combinar para reuniones." },
-  { id:6, name:"Falda plisada", cat:"Casual", value:12, stars:3, size:"S",  disponibles:1, material:"sintetico", weightKg:0.3, img:"https://images.unsplash.com/photo-1715233749622-3216fe49e682"+IMG,
+  { id:6, name:"Falda plisada", cat:"Casual", value:12, stars:3, size:"S",  disponibles:1, material:"sintetico", weightKg:0.3, img:"img/products/6.webp",
     desc:"Falda plisada midi, ligera y versátil para cualquier ocasión." },
-  { id:7, name:"Esmoquin clásico", cat:"Fiesta", value:150, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.0, img:"https://images.unsplash.com/photo-1585412459272-762fb93357c3"+IMG,
+  { id:7, name:"Esmoquin clásico", cat:"Fiesta", value:150, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.0, img:"img/products/7.webp",
     desc:"Esmoquin negro clásico con solapa satinada. La opción para eventos de etiqueta." },
-  { id:8, name:"Chaqueta de cuero", cat:"Casual", value:45, stars:2, size:"M",  disponibles:1, material:"cuero",     weightKg:1.3, img:"https://images.unsplash.com/photo-1727515546577-f7d82a47b51d"+IMG,
+  { id:8, name:"Chaqueta de cuero", cat:"Casual", value:45, stars:2, size:"M",  disponibles:1, material:"cuero",     weightKg:1.3, img:"img/products/8.webp",
     desc:"Chaqueta de cuero con carácter; muestra desgaste natural que le da estilo." },
-  { id:9, name:"Sudadera bordada", cat:"Casual", value:12, stars:4, size:"L",  disponibles:1, material:"algodon",   weightKg:0.5, img:"https://images.unsplash.com/photo-1620799140188-3b2a02fd9a77"+IMG,
+  { id:9, name:"Sudadera bordada", cat:"Casual", value:12, stars:4, size:"L",  disponibles:1, material:"algodon",   weightKg:0.5, img:"img/products/9.webp",
     desc:"Sudadera de algodón con bordado, súper cómoda para el día a día." },
-  { id:10, name:"Gabardina beige", cat:"Invierno", value:40, stars:4, size:"XL", disponibles:1, material:"algodon",   weightKg:0.9, img:"https://images.unsplash.com/photo-1534702718617-c141fb9f99d0"+IMG,
+  { id:10, name:"Gabardina beige", cat:"Invierno", value:40, stars:4, size:"XL", disponibles:1, material:"algodon",   weightKg:0.9, img:"img/products/10.webp",
     desc:"Gabardina beige atemporal, perfecta para días de lluvia y entretiempo." },
 ];
 

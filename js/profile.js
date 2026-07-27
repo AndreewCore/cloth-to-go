@@ -64,6 +64,8 @@ function renderProfile(){
 
       <div class="ci-ret">${retLabel}${o.ret === "home" && o.retAddr ? ` · <span class="ret-addr">📍 ${escapeHTML(o.retAddr)}</span>` : ""}</div>
       ${!archived ? `
+        ${o.status === "pending" && !o.pointsCredited ? `
+          <div class="points-pending">🌱 Ganarás ${o.points} pts cuando se registre tu pago</div>` : ""}
         <button class="ret-edit" data-action="editReturn" data-idx="${i}">✏️ Cambiar modo de devolución</button>
         ${editingOrder === i ? returnEditorHTML(i) : ""}
         ${late ? `
@@ -146,7 +148,7 @@ function renderProfile(){
     </div>
     `}
 
-    <div class="section-label">Mis pedidos</div>
+    <div class="section-label" id="misPedidos">Mis pedidos</div>
     ${activeOrders.length
       ? activeOrders.map(pair => orderCardHTML(pair, false)).join("")
       : `<div class="empty" style="padding:30px 20px"><div class="em">👕</div><p>No tienes pedidos activos.<br>Alquila algo del catálogo.</p></div>`}
@@ -258,6 +260,12 @@ function saveReturn(i){
 function toggleLateInfo(i){
   document.getElementById("lateInfo"+i).classList.toggle("show");
 }
+
+// Nota: confirmar el cobro de un pedido en efectivo es una acción del NEGOCIO,
+// no del cliente. Este prototipo es de cara al cliente y no tiene panel de
+// administración, así que el efectivo queda "pendiente" y su cobro/acreditación
+// de puntos los hará el backend/panel admin (fuera de alcance). Un pending del
+// cliente NO se puede auto-confirmar aquí.
 
 /* ---- Premios / canje de puntos ---- */
 function renderRewards(){
