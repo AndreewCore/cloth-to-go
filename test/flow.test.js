@@ -186,3 +186,50 @@ test("saveProfile con correo inválido muestra el error y no guarda", () => {
   assert.match(err.textContent, /correo válido/);
   assert.equal(app.profile.email, ""); // no persistió el correo inválido
 });
+
+/* ---- Stock del catálogo: la prenda alquilada desaparece ---- */
+test("tras alquilar, la prenda sale del catálogo (prenda única)", () => {
+  win.renderGrid();
+  const grid = doc.getElementById("grid");
+  assert.match(grid.innerHTML, /Esmoquin clásico/);        // id 7, visible al inicio
+  const antes = win.filteredProducts().length;
+
+  readyCheckout("cash");
+  win.placeOrder();
+
+  assert.doesNotMatch(grid.innerHTML, /Esmoquin clásico/); // ya alquilada
+  assert.ok(!win.filteredProducts().some(p => p.id === 7));
+  assert.equal(win.filteredProducts().length, antes - 1);  // el conteo baja en una
+  assert.match(doc.getElementById("resultsBar").innerHTML, new RegExp(`>${antes - 1} prendas<`));
+});
+
+test("la prenda vuelve al catálogo cuando el pedido se archiva (devuelta y pagada)", () => {
+  readyCheckout("cash");
+  win.placeOrder();
+  const o = app.orders[0];
+
+  o.status = "settled";            // el negocio registró el cobro…
+  o.end = app.isoOffset(-1);       // …y el período ya terminó → archivado
+  win.renderGrid();
+
+  assert.match(doc.getElementById("grid").innerHTML, /Esmoquin clásico/);
+});
+
+test("el detalle de una prenda alquilada no ofrece agregarla al carrito", () => {
+  readyCheckout("cash");
+  win.placeOrder();
+
+  win.openDetail(7);
+  assert.match(doc.getElementById("sheetBody").innerHTML, /Alquilada ahora mismo/);
+  const btn = doc.querySelector("#sheetFoot .pay-btn");
+  assert.equal(btn.dataset.action, "goProfile");   // no "addDetail"
+});
+
+test("addToCart ignora una prenda ya alquilada", () => {
+  readyCheckout("cash");
+  win.placeOrder();
+  assert.equal(app.cart.length, 0);
+
+  win.addToCart(7);
+  assert.equal(app.cart.length, 0);                // no se puede volver a alquilar
+});

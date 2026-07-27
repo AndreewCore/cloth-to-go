@@ -67,8 +67,22 @@ let rentalEnd = isoOffset(3);        // hoy + 3 días
 function rentalDays(){ return daysBetween(rentalStart, rentalEnd); }
 function isLate(r){ return r.end < isoOffset(0); }   // fecha límite ya pasó (ISO comparable)
 function inCart(id){ return cart.some(c => c.id === id); }
-// Unidades realmente disponibles (stock menos lo que ya está en el carrito).
-function unitsAvailable(p){ return p.disponibles - (inCart(p.id) ? 1 : 0); }
+/**
+ * ¿La prenda está fuera, alquilada en un pedido vigente?
+ * El stock NO se guarda en el producto: se deriva de `orders`, así sobrevive a
+ * la recarga y la prenda vuelve sola al catálogo cuando el pedido se archiva
+ * (mismo criterio que "prendas en alquiler" del perfil).
+ * @param {number} id Id de la prenda.
+ */
+function isRented(id){
+  return orders.some(o => !isArchivedOrder(o) && o.items.includes(id));
+}
+// Unidades realmente disponibles: stock menos lo alquilado y lo ya puesto en el
+// carrito. Al ser ropa de segunda mano (`disponibles` = 1), alquilar una prenda
+// la deja en 0 y desaparece del catálogo.
+function unitsAvailable(p){
+  return Math.max(0, p.disponibles - (isRented(p.id) ? 1 : 0) - (inCart(p.id) ? 1 : 0));
+}
 function cartCount(){ return cart.length; }
 // Los montos se SUMAN en centavos (enteros) para evitar el arrastre de
 // error de los float (p. ej. 0.1 + 0.2). Se devuelven en USD para la vista.
