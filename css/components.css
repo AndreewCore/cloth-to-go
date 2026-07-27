@@ -465,6 +465,15 @@ main::-webkit-scrollbar { display: none; }
 .summary-row { display: flex; justify-content: space-between; font-size: 13px; padding: 4px 0; color: var(--muted); }
 .summary-row.total { color: var(--ink); font-weight: 800; font-size: 17px; border-top: 1px dashed var(--line); margin-top: 6px; padding-top: 10px; }
 .summary-note { font-size: 11px; color: var(--muted); line-height: 1.4; margin: 8px 2px 0; }
+/* Fila de total: el depósito reembolsable va pegado a la izquierda del monto,
+   para que el número grande nunca se lea sin su contrapeso. */
+.total-vals { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.refund-inline {
+  font-size: 11px; font-weight: 700; color: var(--accent);
+  background: var(--accent-soft); border-radius: 20px; padding: 3px 8px;
+  white-space: nowrap;
+}
+.total-amount { white-space: nowrap; }
 
 /* ---- Foco visible (accesibilidad por teclado) ---- */
 :focus-visible {
@@ -590,6 +599,15 @@ main::-webkit-scrollbar { display: none; }
   font-size: 12px; font-weight: 700; color: var(--accent);
 }
 .md-refund b { font-size: 14px; }
+/* Reembolso $0: nada que devolver todavía. Gris neutro, no verde de "recibirás". */
+.md-refund.zero { background: var(--card); color: var(--muted); border: 1px solid var(--line); }
+
+/* Miniaturas de las prendas del pedido dentro del modal. */
+.md-thumbs { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; padding: 4px 0 10px; }
+
+/* Oculta partes opcionales sin usar style.display inline, que rompería el
+   layout (flex/grid) que cada una define en su propia regla. */
+.is-hidden { display: none !important; }
 
 .modal-actions { display: flex; gap: 10px; }
 .modal-btn {

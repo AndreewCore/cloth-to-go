@@ -50,7 +50,7 @@ const PROJECT_GLOBALS = [
   "activeFilterCount", "updateFilterBar", "renderFilterSheet",
   "renderGrid", "addToCart", "openDetail", "renderDetail",
   // checkout.js
-  "dateBoxHTML", "renderCart", "removeItem", "renderCheckout",
+  "totalRowHTML", "dateBoxHTML", "renderCart", "removeItem", "renderCheckout",
   "checkoutValid", "renderPayment", "paymentValid", "placeOrder", "renderDone",
   "resetCheckoutState", "finishOrder", "goToOrders",
   // profile.js
