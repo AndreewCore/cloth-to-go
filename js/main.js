@@ -99,6 +99,9 @@ sheet.addEventListener("click", e=>{
     case "finish":         finishOrder(); break;
     case "goToOrders":     goToOrders(); break;
     case "goCart":         view="cart"; renderSheet(); break;
+    // Desde el detalle de una prenda ya alquilada: lleva a sus pedidos sin
+    // tocar el checkout en curso (a diferencia de goToOrders, que lo limpia).
+    case "goProfile":      editingOrder=null; editingProfile=false; view="profile"; renderSheet(); break;
     case "addDetail":      addToCart(detailId); renderSheet(); break;
     case "signOut":        signOut(); break;
     case "saveProfile":    saveProfile(); break;
