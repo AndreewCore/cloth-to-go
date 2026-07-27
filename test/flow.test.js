@@ -115,6 +115,26 @@ test("goToOrders abre el perfil en la sección de pedidos y limpia el checkout",
   assert.match(body.innerHTML, /Pedido #/);            // el pedido aparece como activo
 });
 
+// Regresión: scrollIntoView() desplazaba TODOS los ancestros (incluido el marco
+// .phone, que aun con overflow:hidden se puede desplazar por código), dejando el
+// encabezado cortado y el panel asomando abajo. El scroll debe quedarse dentro
+// del cuerpo del panel.
+test("goToOrders solo desplaza el cuerpo del panel, nunca sus ancestros", () => {
+  const intoView = [];
+  win.Element.prototype.scrollIntoView = function () { intoView.push(this); };
+  const body = doc.getElementById("sheetBody");
+  const scrolled = [];
+  body.scrollTo = opts => scrolled.push(opts);
+
+  readyCheckout("cash");
+  win.placeOrder();
+  win.goToOrders();
+
+  assert.equal(intoView.length, 0);                    // nadie desplaza ancestros
+  assert.equal(scrolled.length, 1);                    // solo el .sheet-body
+  assert.ok(scrolled[0].top >= 0);
+});
+
 /* ---- Estados de botón ---- */
 test("botón de pago: deshabilitado sin datos de tarjeta, habilitado al completarlos", () => {
   app.cart = [{ id: 7 }];

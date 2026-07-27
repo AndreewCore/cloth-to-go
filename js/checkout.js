@@ -338,6 +338,5 @@ function goToOrders(){
   view = "profile";
   saveState();
   updateBadge(); renderGrid(); renderSheet();
-  const el = document.getElementById("misPedidos");
-  if(el && el.scrollIntoView) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  scrollSheetTo("misPedidos");
 }
