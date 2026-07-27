@@ -195,8 +195,11 @@ function loadState(){
     if(Array.isArray(s.orders)){
       orders = s.orders;
       // Migración: los pedidos guardados antes de "puntos al pagar" ya recibieron
-      // sus puntos con la lógica anterior. Los marcamos como acreditados para que
-      // confirmPayment() no los vuelva a sumar (doble conteo).
+      // sus puntos con la lógica anterior (y ya están en profile.points). Los
+      // marcamos como acreditados para que ningún consumidor de pointsCredited
+      // (la nota de "puntos pendientes", o el futuro backend/panel de cobros) los
+      // trate como pendientes ni los vuelva a sumar. El centinela es `undefined`:
+      // un pending NUEVO trae pointsCredited:false y NO debe pisarse a true.
       for(const o of orders){
         if(o.pointsCredited === undefined) o.pointsCredited = true;
         if(o.points === undefined) o.points = 0;

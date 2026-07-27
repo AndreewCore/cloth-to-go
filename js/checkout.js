@@ -273,8 +273,9 @@ function placeOrder(){
   order.pointsCredited = false;
   orders.push(order);
   // Los puntos SOLO se acreditan cuando el pedido está pagado (settled): la
-  // tarjeta ya se cobró. El efectivo (pending) los acredita al confirmar el
-  // pago desde el perfil (confirmPayment), no antes de cobrar.
+  // tarjeta ya se cobró. El efectivo nace pending con sus puntos RESERVADOS
+  // (pointsCredited=false); su cobro y acreditación los hará el negocio/backend
+  // (el cliente no puede confirmar su propio pago).
   if(order.status === "settled"){
     profile.points += order.points;
     order.pointsCredited = true;
@@ -326,7 +327,7 @@ function renderDone(){
       </div>
       ${o.status === "settled"
         ? `<div class="earned-points">🌱 Ganaste <b>${o.points}</b> puntos con este alquiler</div>`
-        : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos al confirmar el pago</div>`}
+        : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos cuando se registre tu pago</div>`}
       ${lastWaterSaved > 0 ? `<div class="water-saved">💧 Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
     </div>`;
   sheetFoot.innerHTML = `<button class="pay-btn" data-action="finish">Volver al catálogo</button>`;

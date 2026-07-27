@@ -71,25 +71,19 @@ test("tras confirmar, el carrito queda vacío: no permite repedir lo mismo", () 
   assert.match(doc.getElementById("sheetBody").innerHTML, /carrito está vacío/);
 });
 
-/* ---- confirmPayment ---- */
-test("confirmPayment: pending → settled y acredita los puntos una sola vez", () => {
+/* ---- El cliente NO puede confirmar su propio pago ---- */
+test("un pedido en efectivo no expone acción de auto-confirmación al cliente", () => {
   readyCheckout("cash");
   win.placeOrder();
-  const pts = app.orders[0].points;
+  win.renderProfile();
+  const html = doc.getElementById("sheetBody").innerHTML;
+  // No hay ningún control para que el cliente marque su pago como cobrado.
+  assert.equal(doc.querySelectorAll('[data-action="confirmPayment"]').length, 0);
+  assert.doesNotMatch(html, /Confirmar pago/);
+  // Sí ve, de forma pasiva, los puntos que quedaron reservados.
+  assert.match(html, /Ganarás \d+ pts cuando se registre tu pago/);
+  assert.equal(app.orders[0].status, "pending");
   assert.equal(app.profile.points, 0);
-
-  win.confirmPayment(0);      // abre el confirmDialog
-  assert.ok(app.isModalOpen());
-  app.confirmModal();         // acepta
-
-  assert.equal(app.orders[0].status, "settled");
-  assert.ok(app.orders[0].pointsCredited);
-  assert.equal(app.profile.points, pts);
-
-  // Idempotente: un pedido ya settled no vuelve a sumar.
-  win.confirmPayment(0);
-  assert.ok(!app.isModalOpen()); // ni siquiera abre el diálogo
-  assert.equal(app.profile.points, pts);
 });
 
 /* ---- Estados de botón ---- */
