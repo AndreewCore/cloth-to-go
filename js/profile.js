@@ -266,10 +266,6 @@ function saveReturn(i){
 /**
  * Anula un pedido que aún no llegó a manos del cliente y devuelve sus prendas
  * al catálogo (el stock se deriva de `orders`, así que basta con marcarlo).
- *
- * El diálogo pide confirmar que el pedido NO va en camino: sin logística real
- * la app no puede saberlo, y anular algo ya despachado dejaría la prenda
- * disponible en el catálogo mientras viaja hacia el cliente.
  * @param {number} i Índice del pedido en `orders`.
  */
 function cancelOrder(i){
@@ -282,16 +278,18 @@ function cancelOrder(i){
     return;
   }
 
-  const enCamino = o.delivery === "ship"
-    ? "Confirma que el pedido AÚN NO salió a reparto ni va en camino a tu dirección."
-    : "Confirma que AÚN NO retiraste las prendas en el local.";
-  const reembolso = o.status === "settled"
-    ? `\n\nYa pagaste $${o.total.toFixed(2)}: el reembolso lo procesa la tienda.`
-    : "";
-  const puntos = o.pointsCredited ? `\n\nSe te descontarán los ${o.points} pts de este pedido.` : "";
+  const days = daysBetween(o.start, o.end);
+  const items = o.items.map(id => escapeHTML(productById(id).name)).join(" · ");
+  // Solo hay reembolso si el pedido ya se cobró; un efectivo pendiente no ha
+  // movido dinero, así que no se menciona nada.
+  const refundHTML = o.status === "settled" ? `
+    <div class="md-refund">
+      <span>${o.pay === "cash" ? "💵 Se te devolverá en el local" : "💳 Reembolso a tu tarjeta"}</span>
+      <b>$${o.total.toFixed(2)}</b>
+    </div>` : "";
 
   confirmDialog(
-    `Vas a anular el pedido #${o.id}.\n\n${enCamino}\n\nLas prendas volverán al catálogo.${reembolso}${puntos}\n\n¿Anular el pedido?`,
+    "",
     ()=>{
       o.status = "cancelled";
       o.cancelledAt = isoOffset(0);
@@ -309,7 +307,17 @@ function cancelOrder(i){
       renderGrid();             // las prendas reaparecen en el catálogo al instante
       toast("Pedido anulado · prendas devueltas al catálogo");
     },
-    "✖"
+    "🗑",
+    {
+      title: "¿Anular este pedido?",
+      okLabel: "Sí, anular",
+      danger: true,
+      detailHTML: `
+        <div class="md-row"><span class="md-k">Pedido</span><span class="md-v">#${o.id}</span></div>
+        <div class="md-row"><span class="md-k">${o.items.length === 1 ? "Prenda" : "Prendas"}</span><span class="md-v">${items}</span></div>
+        <div class="md-row"><span class="md-k">Período</span><span class="md-v">${fmtDate(o.start)} → ${fmtDate(o.end)} · ${days} ${days === 1 ? "día" : "días"}</span></div>
+        ${refundHTML}`
+    }
   );
 }
 

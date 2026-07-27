@@ -90,13 +90,31 @@ const modalOk = document.getElementById("modalOk");
 const modalCancel = document.getElementById("modalCancel");
 let onConfirmCb = null;
 
-// icon (opcional): emoji/símbolo a mostrar grande y centrado en la parte
-// superior del modal (p. ej. 📝 en la encuesta).
-function confirmDialog(message, onConfirm, icon){
+/**
+ * Muestra el modal de confirmación y ejecuta el callback solo si el usuario acepta.
+ * @param {string} message Texto principal (puede ir vacío si se usa `detailHTML`).
+ * @param {Function} onConfirm Callback al confirmar.
+ * @param {string} [icon] Emoji/símbolo grande y centrado arriba (p. ej. 📝).
+ * @param {object} [opts] Extras: `title`, `detailHTML`, `okLabel`, `danger`.
+ *   ⚠️ `detailHTML` se inserta como HTML: quien lo arma debe pasar sus valores
+ *   por escapeHTML(). El resto de campos van por textContent.
+ */
+function confirmDialog(message, onConfirm, icon, opts = {}){
   const iconEl = document.getElementById("modalIcon");
+  const titleEl = document.getElementById("modalTitle");
+  const detailEl = document.getElementById("modalDetail");
   iconEl.textContent = icon || "";
   iconEl.style.display = icon ? "block" : "none";
+  // El icono de una acción destructiva va en rojo, no en el verde de marca.
+  iconEl.classList.toggle("danger", !!opts.danger);
+  titleEl.textContent = opts.title || "";
+  titleEl.style.display = opts.title ? "block" : "none";
   modalText.textContent = message;     // textContent → seguro (no HTML)
+  modalText.style.display = message ? "block" : "none";
+  detailEl.innerHTML = opts.detailHTML || "";
+  detailEl.style.display = opts.detailHTML ? "block" : "none";
+  modalOk.textContent = opts.okLabel || "Confirmar";
+  modalOk.classList.toggle("danger", !!opts.danger);
   onConfirmCb = onConfirm;
   modalOverlay.classList.add("show");
   modalOk.focus();

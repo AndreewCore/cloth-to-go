@@ -110,9 +110,12 @@
 
 <!-- Modal de confirmación in-app (reemplaza confirm() nativo) -->
   <div class="modal-overlay" id="modalOverlay">
-    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalText">
+    <div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle modalText">
       <div class="modal-icon" id="modalIcon" style="display:none" aria-hidden="true"></div>
+      <h3 class="modal-title" id="modalTitle" style="display:none"></h3>
       <p class="modal-text" id="modalText"></p>
+      <!-- Ficha opcional del modal (filas clave/valor). Lo llena confirmDialog. -->
+      <div class="modal-detail" id="modalDetail" style="display:none"></div>
       <div class="modal-actions">
         <button class="modal-btn cancel" id="modalCancel">Cancelar</button>
         <button class="modal-btn ok" id="modalOk">Confirmar</button>
