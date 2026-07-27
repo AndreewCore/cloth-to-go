@@ -57,6 +57,7 @@ globalThis.__APP__ = {
   // main.js (excluido de esta carga), necesario para las acciones que confirman.
   confirmModalOk(){ const cb = onConfirmCb; closeModal(); if(cb) cb(); },
   get modalMessage(){ return modalText.textContent; },
+  get modalHTML(){ return document.getElementById("modal").innerHTML; },
   // Puros, para aserciones sin recalcular a mano.
   orderPoints, orderTotal, orderDeposit, isoOffset, productById,
 };

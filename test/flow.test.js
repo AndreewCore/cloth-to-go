@@ -259,13 +259,34 @@ test("anular un pedido devuelve sus prendas al catálogo", () => {
   assert.equal(app.cart.length, 0);                             // no se rearma el carrito
 });
 
-test("el diálogo pide confirmar que el pedido no va en camino", () => {
+test("el diálogo resume pedido, prendas y período, sin explicaciones de logística", () => {
   const i = placedOrder();
-  app.setCheckout({ delivery: "ship" });
-  app.orders[i].delivery = "ship";
   win.cancelOrder(i);
-  assert.match(app.modalMessage, /AÚN NO salió a reparto/);
+  const html = app.modalHTML;
+  assert.match(html, /¿Anular este pedido\?/);
+  assert.match(html, /#\d{4}/);                     // número de pedido
+  assert.match(html, /Esmoquin clásico/);           // la prenda
+  assert.match(html, /\d+ días/);                   // el período
+  // El estado del envío no se le pregunta al cliente: si el botón existe,
+  // el pedido todavía no salió.
+  assert.doesNotMatch(html, /reparto|en camino|retiraste/i);
   app.confirmModalOk();
+});
+
+test("un efectivo pendiente no promete reembolso: no se ha cobrado nada", () => {
+  const i = placedOrder();
+  win.cancelOrder(i);
+  assert.doesNotMatch(app.modalHTML, /Reembolso|devolverá/i);
+  app.confirmModalOk();
+});
+
+test("un pedido ya cobrado muestra el monto a reembolsar", () => {
+  readyCheckout("credit");                 // tarjeta → cobrado
+  win.placeOrder();
+  const total = app.orders[0].total.toFixed(2);
+  win.cancelOrder(0);
+  assert.match(app.modalHTML, /Reembolso a tu tarjeta/);
+  assert.match(app.modalHTML, new RegExp(`\\$${total.replace(".", "\\.")}`));
 });
 
 test("sin confirmar el diálogo, el pedido sigue vigente", () => {
