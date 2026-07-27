@@ -126,9 +126,10 @@ function waterSavedForItems(ids){
 }
 // Litros de agua ahorrados con el carrito actual (para la confirmación del pedido).
 function cartWaterSaved(){ return waterSavedForItems(cart.map(c => c.id)); }
-// Litros de agua ahorrados en total por TODOS los pedidos (para el perfil).
+// Litros de agua ahorrados en total por los pedidos que llegaron a existir.
+// Un pedido anulado no reutilizó nada: sus litros salen de la cuenta.
 function totalWaterSaved(){
-  return orders.reduce((s, o) => s + waterSavedForItems(o.items), 0);
+  return orders.reduce((s, o) => s + (isCancelledOrder(o) ? 0 : waterSavedForItems(o.items)), 0);
 }
 
 // Puntos que otorga el pedido actual: según el monto pagado (no reembolsable),
@@ -179,6 +180,32 @@ function isPastOrder(o){ return isArchivedOrder(o) || isCancelledOrder(o); }
  * @param {object} o Pedido.
  */
 function canCancelOrder(o){ return !isPastOrder(o) && isoOffset(0) <= o.start; }
+/**
+ * ¿Las prendas del pedido ya llegaron al cliente?
+ * Sin logística real, la entrega se da por hecha al empezar el período: ese es
+ * el día en que se envía o se retira en el local.
+ * @param {object} o Pedido.
+ */
+function isDelivered(o){ return !isCancelledOrder(o) && o.start <= isoOffset(0); }
+/**
+ * Acredita los puntos de los pedidos ya ENTREGADOS que aún no los recibieron.
+ *
+ * Los puntos premian el alquiler cumplido, no el cobro: por eso el disparador
+ * es la entrega y no el pago (un efectivo pendiente ya disfrutó su prenda).
+ * Como no hay tareas programadas, se liquida de forma perezosa: al arrancar la
+ * sesión y al confirmar un pedido.
+ * @returns {number} Puntos acreditados en esta pasada (0 si no hubo ninguno).
+ */
+function creditDeliveredPoints(){
+  let sum = 0;
+  orders.forEach(o => {
+    if(o.pointsCredited || !isDelivered(o)) return;
+    profile.points += o.points;
+    o.pointsCredited = true;
+    sum += o.points;
+  });
+  return sum;
+}
 // Siguiente número de pedido (correlativo a partir de 1000).
 function nextOrderId(){ return orders.reduce((m,o) => Math.max(m, o.id), 1000) + 1; }
 

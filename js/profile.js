@@ -62,15 +62,18 @@ function renderProfile(){
 
       <div class="order-charge">
         <span>${voided ? "Cobro anulado" : (archived ? "Total cobrado" : "Total del cobro")}</span>
-        <b>$${o.total.toFixed(2)}</b>
+        <span class="total-vals">
+          ${!voided && orderDeposit(o) > 0 ? `<span class="refund-inline">↩ $${orderDeposit(o).toFixed(2)} ${archived ? "devuelto" : "se te devuelve"}</span>` : ""}
+          <b>$${o.total.toFixed(2)}</b>
+        </span>
       </div>
 
       ${voided
         ? `<div class="ci-ret">✖ Anulado el ${fmtDate(o.cancelledAt)} · las prendas volvieron al catálogo</div>`
         : `<div class="ci-ret">${retLabel}${o.ret === "home" && o.retAddr ? ` · <span class="ret-addr">📍 ${escapeHTML(o.retAddr)}</span>` : ""}</div>`}
       ${!archived ? `
-        ${o.status === "pending" && !o.pointsCredited ? `
-          <div class="points-pending">🌱 Ganarás ${o.points} pts cuando se registre tu pago</div>` : ""}
+        ${!o.pointsCredited ? `
+          <div class="points-pending">🌱 Ganarás ${o.points} pts cuando recibas tus prendas</div>` : ""}
         <button class="ret-edit" data-action="editReturn" data-idx="${i}">✏️ Cambiar modo de devolución</button>
         ${editingOrder === i ? returnEditorHTML(i) : ""}
         ${canCancelOrder(o) ? `

@@ -37,7 +37,8 @@ const PROJECT_GLOBALS = [
   "shippingFee", "returnFee", "grandTotal", "orderPoints",
   "waterSavedForItems", "cartWaterSaved", "totalWaterSaved",
   "orderItemsSubtotal", "orderDeposit", "orderTotal", "paymentStatusLabel", "isArchivedOrder",
-  "isCancelledOrder", "isPastOrder", "canCancelOrder", "nextOrderId",
+  "isCancelledOrder", "isPastOrder", "canCancelOrder", "isDelivered",
+  "creditDeliveredPoints", "nextOrderId",
   "STORAGE_PREFIX", "activeStorageKey", "defaultProfile", "storageKeyFor",
   "resetStateToDefaults", "saveState", "loadState",
   // dom.js
