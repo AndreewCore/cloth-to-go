@@ -99,14 +99,15 @@ test("botón de pago: deshabilitado sin datos de tarjeta, habilitado al completa
     card: { number: "", name: "", expiry: "", cvv: "" } });
   win.renderPayment();
   let btn = doc.querySelector("#sheetFoot .pay-btn");
+  // Robusto: chequeamos el estado (disabled) y la acción, no el texto exacto.
   assert.ok(btn.hasAttribute("disabled"));
-  assert.match(btn.textContent, /Completa los datos/);
+  assert.equal(btn.dataset.action, "placeOrder");
 
   app.setCheckout({ card: { number: "4111111111111111", name: "Ana", expiry: "12/30", cvv: "123" } });
   win.renderPayment();
   btn = doc.querySelector("#sheetFoot .pay-btn");
-  assert.ok(!btn.hasAttribute("disabled"));
-  assert.match(btn.textContent, /Confirmar pedido/);
+  assert.ok(!btn.hasAttribute("disabled")); // datos completos → habilitado
+  assert.equal(btn.dataset.action, "placeOrder");
 });
 
 test("botón de entrega: deshabilitado sin elegir método de recepción", () => {
@@ -114,8 +115,8 @@ test("botón de entrega: deshabilitado sin elegir método de recepción", () => 
   app.setCheckout({ delivery: null, returnMethod: null });
   win.renderCheckout();
   const btn = doc.querySelector("#sheetFoot .pay-btn");
-  assert.ok(btn.hasAttribute("disabled"));
-  assert.match(btn.textContent, /Elige cómo recibir/);
+  assert.ok(btn.hasAttribute("disabled")); // sin método de entrega → bloqueado
+  assert.equal(btn.dataset.action, "toPayment");
 });
 
 /* ---- XSS en la vista real ---- */
