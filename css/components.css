@@ -908,6 +908,8 @@ main::-webkit-scrollbar { display: none; }
   border-radius: 12px; padding: 12px; margin-top: 14px;
   font-size: 14px; font-weight: 700; text-align: center;
 }
+/* Pedido pendiente (efectivo): los puntos aún no se acreditan → tono neutro. */
+.earned-points.pending { background: var(--bg); color: var(--muted); }
 /* Agua ahorrada (confirmación) */
 .water-saved {
   background: rgba(43,140,209,.12); color: #2b8cd1;
@@ -939,6 +941,13 @@ main::-webkit-scrollbar { display: none; }
   background: none; border: none; color: var(--accent);
   font-size: 11px; font-weight: 700; cursor: pointer; padding: 4px 0 0; text-decoration: underline;
   display: inline-block;
+}
+/* Nota pasiva en un pedido en efectivo pendiente: informa los puntos
+   reservados. NO es una acción: el cliente no confirma su propio pago. */
+.points-pending {
+  margin: 8px 0 2px; padding: 8px 10px;
+  background: var(--bg); border-radius: 10px;
+  font-size: 12px; font-weight: 700; color: var(--muted);
 }
 
 /* ---- Editor in-line del modo de devolución ---- */
