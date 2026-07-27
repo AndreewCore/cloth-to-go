@@ -268,59 +268,77 @@ function placeOrder(){
     status: payMethod === "cash" ? "pending" : "settled",
   };
   order.total = orderTotal(order);   // valor total del cobro del pedido
+  // Puntos que otorga el pedido; se calculan con el carrito aún intacto.
+  order.points = orderPoints();
+  order.pointsCredited = false;
   orders.push(order);
-  // Acreditar puntos por el alquiler completado.
-  lastEarnedPoints = orderPoints();
-  profile.points += lastEarnedPoints;
+  // Los puntos SOLO se acreditan cuando el pedido está pagado (settled): la
+  // tarjeta ya se cobró. El efectivo nace pending con sus puntos RESERVADOS
+  // (pointsCredited=false); su cobro y acreditación los hará el negocio/backend
+  // (el cliente no puede confirmar su propio pago).
+  if(order.status === "settled"){
+    profile.points += order.points;
+    order.pointsCredited = true;
+  }
+  lastEarnedPoints = order.points;
   // Litros de agua ahorrados con este alquiler (el carrito aún está intacto).
   lastWaterSaved = cartWaterSaved();
+  // La confirmación se pinta desde el pedido, no del carrito: lo vaciamos ya
+  // para que cerrar la hoja sin pulsar "finalizar" no permita repedir lo mismo.
+  lastOrder = order;
+  cart = [];
   saveState();
-  view = "done"; renderSheet(); updateBadge();
-  // Felicitación por el ahorro de agua (moda circular / ropa reutilizada).
-  showWaterPop(lastWaterSaved, cart.length);
+  // renderGrid: las prendas del pedido pasan a estar alquiladas y salen del
+  // catálogo ya mismo, sin esperar a que se cierre la confirmación.
+  view = "done"; renderSheet(); updateBadge(); renderGrid();
 }
 
-/* ---- Confirmación ---- */
+/* ---- Confirmación ----
+   No se desglosa aquí la compra: el detalle del pedido (prendas, período,
+   entrega, depósito, estado del pago) vive en el perfil. La confirmación queda
+   como un acuse breve + el ahorro de agua (antes un pop-up aparte) + un acceso
+   directo a "Mis pedidos". */
 function renderDone(){
   sheetTitle.textContent = "¡Listo!";
-  const isShip = delivery==="ship";
-  const payNames = { cash:"💵 Efectivo", credit:"💳 Tarjeta de crédito", debit:"🏦 Tarjeta de débito" };
-  const last4 = card.number.replace(/\s+/g, "").slice(-4);
-  const payText = (payNames[payMethod] || "—") + (payMethod!=="cash" && last4 ? ` ····${last4}` : "");
+  if(!lastOrder) return;              // sin pedido reciente no hay nada que confirmar
+  const o = lastOrder;
   sheetBody.innerHTML = `
     <div class="confirm">
       <div class="big">🎉</div>
       <h2>Alquiler confirmado</h2>
       <p>Gracias por elegir CLOTH TO GO. Cuida tus prendas y devuélvelas a tiempo 💚</p>
-      <div class="box">
-        <b>📅 Período:</b> ${fmtDate(rentalStart)} → ${fmtDate(rentalEnd)} (${rentalDays()} ${rentalDays()===1?'día':'días'})<br>
-        <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        ${isShip
-          ? `<b>🚚 Envío a domicilio</b><br>${escapeHTML(address)}<br><span style="color:var(--muted)">Llega en 24–48 h.</span>`
-          : `<b>🏬 Retiro en local</b><br>${LOCAL.nombre}<br>${LOCAL.direccion}<br><span style="color:var(--muted)">${LOCAL.horario}</span>`}
-        <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        ${returnMethod==='home'
-          ? `<b>🚚 Devolución: retiro a domicilio</b><br>${escapeHTML(returnAddress)}<br><span style="color:var(--muted)">Coordinaremos el retiro al terminar el alquiler.</span>`
-          : `<b>🏬 Devolución en local</b><br>${LOCAL.nombre}<br>${LOCAL.direccion}<br><span style="color:var(--muted)">${LOCAL.horario}</span>`}
-        <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        <b>Pago:</b> ${payText}
-        <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        ${cart.map(c=>{const p=productById(c.id);return `· ${escapeHTML(p.name)} — $${cartItemPrice(p).toFixed(2)}`;}).join("<br>")}
-        <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0">
-        <span style="color:var(--muted)">Depósito reembolsable: $${depositTotal().toFixed(2)} (se devuelve al regresar las prendas)</span>
-      </div>
-      <div class="earned-points">🌱 Ganaste <b>${lastEarnedPoints}</b> puntos con este alquiler</div>
+      ${o.status === "settled"
+        ? `<div class="earned-points">🌱 Ganaste <b>${o.points}</b> puntos con este alquiler</div>`
+        : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos cuando se registre tu pago</div>`}
       ${lastWaterSaved > 0 ? `<div class="water-saved">💧 Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
+      <button class="pay-btn ver-pedidos" data-action="goToOrders">Ver mis pedidos →</button>
     </div>`;
-  sheetFoot.innerHTML = `<button class="pay-btn" data-action="finish">Volver al catálogo</button>`;
+  sheetFoot.innerHTML = `<button class="pay-btn ghost" data-action="finish">Volver al catálogo</button>`;
 }
 
-// Cierra el flujo: limpia carrito/entrega y vuelve al catálogo.
-function finishOrder(){
-  cart = []; delivery = null; address = ""; returnMethod = null; returnAddress = "";
+// Restablece el estado de checkout tras cerrar un pedido (el carrito ya se vació
+// en placeOrder). Compartido por "Volver al catálogo" y "Ver mis pedidos".
+function resetCheckoutState(){
+  delivery = null; address = ""; returnMethod = null; returnAddress = "";
   payMethod = null; card = { number:"", name:"", expiry:"", cvv:"" };
-  lastEarnedPoints = 0; lastWaterSaved = 0;
+  lastEarnedPoints = 0; lastWaterSaved = 0; lastOrder = null;
+}
+
+// "Volver al catálogo": cierra el flujo y vuelve a la grilla.
+function finishOrder(){
+  resetCheckoutState();
   view = "cart";
   saveState();
   updateBadge(); renderGrid(); closeSheet();
+}
+
+// "Ver mis pedidos": cierra el flujo y abre el perfil desplazado a la sección de
+// pedidos (activos/vigentes). Los finalizados quedan en su desplegable.
+function goToOrders(){
+  resetCheckoutState();
+  editingOrder = null; editingProfile = false;
+  view = "profile";
+  saveState();
+  updateBadge(); renderGrid(); renderSheet();
+  scrollSheetTo("misPedidos");
 }

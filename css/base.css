@@ -44,7 +44,12 @@ body {
   background: var(--bg);
   border-radius: 44px;
   box-shadow: var(--shadow), 0 0 0 12px #1f2a1c, 0 0 0 14px #34402e;
+  /* overflow:clip recorta SIN crear caja desplazable: así ningún scroll
+     programático (p. ej. scrollIntoView) puede correr el marco del teléfono y
+     dejar el encabezado cortado. `hidden` queda de reserva para navegadores
+     sin soporte de `clip`. */
   overflow: hidden;
+  overflow: clip;
   position: relative;
   display: flex;
   flex-direction: column;
