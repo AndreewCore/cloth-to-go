@@ -176,15 +176,26 @@ Para activarlo:
      - `https://andreewcore.github.io/*`
      - `http://localhost:8000/*`
    - *Restricciones de API* → **Restringir clave** y marca solo las dos APIs de arriba.
-6. Pega la clave en `js/maps.js`:
-   ```js
-   const GOOGLE_MAPS_API_KEY = "AIza…";
+6. Sirve la app por http (`python3 -m http.server`) y entra pasando la clave una
+   sola vez por la URL:
    ```
-7. Sirve la app por http (`python3 -m http.server`) y entra por
-   `http://localhost:8000`. Por `file://` el mapa **no** carga a propósito.
+   http://localhost:8000/?mapskey=AIza…
+   ```
+   Queda guardada en el `localStorage` del navegador (`clothToGo:mapsKey`) y el
+   parámetro se borra de la barra de direcciones. Desde ahí entras por
+   `http://localhost:8000` a secas. Por `file://` el mapa **no** carga a propósito.
 
-> ⚠️ Sin el paso 5 cualquiera puede copiar la clave del código y gastar tu cuota.
-> La restricción por origen es lo que la protege, no el secreto.
+   Para quitarla: `localStorage.removeItem("clothToGo:mapsKey")`.
+
+> ⚠️ **No pegues la clave en `js/maps.js`.** Este repo es público: una clave
+> commiteada queda para siempre en el historial de git, la recogen los scrapers
+> en minutos y el consumo se factura a tu cuenta. `GOOGLE_MAPS_API_KEY` se deja
+> vacía y hay un test que lo vigila. El override de `localStorage` existe justo
+> para probar sin tocar el código.
+>
+> Para un despliegue real la clave sí viaja en el HTML —es inevitable en una
+> clave de navegador—, y lo que la protege es la restricción por referente HTTP
+> del paso 5, no el secreto.
 
 Si el mapa no aparece, abre la consola del navegador: Google explica ahí el
 motivo exacto (`RefererNotAllowedMapError`, `ApiNotActivatedMapError`, etc.).

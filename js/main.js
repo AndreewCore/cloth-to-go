@@ -196,6 +196,8 @@ sheet.addEventListener("keydown", e=>{
 });
 
 /* ---------------- Init ---------------- */
+// Antes de cualquier render: decide si el botón del mapa se ofrece en esta carga.
+adoptMapsKeyFromUrl();
 renderFilters();
 renderGrid();
 updateBadge();

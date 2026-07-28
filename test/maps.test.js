@@ -35,9 +35,37 @@ function assertPunto(coords, esperado, msg) {
 
 /* ---- Degradación: sin clave configurada la app no pierde nada ---- */
 test("sin clave de Maps el selector no se ofrece", () => {
-  assert.equal(app.mapsApiKey, "", "el repo no debe llevar una clave hardcodeada");
+  assert.equal(app.hardcodedMapsKey, "", "el repo no debe llevar una clave hardcodeada");
+  assert.equal(app.mapsApiKey(), "");
   assert.equal(app.mapsAvailable(), false);
   assert.equal(app.mapPickerButtonHTML("ship", null), "");
+});
+
+/* ---- Override local: la única vía admitida para probar con una clave real ---- */
+test("la clave del localStorage activa el selector sin tocar el código", () => {
+  const env = loadDom({ storage: { "clothToGo:mapsKey": "CLAVE-DE-PRUEBA" } });
+  assert.equal(env.app.hardcodedMapsKey, "", "el override no debe ensuciar el código");
+  assert.equal(env.app.mapsApiKey(), "CLAVE-DE-PRUEBA");
+  assert.equal(env.app.mapsAvailable(), true);
+  assert.match(env.app.mapPickerButtonHTML("ship", null), /data-action="pickLocation"/);
+});
+
+test("?mapskey= guarda la clave y desaparece de la URL", () => {
+  const env = loadDom({ url: "https://cloth.test/?mapskey=CLAVE-URL" });
+  env.app.adoptMapsKeyFromUrl();
+  assert.equal(env.window.localStorage.getItem("clothToGo:mapsKey"), "CLAVE-URL");
+  // Una clave en el query string se filtra por historial y por Referer.
+  assert.equal(env.window.location.search, "");
+  assert.equal(env.app.mapsApiKey(), "CLAVE-URL");
+});
+
+test("sin ?mapskey= no se pisa el override ya guardado", () => {
+  const env = loadDom({
+    url: "https://cloth.test/",
+    storage: { "clothToGo:mapsKey": "CLAVE-PREVIA" }
+  });
+  env.app.adoptMapsKeyFromUrl();
+  assert.equal(env.app.mapsApiKey(), "CLAVE-PREVIA");
 });
 
 test("sin mapa, el campo de dirección escrito a mano sigue siendo válido", () => {

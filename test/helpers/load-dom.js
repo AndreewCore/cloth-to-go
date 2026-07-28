@@ -69,7 +69,10 @@ globalThis.__APP__ = {
   mapsAvailable, applyPickedLocation, clearPickedLocation, mapPickerButtonHTML, isValidAddress,
   get address(){ return address; },
   get returnAddress(){ return returnAddress; },
-  get mapsApiKey(){ return GOOGLE_MAPS_API_KEY; },
+  // La clave escrita en el código, no la efectiva: es la que vigila el guardrail
+  // de "nada de claves commiteadas". La efectiva sale de mapsApiKey().
+  get hardcodedMapsKey(){ return GOOGLE_MAPS_API_KEY; },
+  mapsApiKey, adoptMapsKeyFromUrl, MAPS_OVERRIDE_KEY,
   // Premios: el catálogo y los derivados del canje aplicado.
   REWARDS, SHIPPING_FEE, rewardById, rewardDiscount, rewardIssue,
   couponById, availableCoupons, couponDiscount, couponIssue, cartRewardCtx, orderDiscount,
