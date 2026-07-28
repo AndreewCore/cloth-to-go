@@ -384,6 +384,7 @@ function openWardrobe(){
       title: "Muy pronto",
       okLabel: "Entendido",
       infoOnly: true,
+      tone: "brown",
       detailHTML: `
         <p class="soon-text">Estamos preparando la función para que <b>publiques tu propio armario</b>
         y ganes dinero alquilando la ropa que ya no usas.</p>

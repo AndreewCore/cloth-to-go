@@ -113,6 +113,11 @@ function confirmDialog(message, onConfirm, iconName, opts = {}){
   iconEl.classList.toggle("is-hidden", !iconName);
   // El icono de una acción destructiva va en rojo, no en el verde de marca.
   iconEl.classList.toggle("danger", !!opts.danger);
+  // `tone`: tiñe el disco para que el diálogo se reconozca de la tarjeta que lo
+  // abrió (el armario es café en las dos). Se limpia el tono anterior porque el
+  // elemento del modal se reutiliza en todos los diálogos.
+  iconEl.classList.remove("tone-brown");
+  if(opts.tone) iconEl.classList.add(`tone-${opts.tone}`);
   titleEl.textContent = opts.title || "";
   titleEl.classList.toggle("is-hidden", !opts.title);
   modalText.textContent = message;     // textContent → seguro (no HTML)
