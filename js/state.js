@@ -131,8 +131,9 @@ function grandTotal(){
 
 // Canje por id (lo aplicado al checkout y lo enganchado a un pedido).
 function couponById(id){ return profile.redeemed.find(c => c.id === id) || null; }
-// Canjes todavía por usar, del más reciente al más antiguo.
-function availableCoupons(){ return profile.redeemed.filter(c => !c.usedIn); }
+// Canjes todavía por usar, del más reciente al más antiguo. Un canje revocado
+// (ver revokeOrderPoints) ya devolvió sus puntos al saldo: deja de ser gastable.
+function availableCoupons(){ return profile.redeemed.filter(c => !c.usedIn && !c.revoked); }
 // Siguiente número de canje (correlativo a partir de 1).
 function nextCouponId(){ return profile.redeemed.reduce((m,c) => Math.max(m, c.id || 0), 0) + 1; }
 
@@ -243,23 +244,61 @@ function canCancelOrder(o){ return !isPastOrder(o) && isoOffset(0) <= o.start; }
  */
 function isDelivered(o){ return !isCancelledOrder(o) && o.start <= isoOffset(0); }
 /**
- * Acredita los puntos de los pedidos ya ENTREGADOS que aún no los recibieron.
+ * Acredita los puntos de los pedidos ya entregados y FIRMES (no anulables).
  *
  * Los puntos premian el alquiler cumplido, no el cobro: por eso el disparador
  * es la entrega y no el pago (un efectivo pendiente ya disfrutó su prenda).
  * Como no hay tareas programadas, se liquida de forma perezosa: al arrancar la
  * sesión y al confirmar un pedido.
+ *
+ * La condición exige ADEMÁS que el pedido ya no se pueda anular, y no basta con
+ * la entrega: `isDelivered` (start ≤ hoy) y `canCancelOrder` (hoy ≤ start) se
+ * solapan justo el día de inicio. Acreditar en esa ventana permitía canjear los
+ * puntos, anular el pedido y quedarse con el premio — la reversión devuelve
+ * puntos, pero un premio ya canjeado no está en el saldo. Derivarlo de la
+ * anulabilidad (y no de otra comparación de fechas) mantiene ambos lados
+ * imposibles de solapar aunque las reglas de fechas cambien.
  * @returns {number} Puntos acreditados en esta pasada (0 si no hubo ninguno).
  */
 function creditDeliveredPoints(){
   let sum = 0;
   orders.forEach(o => {
-    if(o.pointsCredited || !isDelivered(o)) return;
+    if(o.pointsCredited || !isDelivered(o) || canCancelOrder(o)) return;
     profile.points += o.points;
     o.pointsCredited = true;
     sum += o.points;
   });
   return sum;
+}
+
+/**
+ * Revierte los puntos de un pedido que deja de contar (anulado).
+ *
+ * Restar del saldo no basta: parte de esos puntos puede haberse convertido ya
+ * en premios, que sobrevivirían a la reversión y dejarían al cliente con un
+ * beneficio que ningún alquiler pagó. Por eso los canjes sin usar se revocan
+ * (los más recientes primero, que son los que esos puntos financiaron) hasta
+ * que el saldo alcance para pagar la reversión.
+ *
+ * Con creditDeliveredPoints() atado a la anulabilidad esto no debería ocurrir,
+ * pero sí puede llegar por la migración de loadState(), que marca como
+ * acreditados pedidos guardados que todavía admiten anulación.
+ * @param {object} o Pedido anulado.
+ * @returns {number} Canjes revocados para cubrir la reversión.
+ */
+function revokeOrderPoints(o){
+  if(!o.pointsCredited) return 0;
+  o.pointsCredited = false;
+  let revocados = 0;
+  while(profile.points < o.points){
+    const c = availableCoupons()[0];   // redeemed se llena con unshift: [0] es el último canje
+    if(!c) break;                      // nada más que recuperar: el resto se perdona
+    c.revoked = true;
+    profile.points += c.cost;
+    revocados++;
+  }
+  profile.points = Math.max(0, profile.points - o.points);
+  return revocados;
 }
 // Siguiente número de pedido (correlativo a partir de 1000).
 function nextOrderId(){ return orders.reduce((m,o) => Math.max(m, o.id), 1000) + 1; }
