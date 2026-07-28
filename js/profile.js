@@ -314,9 +314,13 @@ function cancelOrder(i){
       o.cancelledAt = isoOffset(0);
       // Los puntos solo se revierten si llegaron a acreditarse; los de un pedido
       // pendiente nunca entraron al saldo, así que no hay nada que restar.
-      if(o.pointsCredited){
-        profile.points = Math.max(0, profile.points - o.points);
-        o.pointsCredited = false;
+      const revocados = revokeOrderPoints(o);
+      // El premio vuelve a la cartera: el alquiler no llegó a existir, así que
+      // los puntos que costó no pueden quedarse gastados.
+      if(o.couponId){
+        const c = couponById(o.couponId);
+        if(c) c.usedIn = null;
+        o.couponId = null;
       }
       // El editor de devolución guarda un índice: dejarlo abierto sobre un
       // pedido que ya no se muestra como activo lo dejaría huérfano.
@@ -324,7 +328,11 @@ function cancelOrder(i){
       saveState();
       renderProfile();
       renderGrid();             // las prendas reaparecen en el catálogo al instante
-      toast("Pedido anulado · prendas devueltas al catálogo");
+      // Perder un premio en silencio sería peor que el propio cobro: si la
+      // reversión tuvo que revocar canjes, se dice cuántos y por qué.
+      toast(revocados
+        ? `Pedido anulado · ${revocados} ${revocados === 1 ? "premio revocado" : "premios revocados"} (sus puntos venían de este pedido)`
+        : "Pedido anulado · prendas devueltas al catálogo");
     },
     "trash",
     {
@@ -381,26 +389,51 @@ function renderRewards(){
       </div>`;
     }).join("")}
 
-    ${profile.redeemed.length ? `
-      <div class="section-label">Tus canjes</div>
-      ${profile.redeemed.map(c => `
-        <div class="redeemed-item">${icon("checkCircle", { size: 14 })} ${escapeHTML(c.name)} <span>${c.date} · ${c.cost} pts</span></div>`).join("")}
-    ` : ""}
+    ${couponListHTML(availableCoupons(), "Premios por usar",
+      `<p class="summary-note">${icon("ticket", { size: 14 })} Aplícalos en el paso de <b>entrega y pago</b> de tu próximo alquiler.</p>`)}
+    ${couponListHTML(profile.redeemed.filter(c => c.usedIn || c.revoked), "Historial de canjes")}
 
     <p class="summary-note">Ganas puntos con cada alquiler completado (según el monto, los días y la cantidad de prendas).</p>
   `;
   sheetFoot.innerHTML = "";
 }
 
+/**
+ * Lista de canjes bajo un encabezado, o vacío si no hay ninguno.
+ * @param {object[]} lista Canjes de profile.redeemed.
+ * @param {string} label Encabezado de la sección.
+ * @param {string} [noteHTML] Nota opcional al pie de la sección.
+ */
+function couponListHTML(lista, label, noteHTML = ""){
+  if(!lista.length) return "";
+  return `
+    <div class="section-label">${label}</div>
+    ${lista.map(c => {
+      const inactivo = !!(c.usedIn || c.revoked);
+      let nota = "";
+      if(c.revoked)                              nota = " · anulado con el pedido";
+      else if(c.usedIn && c.usedIn !== "—")      nota = ` · pedido #${escapeHTML(c.usedIn)}`;
+      return `
+      <div class="redeemed-item${inactivo ? " used" : ""}">
+        ${c.revoked ? icon("alert", { size: 14 }) : c.usedIn ? icon("checkCircle", { size: 14 }) : icon("ticket", { size: 14 })} ${escapeHTML(c.name)}
+        <span>${escapeHTML(c.date)} · ${c.cost} pts${nota}</span>
+      </div>`;
+    }).join("")}
+    ${noteHTML}`;
+}
+
 function redeem(id){
-  const rw = REWARDS.find(r => r.id === id);
+  const rw = rewardById(id);
   if(!rw || profile.points < rw.cost) return;
-  confirmDialog(`Canjear "${rw.name}" por ${rw.cost} puntos.\n\nTe quedarán ${profile.points - rw.cost} pts.\n\n¿Confirmar?`, ()=>{
+  confirmDialog(`Canjear "${rw.name}" por ${rw.cost} puntos.\n\nLo guardaremos como premio para que lo apliques al pagar tu próximo alquiler.\n\nTe quedarán ${profile.points - rw.cost} pts.\n\n¿Confirmar?`, ()=>{
     profile.points -= rw.cost;
-    profile.redeemed.unshift({ name: rw.name, cost: rw.cost, date: fmtDate(isoOffset(0)) });
+    profile.redeemed.unshift({
+      id: nextCouponId(), rewardId: rw.id, name: rw.name,
+      cost: rw.cost, date: fmtDate(isoOffset(0)), usedIn: null
+    });
     saveState();
     renderRewards();
-    toast("¡Premio canjeado!");
+    toast("Premio guardado · aplícalo al pagar");
   });
 }
 
