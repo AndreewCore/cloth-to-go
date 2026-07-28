@@ -110,6 +110,7 @@ sheet.addEventListener("click", e=>{
     case "openRewards":    view="rewards"; renderSheet(); break;
     case "redeem":         redeem(+el.dataset.id); break;
     case "openDonate":     openDonate(); break;
+    case "openWardrobe":   openWardrobe(); break;
     case "setDonateMethod": donMethod = el.dataset.value; renderSheet(); break;
     case "submitDonation": submitDonation(); break;
     case "editReturn":     openReturnEditor(+el.dataset.idx); break;
