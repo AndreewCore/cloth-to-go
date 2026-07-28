@@ -47,7 +47,7 @@ function scrollSheetTo(id, margin = 8){
 }
 
 // Vista → paso anterior (define cuándo se muestra el botón "atrás").
-const SHEET_BACK = { checkout: "cart", payment: "checkout", rewards: "profile", donate: "profile" };
+const SHEET_BACK = { checkout: "cart", payment: "checkout", rewards: "profile", donate: "profile", settings: "profile" };
 
 // Despacha el render del panel según la vista activa.
 function renderSheet(){
@@ -61,6 +61,7 @@ function renderSheet(){
   else if(view==="rewards") renderRewards();
   else if(view==="donate") renderDonate();
   else if(view==="filters") renderFilterSheet();
+  else if(view==="settings") renderSettings();
 }
 
 /* ---------------- Badge del carrito ---------------- */

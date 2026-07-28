@@ -14,6 +14,10 @@ const globals = require("globals");
 const PROJECT_GLOBALS = [
   // icons.js
   "ICON_PATHS", "icon",
+  // prefs.js
+  "PREFS_KEY", "DEFAULT_PREFS", "TEXT_SCALES", "prefs", "loadPrefs", "savePrefs",
+  "systemPrefersDark", "effectiveTheme", "shouldReduceMotion", "applyPrefs",
+  "getPrefs", "setPref", "toggleTheme", "renderThemeButton", "watchSystemTheme",
   // data.js
   "LOCAL", "SHIPPING_FEE", "LATE_GRACE_DAYS", "LATE_PENALTY",
   "LAUNDRY_BY_MATERIAL", "OVERHEAD_PER_CYCLE", "CYCLES_PER_STAR", "MIN_MARGIN",
@@ -65,6 +69,7 @@ const PROJECT_GLOBALS = [
   "renderProfile", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
   "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn", "cancelOrder",
   "renderRewards", "couponListHTML", "redeem",
+  "prefOptionsHTML", "prefToggleHTML", "renderSettings",
   "openDonate", "donateValid", "renderDonate", "submitDonation", "openWardrobe",
   // main.js
   "enter",
