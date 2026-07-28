@@ -76,7 +76,9 @@ const PROJECT_GLOBALS = [
   "google", "GOOGLE_CLIENT_ID", "currentUser", "authAvailable", "decodeJwt",
   "activateUserSession", "onGoogleCredential", "initGoogleAuth", "signOut",
   // maps.js  (`google` ya está arriba: lo aporta el mismo SDK)
-  "GOOGLE_MAPS_API_KEY", "MAP_DEFAULT_CENTER", "MAP_DEFAULT_ZOOM",
+  "GOOGLE_MAPS_API_KEY", "MAPS_OVERRIDE_KEY", "MAPS_KEY_PARAM",
+  "mapsApiKey", "adoptMapsKeyFromUrl",
+  "MAP_DEFAULT_CENTER", "MAP_DEFAULT_ZOOM",
   "mapsSdkPromise", "pickerMap", "pickerGeocoder", "pickerTarget", "pickerPlace",
   "mapsAvailable", "loadMapsSdk", "openMapPicker", "setUpPickerMap", "readMapCenter",
   "useMyLocation", "confirmMapPicker", "applyPickedLocation", "clearPickedLocation", "closeMapPicker",
