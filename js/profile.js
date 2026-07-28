@@ -135,6 +135,15 @@ function renderProfile(){
       <span class="dc-cta">${icon("arrowRight", { size: 16 })}</span>
     </button>
 
+    <button class="donate-card settings-card" data-action="openSettings" aria-label="Ajustes de accesibilidad y tema">
+      <span class="dc-icon ico-violet">${icon("accessibility", { size: 24 })}</span>
+      <div class="dc-text">
+        <div class="dc-title">Accesibilidad y tema</div>
+        <div class="dc-desc">Tamaño del texto, contraste, animaciones y modo oscuro.</div>
+      </div>
+      <span class="dc-cta">${icon("arrowRight", { size: 16 })}</span>
+    </button>
+
     <button class="donate-card wardrobe-card" data-action="openWardrobe" aria-label="Poner tu armario en alquiler (próximamente)">
       <span class="dc-icon">${icon("wardrobe", { size: 24 })}</span>
       <div class="dc-text">
@@ -572,4 +581,95 @@ function submitDonation(){
   donName = ""; donMethod = null; donAddr = ""; donDate = "";
   renderDonate();
   toast("Solicitud de donación enviada");
+}
+
+/* ---- Ajustes de accesibilidad y tema ----
+   Viven en su propia vista y no en el perfil porque no son datos de la cuenta:
+   son del dispositivo (ver prefs.js). Quien entra como invitado también los
+   necesita, y su sesión no guarda nada. */
+
+/**
+ * Grupo de opciones excluyentes, con la activa marcada.
+ * @param {string} pref Clave de prefs a la que pertenece el grupo.
+ * @param {string} actual Valor activo.
+ * @param {Array<[string,string]>} opciones Pares [valor, etiqueta].
+ * @returns {string} HTML.
+ */
+function prefOptionsHTML(pref, actual, opciones){
+  return `
+    <div class="pref-opts" role="group">
+      ${opciones.map(([valor, etiqueta]) => `
+        <button class="pref-opt${valor === actual ? " active" : ""}"
+                data-action="setPref" data-pref="${pref}" data-value="${valor}"
+                aria-pressed="${valor === actual}">${etiqueta}</button>`).join("")}
+    </div>`;
+}
+
+/**
+ * Interruptor de una preferencia booleana.
+ * @param {string} pref Clave de prefs.
+ * @param {boolean} activo Estado actual.
+ * @returns {string} HTML.
+ */
+function prefToggleHTML(pref, activo){
+  return `
+    <button class="pref-switch${activo ? " on" : ""}"
+            data-action="togglePref" data-pref="${pref}"
+            role="switch" aria-checked="${activo}">
+      <span class="ps-knob"></span>
+    </button>`;
+}
+
+/** Vista de ajustes: tema, tamaño de texto, animaciones y contraste. */
+function renderSettings(){
+  sheetTitle.textContent = "Ajustes";
+  const p = getPrefs();
+  sheetBody.innerHTML = `
+    <p class="settings-intro">Estos ajustes se guardan en este dispositivo y se
+    mantienen aunque cierres sesión.</p>
+
+    <div class="pref-row">
+      <div class="pref-head">
+        <span class="pref-icon ico-violet">${icon("moon", { size: 20 })}</span>
+        <div>
+          <div class="pref-name">Tema</div>
+          <div class="pref-desc">"Automático" sigue al de tu sistema.</div>
+        </div>
+      </div>
+      ${prefOptionsHTML("theme", p.theme, [["auto","Automático"],["light","Claro"],["dark","Oscuro"]])}
+    </div>
+
+    <div class="pref-row">
+      <div class="pref-head">
+        <span class="pref-icon ico-sky">${icon("textSize", { size: 20 })}</span>
+        <div>
+          <div class="pref-name">Tamaño del texto</div>
+          <div class="pref-desc">Amplía también los espacios, no solo la letra.</div>
+        </div>
+      </div>
+      ${prefOptionsHTML("textSize", p.textSize, [["normal","Normal"],["grande","Grande"],["mayor","Mayor"]])}
+    </div>
+
+    <div class="pref-row">
+      <div class="pref-head">
+        <span class="pref-icon ico-gold">${icon("motion", { size: 20 })}</span>
+        <div>
+          <div class="pref-name">Reducir animaciones</div>
+          <div class="pref-desc">Quita transiciones y desplazamientos suaves.</div>
+        </div>
+        ${prefToggleHTML("reduceMotion", p.reduceMotion)}
+      </div>
+    </div>
+
+    <div class="pref-row">
+      <div class="pref-head">
+        <span class="pref-icon ico-teal">${icon("contrast", { size: 20 })}</span>
+        <div>
+          <div class="pref-name">Contraste alto</div>
+          <div class="pref-desc">Refuerza textos secundarios y bordes.</div>
+        </div>
+        ${prefToggleHTML("highContrast", p.highContrast)}
+      </div>
+    </div>`;
+  sheetFoot.innerHTML = "";
 }

@@ -22,7 +22,7 @@ const JS_DIR = path.join(ROOT, "js");
 
 // Orden estricto de index.html, sin main.js.
 const FILES = [
-  "icons.js", "data.js", "state.js", "dom.js", "catalog.js",
+  "icons.js", "prefs.js", "data.js", "state.js", "dom.js", "catalog.js",
   "checkout.js", "profile.js", "api.js", "auth.js", "maps.js"
 ];
 
@@ -104,6 +104,9 @@ globalThis.__APP__ = {
   // Puros, para aserciones sin recalcular a mano.
   orderPoints, orderTotal, orderDeposit, isoOffset, productById,
   storageKeyFor, decodeJwt, resolveApiBase, backendForHost, isMixedContent,
+  SHEET_BACK,
+  getPrefs, setPref, toggleTheme, effectiveTheme, applyPrefs, loadPrefs,
+  shouldReduceMotion, PREFS_KEY, DEFAULT_PREFS,
   isProductionHost, PRODUCTION_HOSTS, API_OFF_REASONS,
 };
 `;
