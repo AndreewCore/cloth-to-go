@@ -245,3 +245,12 @@ test("el logo recibe una base clara en tema oscuro", () => {
   // Es un PNG de trazo oscuro sobre fondo transparente: sin base, desaparece.
   assert.match(COMP_CSS, /:root\[data-theme="dark"\]\s*\.brand-logo\s*\{[^}]*background:/);
 });
+
+test("la bienvenida no lleva verdes fijos: es la primera pantalla del tema", () => {
+  // Se quedaba en verde claro sobre una app en oscuro, delatando el tema antes
+  // de que la app llegara a pintarse.
+  const regla = bloque(COMP_CSS, ".login");
+  assert.match(regla, /var\(--welcome-from\)/);
+  assert.match(regla, /var\(--welcome-to\)/);
+  assert.doesNotMatch(regla, /#[0-9a-fA-F]{6}/);
+});

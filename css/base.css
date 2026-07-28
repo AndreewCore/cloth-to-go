@@ -46,6 +46,13 @@
   --neutral-bg: #e6e6e6;   --neutral-ink: #555555;
   --danger-soft: #fbeee8;  --danger-line: #e8c7b8;
   --on-accent: #ffffff;    /* texto sobre relleno de acento */
+  /* Fondo de la bienvenida. Es la primera pantalla que se ve, así que si se
+     queda en verde claro delata el tema antes de que la app llegue a pintarse. */
+  --welcome-from: #3f7d3a;
+  --welcome-to: #1f2a1c;
+  --welcome-halo: rgba(141,206,124,.30);
+  --welcome-halo-soft: rgba(141,206,124,.20);
+  --welcome-grid: rgba(255,255,255,.05);
 
   /* Le dice al navegador con qué esquema pintar lo que NO controlamos:
      controles nativos, el desplegable de <input type=date> y las barras de
@@ -98,6 +105,11 @@
   --neutral-bg: #2a2f28;   --neutral-ink: #a6b09f;
   --danger-soft: #35211a;  --danger-line: #5c3a2c;
   --on-accent: #0f140e;    /* sobre los verdes claros del tema oscuro, tinta */
+  --welcome-from: #1d3a1b;
+  --welcome-to: #0a0e09;
+  --welcome-halo: rgba(120,180,105,.16);
+  --welcome-halo-soft: rgba(120,180,105,.10);
+  --welcome-grid: rgba(255,255,255,.03);
   color-scheme: dark;
 }
 
