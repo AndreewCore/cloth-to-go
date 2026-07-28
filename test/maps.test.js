@@ -35,9 +35,37 @@ function assertPunto(coords, esperado, msg) {
 
 /* ---- Degradación: sin clave configurada la app no pierde nada ---- */
 test("sin clave de Maps el selector no se ofrece", () => {
-  assert.equal(app.mapsApiKey, "", "el repo no debe llevar una clave hardcodeada");
+  assert.equal(app.hardcodedMapsKey, "", "el repo no debe llevar una clave hardcodeada");
+  assert.equal(app.mapsApiKey(), "");
   assert.equal(app.mapsAvailable(), false);
   assert.equal(app.mapPickerButtonHTML("ship", null), "");
+});
+
+/* ---- Override local: la única vía admitida para probar con una clave real ---- */
+test("la clave del localStorage activa el selector sin tocar el código", () => {
+  const env = loadDom({ storage: { "clothToGo:mapsKey": "CLAVE-DE-PRUEBA" } });
+  assert.equal(env.app.hardcodedMapsKey, "", "el override no debe ensuciar el código");
+  assert.equal(env.app.mapsApiKey(), "CLAVE-DE-PRUEBA");
+  assert.equal(env.app.mapsAvailable(), true);
+  assert.match(env.app.mapPickerButtonHTML("ship", null), /data-action="pickLocation"/);
+});
+
+test("?mapskey= guarda la clave y desaparece de la URL", () => {
+  const env = loadDom({ url: "https://cloth.test/?mapskey=CLAVE-URL" });
+  env.app.adoptMapsKeyFromUrl();
+  assert.equal(env.window.localStorage.getItem("clothToGo:mapsKey"), "CLAVE-URL");
+  // Una clave en el query string se filtra por historial y por Referer.
+  assert.equal(env.window.location.search, "");
+  assert.equal(env.app.mapsApiKey(), "CLAVE-URL");
+});
+
+test("sin ?mapskey= no se pisa el override ya guardado", () => {
+  const env = loadDom({
+    url: "https://cloth.test/",
+    storage: { "clothToGo:mapsKey": "CLAVE-PREVIA" }
+  });
+  env.app.adoptMapsKeyFromUrl();
+  assert.equal(env.app.mapsApiKey(), "CLAVE-PREVIA");
 });
 
 test("sin mapa, el campo de dirección escrito a mano sigue siendo válido", () => {
@@ -149,4 +177,46 @@ test("descartar el punto de un campo no toca el del otro", () => {
 
   assert.equal(app.addressCoords, null);
   assert.ok(app.returnAddressCoords, "el retiro conserva su punto");
+});
+
+/* ---- Con mapa, marcar el punto es la ÚNICA vía ----
+   El valor del mapa está en la coordenada; si se puede seguir escribiendo la
+   dirección a mano, la mayoría lo hará y el reparto vuelve al problema que el
+   mapa vino a resolver. */
+test("con mapa no se ofrece campo de texto para la dirección", () => {
+  const env = loadDom({ storage: { "clothToGo:mapsKey": "CLAVE-DE-PRUEBA" } });
+  env.app.cart = [{ id: 7 }];
+  env.app.setCheckout({ delivery: "ship", returnMethod: "store" });
+  env.window.renderCheckout();
+
+  assert.equal(env.document.getElementById("addr"), null, "no debe haber input de dirección");
+  const html = env.document.getElementById("sheetBody").innerHTML;
+  assert.match(html, /data-action="pickLocation"/);
+  assert.match(html, /addr-empty/, "debe pedir marcar el punto");
+});
+
+test("con mapa, sin punto marcado no se puede continuar al pago", () => {
+  const env = loadDom({ storage: { "clothToGo:mapsKey": "CLAVE-DE-PRUEBA" } });
+  env.app.cart = [{ id: 7 }];
+  // Dirección escrita pero SIN coordenadas: antes bastaba, ahora no.
+  env.app.setCheckout({ delivery: "ship", address: "Av. Principal 123", returnMethod: "store" });
+  env.window.renderCheckout();
+
+  assert.equal(env.app.addressReady("Av. Principal 123", null), false);
+  const btn = env.document.querySelector("#sheetFoot .pay-btn");
+  assert.ok(btn.hasAttribute("disabled"));
+  assert.match(btn.textContent, /Marca la ubicación de envío en el mapa/);
+});
+
+test("con el punto marcado el checkout continúa y muestra la dirección", () => {
+  const env = loadDom({ storage: { "clothToGo:mapsKey": "CLAVE-DE-PRUEBA" } });
+  env.app.cart = [{ id: 7 }];
+  env.app.setCheckout({ delivery: "ship", returnMethod: "store" });
+  env.window.applyPickedLocation("ship", PUNTO);
+  env.window.renderCheckout();
+
+  const html = env.document.getElementById("sheetBody").innerHTML;
+  assert.match(html, /addr-picked/);
+  assert.match(html, /Av\. 9 de Octubre 100/);
+  assert.ok(!env.document.querySelector("#sheetFoot .pay-btn").hasAttribute("disabled"));
 });

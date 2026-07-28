@@ -124,9 +124,7 @@ function renderCheckout(){
     </div>
     ${delivery==='ship' ? `
       <div class="ship-detail">
-        ${icon("mapPin", { size: 14 })} Dirección de envío
-        <input id="addr" placeholder="Calle, número, ciudad…" value="${escapeHTML(address)}" />
-        ${mapPickerButtonHTML("ship", addressCoords)}
+        ${addressFieldHTML("ship", "Dirección de envío", address, addressCoords)}
       </div>` : ``}
     ${delivery==='pickup' ? `
       <div class="pickup-detail">
@@ -156,9 +154,7 @@ function renderCheckout(){
     </div>
     ${returnMethod==='home' ? `
       <div class="ship-detail">
-        ${icon("mapPin", { size: 14 })} Dirección de retiro
-        <input id="retAddr" placeholder="Calle, número, ciudad…" value="${escapeHTML(returnAddress)}" />
-        ${mapPickerButtonHTML("return", returnAddressCoords)}
+        ${addressFieldHTML("return", "Dirección de retiro", returnAddress, returnAddressCoords)}
       </div>` : ``}
 
     ${couponSectionHTML()}
@@ -180,9 +176,9 @@ function renderCheckout(){
 
   let payLabel = `Continuar al pago ${icon("arrowRight", { size: 16 })}`;
   if(!delivery)                                          payLabel = 'Elige cómo recibir tu pedido';
-  else if(delivery==='ship' && !isValidAddress(address)) payLabel = 'Ingresa una dirección de envío válida';
+  else if(delivery==='ship' && !addressReady(address, addressCoords)) payLabel = mapsAvailable() ? 'Marca la ubicación de envío en el mapa' : 'Ingresa una dirección de envío válida';
   else if(!returnMethod)                                 payLabel = 'Elige cómo devolver la ropa';
-  else if(returnMethod==='home' && !isValidAddress(returnAddress)) payLabel = 'Ingresa una dirección de retiro válida';
+  else if(returnMethod==='home' && !addressReady(returnAddress, returnAddressCoords)) payLabel = mapsAvailable() ? 'Marca la ubicación de retiro en el mapa' : 'Ingresa una dirección de retiro válida';
 
   sheetFoot.innerHTML = `
     <button class="pay-btn" data-action="toPayment" ${valid?'':'disabled'}>${payLabel}</button>`;
@@ -236,8 +232,8 @@ function couponSectionHTML(){
 
 // ¿El checkout tiene datos suficientes para pagar?
 function checkoutValid(){
-  const deliveryOk = delivery && (delivery==="pickup" || (delivery==="ship" && isValidAddress(address)));
-  const returnOk = returnMethod && (returnMethod==="store" || (returnMethod==="home" && isValidAddress(returnAddress)));
+  const deliveryOk = delivery && (delivery==="pickup" || (delivery==="ship" && addressReady(address, addressCoords)));
+  const returnOk = returnMethod && (returnMethod==="store" || (returnMethod==="home" && addressReady(returnAddress, returnAddressCoords)));
   return deliveryOk && returnOk;
 }
 
