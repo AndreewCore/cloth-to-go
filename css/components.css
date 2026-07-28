@@ -942,6 +942,45 @@ main::-webkit-scrollbar { display: none; }
   font-size: 12px; color: var(--ink); padding: 7px 2px;
 }
 .redeemed-item span { color: var(--muted); }
+/* Un premio ya gastado no compite por atención con los que aún sirven. */
+.redeemed-item.used { opacity: .6; }
+
+/* ---- Premios aplicables en el checkout ----
+   Comparten la caja de .delivery-opt (misma decisión: elegir una opción de una
+   lista), con el candado para los que no aplican a este pedido. */
+.coupon-opts { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; }
+.coupon-opt {
+  border: 2px solid var(--line);
+  background: var(--card);
+  border-radius: 14px;
+  padding: 12px 14px;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.coupon-opt.active { border-color: var(--accent); background: var(--accent-soft); }
+.coupon-opt.active .do-radio { border-color: var(--accent); }
+.coupon-opt.active .do-radio::after {
+  content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
+}
+/* No aplica a este pedido: se muestra igualmente, con el motivo, para que el
+   cliente no crea que perdió el canje. */
+.coupon-opt.locked { opacity: .55; cursor: not-allowed; border-style: dashed; }
+.coupon-opt.locked .do-desc { color: var(--danger); }
+.link-btn {
+  background: none; border: none; padding: 4px 2px; margin-bottom: 6px;
+  color: var(--muted); font-size: 12px; font-family: inherit;
+  text-decoration: underline; cursor: pointer;
+}
+/* Descuento en el resumen: en verde, como el único importe que resta. */
+.summary-row.discount { color: var(--ok); font-weight: 700; }
+/* Premio aplicado (confirmación) */
+.coupon-used {
+  background: var(--accent-soft); color: var(--accent);
+  border-radius: 12px; padding: 12px; margin-top: 10px;
+  font-size: 14px; font-weight: 700; text-align: center;
+}
 
 /* ---- Puntos ganados (confirmación) ---- */
 .earned-points {
