@@ -921,8 +921,50 @@ main::-webkit-scrollbar { display: none; }
   background: var(--bg); border-radius: 10px; padding: 10px 12px;
   font-size: 12.5px; color: var(--ink); text-align: left;
 }
-.soon-item span { font-size: 18px; flex: 0 0 auto; }
+/* Disco de color por ítem: el mismo tamaño para los tres alinea el texto
+   aunque los trazados de cada icono ocupen distinto alto. */
+.si-icon {
+  width: 34px; height: 34px; border-radius: 50%; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card);
+}
 .soon-note { font-size: 11.5px; color: var(--muted); text-align: center; margin: 0; }
+
+/* ---- Acentos de color de los iconos ----
+   Los SVG heredan `currentColor`, así que basta con teñir el contenedor: un
+   mismo icono sirve en verde, azul o dorado sin duplicar el trazado. Se
+   aplican solo a los iconos que IDENTIFICAN algo (una opción de envío, un
+   premio, una ventaja); las flechas, checks y equis siguen heredando el color
+   del texto, que es lo que las mantiene legibles como parte de la interfaz. */
+.ico-sky    { color: var(--ico-sky); }
+.ico-violet { color: var(--ico-violet); }
+.ico-gold   { color: var(--ico-gold); }
+.ico-rose   { color: var(--ico-rose); }
+.ico-teal   { color: var(--ico-teal); }
+
+/* Opciones de entrega y devolución: a domicilio en azul, en local en verde.
+   Se seleccionan por data-action/data-value porque el marcado reutiliza la
+   misma clase .delivery-opt para entrega, devolución y pago. */
+[data-action="setDelivery"][data-value="ship"]  .do-icon,
+[data-action="setReturn"][data-value="home"]    .do-icon { color: var(--ico-sky); }
+[data-action="setDelivery"][data-value="pickup"] .do-icon,
+[data-action="setReturn"][data-value="store"]   .do-icon { color: var(--accent); }
+
+/* Métodos de pago: efectivo en dorado, tarjetas en violeta. */
+[data-action="setPay"][data-value="cash"]   .do-icon { color: var(--ico-gold); }
+[data-action="setPay"][data-value="credit"] .do-icon,
+[data-action="setPay"][data-value="debit"]  .do-icon { color: var(--ico-violet); }
+
+/* Premios: cada uno con el color de lo que entrega (envío, días, %, premium). */
+.reward[data-reward="1"] .rw-icon { color: var(--ico-sky); }
+.reward[data-reward="2"] .rw-icon { color: var(--ico-rose); }
+.reward[data-reward="3"] .rw-icon { color: var(--ico-gold); }
+.reward[data-reward="4"] .rw-icon { color: var(--ico-violet); }
+/* Un premio bloqueado no debe gritar más que uno disponible. */
+.reward.locked .rw-icon { color: var(--muted); }
+
+/* El agua ahorrada ya va en azul; su icono acompaña al bloque, no al texto. */
+.water-saved .ico { color: var(--ico-teal); }
 
 .donate-intro {
   font-size: 13px; color: var(--ink); line-height: 1.5;

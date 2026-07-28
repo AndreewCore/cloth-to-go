@@ -19,6 +19,15 @@
   --ok: #356b31;
   --line: #e2ebda;
   --danger: #a1482a;       /* rojo/terracota más oscuro para errores legibles */
+  /* Acentos de los iconos. El verde de marca lo tiñe todo por igual y el ojo
+     deja de distinguir una opción de otra; un color por familia (envío, pago,
+     premios…) hace la lista escaneable de un vistazo. Todos rondan o superan
+     4.5:1 sobre los fondos claros donde se usan (--card, --bg). */
+  --ico-sky:    #1f7aa8;   /* logística / envío */
+  --ico-violet: #6b4ea8;   /* protección, depósito */
+  --ico-gold:   #9a6b12;   /* dinero, ganancias */
+  --ico-rose:   #b0426b;   /* premios, favoritos */
+  --ico-teal:   #10736b;   /* impacto ambiental */
   --shadow: 0 10px 30px rgba(31,42,28,.16);
 }
 
