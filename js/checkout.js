@@ -159,12 +159,16 @@ function renderCheckout(){
         <input id="retAddr" placeholder="Calle, número, ciudad…" value="${escapeHTML(returnAddress)}" />
       </div>` : ``}
 
+    ${couponSectionHTML()}
+
     <div class="summary">
       <div class="summary-row"><span>Período</span><span>${rentalDays()} ${rentalDays()===1?'día':'días'} · ${fmtDate(rentalStart)} → ${fmtDate(rentalEnd)}</span></div>
       <div class="summary-row"><span>Subtotal alquiler</span><span>$${subtotal().toFixed(2)}</span></div>
       <div class="summary-row deposit"><span>Depósito <span class="refund-tag">reembolsable</span></span><span>$${depositTotal().toFixed(2)}</span></div>
       <div class="summary-row"><span>Envío</span><span>${delivery==='ship'?'$'+ship.toFixed(2):delivery==='pickup'?'$0.00':'—'}</span></div>
       <div class="summary-row"><span>Devolución</span><span>${returnMethod==='home'?'$'+ship.toFixed(2):returnMethod==='store'?'$0.00':'—'}</span></div>
+      ${couponDiscount() > 0 ? `
+        <div class="summary-row discount"><span>🎟️ ${escapeHTML(couponById(appliedCoupon).name)}</span><span>−$${couponDiscount().toFixed(2)}</span></div>` : ""}
       ${totalRowHTML("Total a pagar", total)}
     </div>
     <p class="summary-note">💡 El depósito se devuelve al regresar las prendas en buen estado.</p>
@@ -180,6 +184,52 @@ function renderCheckout(){
 
   sheetFoot.innerHTML = `
     <button class="pay-btn" data-action="toPayment" ${valid?'':'disabled'}>${payLabel}</button>`;
+}
+
+/**
+ * Sección de premios del checkout: los canjes disponibles, con su descuento ya
+ * calculado sobre ESTE pedido. Se aplica uno solo por alquiler — acumularlos
+ * complicaría el cobro sin que el catálogo de premios lo pida.
+ *
+ * Los premios que no aplican se muestran igualmente (deshabilitados y con el
+ * motivo): esconderlos dejaría al cliente creyendo que perdió el canje.
+ * @returns {string} HTML, o vacío si no hay premios por usar.
+ */
+function couponSectionHTML(){
+  const disponibles = availableCoupons();
+  if(!disponibles.length) return "";
+  const ctx = cartRewardCtx();
+
+  return `
+    <div class="section-label">Tus premios</div>
+    <div class="coupon-opts">
+      ${disponibles.map(c => {
+        const rw = rewardById(c.rewardId);
+        const motivo = rewardIssue(rw, ctx);
+        const monto = rewardDiscount(rw, ctx);
+        const usable = !motivo && monto > 0;
+        // Solo se marca activo si además sirve: cambiar la entrega puede dejar
+        // sin efecto un premio ya elegido, y pintarlo seleccionado mentiría
+        // sobre un descuento que el total (correctamente) ya no aplica.
+        const activo = appliedCoupon === c.id && usable;
+        return `
+        <div class="coupon-opt ${activo?'active':''} ${usable?'':'locked'}"
+             ${usable ? `data-action="applyCoupon" data-id="${c.id}" role="button" tabindex="0" aria-pressed="${activo}"` : ""}>
+          <div class="do-icon">${rw ? rw.icon : "🎟️"}</div>
+          <div class="do-text">
+            <div class="do-title">
+              <span>${escapeHTML(c.name)}</span>
+              ${usable ? `<span style="color:var(--ok)">−$${monto.toFixed(2)}</span>` : ""}
+            </div>
+            <div class="do-desc">${motivo ? escapeHTML(motivo) : escapeHTML(rw ? rw.desc : "")}</div>
+          </div>
+          <div class="do-radio"></div>
+        </div>`;
+      }).join("")}
+    </div>
+    ${couponDiscount() > 0
+      ? `<button class="link-btn" data-action="clearCoupon">Quitar el premio aplicado</button>`
+      : ""}`;
 }
 
 // ¿El checkout tiene datos suficientes para pagar?
@@ -247,6 +297,8 @@ function renderPayment(){
       <div class="pickup-detail">💵 Pagarás <b>$${total.toFixed(2)}</b> en efectivo al recibir o retirar tu pedido.</div>` : ``}
 
     <div class="summary">
+      ${couponDiscount() > 0 ? `
+        <div class="summary-row discount"><span>🎟️ ${escapeHTML(couponById(appliedCoupon).name)}</span><span>−$${couponDiscount().toFixed(2)}</span></div>` : ""}
       ${totalRowHTML("Total a pagar", total)}
     </div>
     <p class="summary-note">💡 El depósito se devuelve al regresar las prendas en buen estado.</p>
@@ -288,8 +340,18 @@ function placeOrder(){
     // Tarjeta: se cobra al confirmar → "settled" (Descontado).
     // Efectivo: se paga al recibir/retirar → "pending" (Cancelado más adelante).
     status: payMethod === "cash" ? "pending" : "settled",
+    // Premio aplicado: se guarda la referencia al canje, no su importe. El
+    // descuento lo recalcula orderDiscount() (el precio no se almacena).
+    // Solo se engancha si de verdad rebaja algo en este pedido: así un canje
+    // que quedó sin efecto vuelve a la cartera en vez de consumirse en balde.
+    couponId: couponDiscount() > 0 ? appliedCoupon : null,
   };
   order.total = orderTotal(order);   // valor total del cobro del pedido
+  // El canje pasa a "usado" y deja de ofrecerse en el siguiente checkout.
+  if(order.couponId){
+    const c = couponById(order.couponId);
+    if(c) c.usedIn = order.id;
+  }
   // Puntos que otorga el pedido; se calculan con el carrito aún intacto.
   order.points = orderPoints();
   order.pointsCredited = false;
@@ -327,7 +389,8 @@ function renderDone(){
       <p>Gracias por elegir CLOTH TO GO. Cuida tus prendas y devuélvelas a tiempo 💚</p>
       ${o.pointsCredited
         ? `<div class="earned-points">🌱 Ganaste <b>${o.points}</b> puntos con este alquiler</div>`
-        : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos cuando recibas tus prendas</div>`}
+        : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos cuando tu alquiler sea definitivo</div>`}
+      ${o.couponId ? `<div class="coupon-used">🎟️ Premio aplicado: <b>−$${orderDiscount(o).toFixed(2)}</b></div>` : ``}
       ${lastWaterSaved > 0 ? `<div class="water-saved">💧 Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
       <button class="pay-btn ver-pedidos" data-action="goToOrders">Ver mis pedidos →</button>
     </div>`;
@@ -339,6 +402,7 @@ function renderDone(){
 function resetCheckoutState(){
   delivery = null; address = ""; returnMethod = null; returnAddress = "";
   payMethod = null; card = { number:"", name:"", expiry:"", cvv:"" };
+  appliedCoupon = null;
   lastEarnedPoints = 0; lastWaterSaved = 0; lastOrder = null;
 }
 

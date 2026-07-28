@@ -48,7 +48,9 @@ globalThis.__APP__ = {
     if('card'          in p) card          = p.card;
     if('rentalStart'   in p) rentalStart   = p.rentalStart;
     if('rentalEnd'     in p) rentalEnd     = p.rentalEnd;
+    if('appliedCoupon' in p) appliedCoupon = p.appliedCoupon;
   },
+  get appliedCoupon(){ return appliedCoupon; },
   // Persistencia, para probar la migración de loadState: fija la clave activa
   // (normalmente la pone activateUserSession) y carga lo sembrado en localStorage.
   STORAGE_PREFIX,
@@ -58,6 +60,10 @@ globalThis.__APP__ = {
   confirmModalOk(){ const cb = onConfirmCb; closeModal(); if(cb) cb(); },
   get modalMessage(){ return modalText.textContent; },
   get modalHTML(){ return document.getElementById("modal").innerHTML; },
+  // Premios: el catálogo y los derivados del canje aplicado.
+  REWARDS, SHIPPING_FEE, rewardById, rewardDiscount, rewardIssue,
+  couponById, availableCoupons, couponDiscount, couponIssue, cartRewardCtx, orderDiscount,
+  get products(){ return PRODUCTS; },
   // Filtros y orden: son variables let de state.js, invisibles fuera del scope.
   setFilters(p){
     if('activeCat'      in p) activeCat      = p.activeCat;

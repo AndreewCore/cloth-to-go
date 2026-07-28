@@ -93,6 +93,12 @@ sheet.addEventListener("click", e=>{
     case "toCheckout":     view="checkout"; renderSheet(); break;
     case "setDelivery":    delivery = el.dataset.value; renderSheet(); break;
     case "setReturn":      returnMethod = el.dataset.value; renderSheet(); break;
+    // Segundo toque sobre el premio ya aplicado = quitarlo (como los radios
+    // del resto del checkout, pero aquí no elegir es una opción legítima).
+    case "applyCoupon":    { const id = +el.dataset.id;
+                             appliedCoupon = appliedCoupon === id ? null : id;
+                             renderSheet(); break; }
+    case "clearCoupon":    appliedCoupon = null; renderSheet(); break;
     case "toPayment":      view="payment"; renderSheet(); break;
     case "setPay":         payMethod = el.dataset.value; renderSheet(); break;
     case "placeOrder":     placeOrder(); break;
