@@ -135,6 +135,15 @@ function renderProfile(){
       <span class="dc-cta">${icon("arrowRight", { size: 16 })}</span>
     </button>
 
+    <button class="donate-card wardrobe-card" data-action="openWardrobe" aria-label="Poner tu armario en alquiler (próximamente)">
+      <span class="dc-icon">🚪</span>
+      <div class="dc-text">
+        <div class="dc-title">Pon tu armario en alquiler <span class="soon-tag">Próximamente</span></div>
+        <div class="dc-desc">Gana dinero alquilando la ropa que no usas a otros usuarios.</div>
+      </div>
+      <span class="dc-cta">→</span>
+    </button>
+
     <div class="section-label">Información de contacto</div>
     ${editingProfile ? `
     <div class="profile-form">
@@ -359,6 +368,34 @@ function toggleLateInfo(i){
 // administración, así que el efectivo queda "pendiente" y su cobro/acreditación
 // de puntos los hará el backend/panel admin (fuera de alcance). Un pending del
 // cliente NO se puede auto-confirmar aquí.
+
+/* ---- Poner el armario propio en alquiler (anuncio, aún sin implementar) ----
+   Convertir al cliente en arrendador cambia el modelo de negocio: exige
+   verificar identidad, tasar prendas ajenas, repartir ingresos y responder por
+   daños entre particulares. Nada de eso existe todavía, así que el botón solo
+   anuncia la intención y recoge el interés — prometer un flujo que no está
+   sería peor que no ofrecerlo. */
+function openWardrobe(){
+  confirmDialog(
+    "",
+    ()=>{},
+    "🚪",
+    {
+      title: "Muy pronto",
+      okLabel: "Entendido",
+      infoOnly: true,
+      detailHTML: `
+        <p class="soon-text">Estamos preparando la función para que <b>publiques tu propio armario</b>
+        y ganes dinero alquilando la ropa que ya no usas.</p>
+        <div class="soon-list">
+          <div class="soon-item"><span>📸</span><div>Publica tus prendas con foto y talla</div></div>
+          <div class="soon-item"><span>💵</span><div>Fija tu precio y recibe tus ganancias</div></div>
+          <div class="soon-item"><span>🛡️</span><div>Depósito y seguro por daños incluidos</div></div>
+        </div>
+        <p class="soon-note">Te avisaremos por correo en cuanto esté disponible.</p>`
+    }
+  );
+}
 
 /* ---- Premios / canje de puntos ---- */
 function renderRewards(){
