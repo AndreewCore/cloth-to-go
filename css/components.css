@@ -641,7 +641,7 @@ main::-webkit-scrollbar { display: none; }
   position: absolute;
   inset: 0;
   z-index: 80;
-  background: linear-gradient(160deg, #3f7d3a, #1f2a1c);
+  background: linear-gradient(160deg, var(--welcome-from), var(--welcome-to));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -655,10 +655,10 @@ main::-webkit-scrollbar { display: none; }
   position: absolute;
   inset: -20%;
   background:
-    radial-gradient(circle at 20% 12%, rgba(141,206,124,.30), transparent 45%),
-    radial-gradient(circle at 85% 88%, rgba(141,206,124,.20), transparent 45%),
-    repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 2px, transparent 2px 14px),
-    repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0 2px, transparent 2px 14px);
+    radial-gradient(circle at 20% 12%, var(--welcome-halo), transparent 45%),
+    radial-gradient(circle at 85% 88%, var(--welcome-halo-soft), transparent 45%),
+    repeating-linear-gradient(45deg, var(--welcome-grid) 0 2px, transparent 2px 14px),
+    repeating-linear-gradient(-45deg, var(--welcome-grid) 0 2px, transparent 2px 14px);
   pointer-events: none;
 }
 .login.hide { opacity: 0; transform: translateY(-12px); pointer-events: none; }
