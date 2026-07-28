@@ -104,6 +104,7 @@ globalThis.__APP__ = {
   // Puros, para aserciones sin recalcular a mano.
   orderPoints, orderTotal, orderDeposit, isoOffset, productById,
   storageKeyFor, decodeJwt, resolveApiBase, backendForHost, isMixedContent,
+  isProductionHost, PRODUCTION_HOSTS, API_OFF_REASONS,
 };
 `;
 

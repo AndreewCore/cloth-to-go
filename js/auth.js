@@ -109,6 +109,13 @@ async function onGoogleCredential(resp){
       toast("No se pudo verificar tu sesión. Intenta de nuevo.");
       return;
     }
+  } else if(backend.reason === "misconfigured"){
+    // Producción sin DEPLOYED_API. Caer al decode local aquí significaría dar
+    // por buena una identidad sin verificar firma, y en un sitio público eso es
+    // suplantación trivial: basta con fabricar un JWT. Se falla en voz alta.
+    console.error(API_OFF_REASONS.misconfigured);
+    toast("El inicio de sesión no está disponible en este momento.");
+    return;
   } else {
     // Modo demo: sin servidor no hay firma que comprobar (solo identifica).
     claims = decodeJwt(token);

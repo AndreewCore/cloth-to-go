@@ -70,6 +70,7 @@ const PROJECT_GLOBALS = [
   "enter",
   // api.js
   "DEPLOYED_API", "LOCAL_API_PORT", "API_OVERRIDE_KEY", "API_OFF_REASONS",
+  "PRODUCTION_HOSTS", "isProductionHost",
   "readApiOverride", "backendForHost", "isMixedContent",
   "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog", "verifyGoogleCredential",
   // auth.js  (`google` lo aporta el SDK externo de Google Identity)
