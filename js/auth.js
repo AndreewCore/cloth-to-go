@@ -85,7 +85,7 @@ function signOut(){
   closeSheet();
   activateUserSession(null);   // vacía carrito/perfil/pedidos de la sesión actual
   currentUser = null;
-  greeting.textContent = "Moda circular · paga por día 🌱";
+  greeting.textContent = "Moda circular · paga por día";
   loginEl.classList.remove("hide");
   initGoogleAuth();            // repinta el botón de Google en la bienvenida
 }
