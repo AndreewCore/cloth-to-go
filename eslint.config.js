@@ -12,6 +12,8 @@ const globals = require("globals");
 
 // Globales reales del proyecto (definidos en el nivel superior de algún js/).
 const PROJECT_GLOBALS = [
+  // icons.js
+  "ICON_PATHS", "icon",
   // data.js
   "LOCAL", "SHIPPING_FEE", "LATE_GRACE_DAYS", "LATE_PENALTY",
   "LAUNDRY_BY_MATERIAL", "OVERHEAD_PER_CYCLE", "CYCLES_PER_STAR", "MIN_MARGIN",

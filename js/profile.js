@@ -10,7 +10,11 @@ function renderProfile(){
   sheetTitle.textContent = "Mi perfil";
   const esc = escapeHTML;   // escape anti-XSS (contenido y atributos)
   const initial = escapeHTML(profile.name.trim().charAt(0) || "?").toUpperCase();
-  const payNames = { cash:"💵 Efectivo", credit:"💳 Crédito", debit:"🏦 Débito" };
+  const payNames = {
+    cash:   `${icon("cash", { size: 14 })} Efectivo`,
+    credit: `${icon("card", { size: 14 })} Crédito`,
+    debit:  `${icon("bank", { size: 14 })} Débito`
+  };
 
   // Distingue la cuenta de Google (identidad real) del invitado (demo efímera).
   const isUser = !!currentUser;
@@ -20,7 +24,7 @@ function renderProfile(){
     ? `<img class="avatar-img" src="${esc(profile.picture)}" alt="" referrerpolicy="no-referrer" />`
     : initial;
   const sessionBadge = isUser
-    ? `<span class="session-badge user">✓ Cuenta de Google</span>`
+    ? `<span class="session-badge user">${icon("check", { size: 13 })} Cuenta de Google</span>`
     : `<span class="session-badge guest">Invitado · nada se guarda</span>`;
   const logoutLabel = isUser ? "Cerrar sesión" : "Salir de invitado";
 
@@ -33,7 +37,9 @@ function renderProfile(){
     const voided = isCancelledOrder(o);
     // Un pedido anulado nunca está "vencido": no hay prenda que devolver.
     const late = !archived && !voided && isLate(o);
-    const retLabel = o.ret === "home" ? "🚚 Devolución a domicilio" : "🏬 Devolución en local";
+    const retLabel = o.ret === "home"
+      ? `${icon("truck", { size: 15 })} Devolución a domicilio`
+      : `${icon("store", { size: 15 })} Devolución en local`;
     const stClass  = voided ? "cancelled" : (o.status === "settled" ? "settled" : "pending");
     return `
     <div class="order${late ? " late" : ""}${archived ? " archived" : ""}${voided ? " cancelled" : ""}">
@@ -44,7 +50,7 @@ function renderProfile(){
         </div>
         <div class="order-badges">
           <span class="pay-status ${stClass}">${paymentStatusLabel(o)}</span>
-          ${!archived ? `<span class="rent-tag${late ? " late" : ""}">${late ? "⚠ Vencida" : "En alquiler"}</span>` : ""}
+          ${!archived ? `<span class="rent-tag${late ? " late" : ""}">${late ? `${icon("alert", { size: 13 })} Vencida` : "En alquiler"}</span>` : ""}
           ${voided ? `<span class="rent-tag void">Sin efecto</span>` : ""}
         </div>
       </div>
@@ -58,26 +64,26 @@ function renderProfile(){
           </div>
         </div>`; }).join("")}
 
-      <div class="order-period">📅 ${fmtDate(o.start)} → ${fmtDate(o.end)} · ${days} ${days === 1 ? "día" : "días"}</div>
+      <div class="order-period">${icon("calendar", { size: 14 })} ${fmtDate(o.start)} → ${fmtDate(o.end)} · ${days} ${days === 1 ? "día" : "días"}</div>
 
       <div class="order-charge">
         <span>${voided ? "Cobro anulado" : (archived ? "Total cobrado" : "Total del cobro")}</span>
         <span class="total-vals">
-          ${!voided && orderDeposit(o) > 0 ? `<span class="refund-inline">↩ $${orderDeposit(o).toFixed(2)} ${archived ? "devuelto" : "se te devuelve"}</span>` : ""}
+          ${!voided && orderDeposit(o) > 0 ? `<span class="refund-inline">${icon("undo", { size: 13 })} $${orderDeposit(o).toFixed(2)} ${archived ? "devuelto" : "se te devuelve"}</span>` : ""}
           <b>$${o.total.toFixed(2)}</b>
         </span>
       </div>
 
       ${voided
-        ? `<div class="ci-ret">✖ Anulado el ${fmtDate(o.cancelledAt)} · las prendas volvieron al catálogo</div>`
-        : `<div class="ci-ret">${retLabel}${o.ret === "home" && o.retAddr ? ` · <span class="ret-addr">📍 ${escapeHTML(o.retAddr)}</span>` : ""}</div>`}
+        ? `<div class="ci-ret">${icon("x", { size: 14 })} Anulado el ${fmtDate(o.cancelledAt)} · las prendas volvieron al catálogo</div>`
+        : `<div class="ci-ret">${retLabel}${o.ret === "home" && o.retAddr ? ` · <span class="ret-addr">${icon("mapPin", { size: 13 })} ${escapeHTML(o.retAddr)}</span>` : ""}</div>`}
       ${!archived ? `
         ${!o.pointsCredited ? `
-          <div class="points-pending">🌱 Ganarás ${o.points} pts cuando recibas tus prendas</div>` : ""}
-        <button class="ret-edit" data-action="editReturn" data-idx="${i}">✏️ Cambiar modo de devolución</button>
+          <div class="points-pending">${icon("sprout", { size: 14 })} Ganarás ${o.points} pts cuando recibas tus prendas</div>` : ""}
+        <button class="ret-edit" data-action="editReturn" data-idx="${i}">${icon("pencil", { size: 14 })} Cambiar modo de devolución</button>
         ${editingOrder === i ? returnEditorHTML(i) : ""}
         ${canCancelOrder(o) ? `
-          <button class="order-cancel" data-action="cancelOrder" data-idx="${i}">✖ Anular pedido</button>` : ""}
+          <button class="order-cancel" data-action="cancelOrder" data-idx="${i}">${icon("trash", { size: 14 })} Anular pedido</button>` : ""}
         ${late ? `
           <button class="late-info-btn" data-action="toggleLateInfo" data-idx="${i}">ⓘ Penalización por atraso</button>
           <div class="late-info" id="lateInfo${i}">
@@ -109,11 +115,11 @@ function renderProfile(){
         <div class="pc-label">Puntos acumulados</div>
         <div class="pc-value">${profile.points} <span>pts</span></div>
       </div>
-      <span class="pc-cta">Canjear →</span>
+      <span class="pc-cta">Canjear ${icon("arrowRight", { size: 15 })}</span>
     </button>
 
     <div class="water-stat" aria-label="Agua ahorrada">
-      <span class="ws-icon">💧</span>
+      <span class="ws-icon">${icon("droplet", { size: 24 })}</span>
       <div class="ws-text">
         <div class="ws-label">Agua ahorrada reutilizando ropa</div>
         <div class="ws-value">~${fmtLiters(totalWaterSaved())} <span>litros</span></div>
@@ -121,12 +127,12 @@ function renderProfile(){
     </div>
 
     <button class="donate-card" data-action="openDonate" aria-label="Donar ropa por puntos">
-      <span class="dc-icon">♻️</span>
+      <span class="dc-icon">${icon("recycle", { size: 24 })}</span>
       <div class="dc-text">
         <div class="dc-title">Dona ropa y gana puntos</div>
         <div class="dc-desc">Entrega prendas que no uses. Los puntos se asignan al recibirlas.</div>
       </div>
-      <span class="dc-cta">→</span>
+      <span class="dc-cta">${icon("arrowRight", { size: 16 })}</span>
     </button>
 
     <div class="section-label">Información de contacto</div>
@@ -154,14 +160,14 @@ function renderProfile(){
       <div class="pi-row"><span class="pi-k">Nombre</span><span class="pi-v">${escapeHTML(profile.name) || "—"}</span></div>
       <div class="pi-row"><span class="pi-k">Correo</span><span class="pi-v">${escapeHTML(profile.email) || "—"}</span></div>
       <div class="pi-row"><span class="pi-k">Celular</span><span class="pi-v">${escapeHTML(profile.phone) || "—"}</span></div>
-      <button class="edit-info-btn" data-action="editProfile">✏️ Modificar información</button>
+      <button class="edit-info-btn" data-action="editProfile">${icon("pencil", { size: 15 })} Modificar información</button>
     </div>
     `}
 
     <div class="section-label" id="misPedidos">Mis pedidos</div>
     ${activeOrders.length
       ? activeOrders.map(pair => orderCardHTML(pair, false)).join("")
-      : `<div class="empty" style="padding:30px 20px"><div class="em">👕</div><p>No tienes pedidos activos.<br>Alquila algo del catálogo.</p></div>`}
+      : `<div class="empty" style="padding:30px 20px"><div class="em">${icon("shirt", { size: 34 })}</div><p>No tienes pedidos activos.<br>Alquila algo del catálogo.</p></div>`}
 
     ${archivedOrders.length ? `
     <details class="past-orders-section">
@@ -196,9 +202,9 @@ function saveProfile(){
   profile.name = nameV; profile.email = emailV; profile.phone = phoneV;
   editingProfile = false;
   saveState();
-  if(profile.name) greeting.textContent = `Hola, ${profile.name} 🌱`;
+  if(profile.name) greeting.textContent = `Hola, ${profile.name}`;
   renderProfile();
-  toast("Perfil actualizado ✓");
+  toast("Perfil actualizado");
 }
 
 // Entrar / salir del modo edición de la información de contacto.
@@ -213,11 +219,11 @@ function returnEditorHTML(i){
     <div class="ret-editor">
       <div class="ret-editor-title">Al finalizar el alquiler, ¿cómo quieres devolver la prenda?</div>
       <button type="button" class="ret-opt ${editRet==='store'?'active':''}" data-action="pickReturn" data-value="store" aria-pressed="${editRet==='store'}">
-        <span class="ro-head"><span>🏬 Devolución en el local</span><span class="ro-tag free">Gratis</span></span>
+        <span class="ro-head"><span>${icon("store", { size: 15 })} Devolución en el local</span><span class="ro-tag free">Gratis</span></span>
         <small class="ro-desc">Te acercas a nuestro local físico a dejar la prenda.</small>
       </button>
       <button type="button" class="ret-opt ${editRet==='home'?'active':''}" data-action="pickReturn" data-value="home" aria-pressed="${editRet==='home'}">
-        <span class="ro-head"><span>🚚 Devolución a domicilio</span><span class="ro-tag fee">+$${SHIPPING_FEE.toFixed(2)}</span></span>
+        <span class="ro-head"><span>${icon("truck", { size: 15 })} Devolución a domicilio</span><span class="ro-tag fee">+$${SHIPPING_FEE.toFixed(2)}</span></span>
         <small class="ro-desc">Vamos a la dirección que indiques a retirar la prenda (cargo adicional).</small>
       </button>
       ${editRet==='home' ? `
@@ -251,7 +257,7 @@ function saveReturn(i){
     o.total = orderTotal(o);   // el cambio de devolución actualiza el total del cobro
     saveState();
     closeReturnEditor();
-    toast("Modo de devolución actualizado ✓");
+    toast("Modo de devolución actualizado");
   };
   // Si cambia el método, confirmar el cargo/descuento (mostrando el nuevo total);
   // si solo cambia la dirección, aplicar directo.
@@ -294,8 +300,10 @@ function cancelOrder(i){
   const refundHTML = `
     <div class="md-refund${cobrado ? "" : " zero"}">
       <span>${cobrado
-        ? (o.pay === "cash" ? "💵 Se te devolverá en el local" : "💳 Reembolso a tu tarjeta")
-        : "💵 No se te ha cobrado nada"}</span>
+        ? (o.pay === "cash"
+          ? `${icon("cash", { size: 15 })} Se te devolverá en el local`
+          : `${icon("card", { size: 15 })} Reembolso a tu tarjeta`)
+        : `${icon("cash", { size: 15 })} No se te ha cobrado nada`}</span>
       <b>$${(cobrado ? o.total : 0).toFixed(2)}</b>
     </div>`;
 
@@ -318,7 +326,7 @@ function cancelOrder(i){
       renderGrid();             // las prendas reaparecen en el catálogo al instante
       toast("Pedido anulado · prendas devueltas al catálogo");
     },
-    "🗑",
+    "trash",
     {
       title: "¿Anular este pedido?",
       okLabel: "Sí, anular",
@@ -353,7 +361,7 @@ function renderRewards(){
         <div class="pc-label">Tus puntos</div>
         <div class="pc-value">${profile.points} <span>pts</span></div>
       </div>
-      <span class="pc-emoji">🎁</span>
+      <span class="pc-emoji">${icon("gift", { size: 26 })}</span>
     </div>
 
     <div class="section-label">Canjea tus puntos</div>
@@ -361,7 +369,7 @@ function renderRewards(){
       const can = profile.points >= rw.cost;
       return `
       <div class="reward ${can ? "" : "locked"}">
-        <div class="rw-icon">${rw.icon}</div>
+        <div class="rw-icon">${icon(rw.icon, { size: 22 })}</div>
         <div class="rw-info">
           <div class="rw-name">${rw.name}</div>
           <div class="rw-desc">${rw.desc}</div>
@@ -376,7 +384,7 @@ function renderRewards(){
     ${profile.redeemed.length ? `
       <div class="section-label">Tus canjes</div>
       ${profile.redeemed.map(c => `
-        <div class="redeemed-item">✅ ${escapeHTML(c.name)} <span>${c.date} · ${c.cost} pts</span></div>`).join("")}
+        <div class="redeemed-item">${icon("checkCircle", { size: 14 })} ${escapeHTML(c.name)} <span>${c.date} · ${c.cost} pts</span></div>`).join("")}
     ` : ""}
 
     <p class="summary-note">Ganas puntos con cada alquiler completado (según el monto, los días y la cantidad de prendas).</p>
@@ -392,7 +400,7 @@ function redeem(id){
     profile.redeemed.unshift({ name: rw.name, cost: rw.cost, date: fmtDate(isoOffset(0)) });
     saveState();
     renderRewards();
-    toast("🎉 ¡Premio canjeado!");
+    toast("¡Premio canjeado!");
   });
 }
 
@@ -414,10 +422,10 @@ function donateValid(){
 function renderDonate(){
   sheetTitle.textContent = "Donar ropa";
   sheetBody.innerHTML = `
-    <p class="donate-intro">♻️ Dona prendas que ya no uses y gana puntos. <b>La cantidad de puntos se determina al recibir y evaluar la prenda.</b></p>
+    <p class="donate-intro">${icon("recycle", { size: 16 })} Dona prendas que ya no uses y gana puntos. <b>La cantidad de puntos se determina al recibir y evaluar la prenda.</b></p>
     <ul class="donate-rules">
-      <li>✅ La donación es <b>gratis a partir de 3 prendas diferentes</b>.</li>
-      <li>🚫 No se aceptan <b>prendas interiores</b>.</li>
+      <li>${icon("check", { size: 14 })} La donación es <b>gratis a partir de 3 prendas diferentes</b>.</li>
+      <li>${icon("ban", { size: 14 })} No se aceptan <b>prendas interiores</b>.</li>
     </ul>
 
     <div class="section-label">¿Qué prendas quieres donar?</div>
@@ -426,7 +434,7 @@ function renderDonate(){
     <div class="section-label">¿Cómo nos las entregas?</div>
     <div class="delivery-opts">
       <div class="delivery-opt ${donMethod==='store'?'active':''}" data-action="setDonateMethod" data-value="store" role="button" tabindex="0" aria-pressed="${donMethod==='store'}">
-        <div class="do-icon">🏬</div>
+        <div class="do-icon">${icon("store", { size: 22 })}</div>
         <div class="do-text">
           <div class="do-title"><span>Donar en el local</span><span style="color:var(--ok)">Gratis</span></div>
           <div class="do-desc">Acércate a nuestro local físico a dejar la prenda.</div>
@@ -434,7 +442,7 @@ function renderDonate(){
         <div class="do-radio"></div>
       </div>
       <div class="delivery-opt ${donMethod==='home'?'active':''}" data-action="setDonateMethod" data-value="home" role="button" tabindex="0" aria-pressed="${donMethod==='home'}">
-        <div class="do-icon">🚚</div>
+        <div class="do-icon">${icon("truck", { size: 22 })}</div>
         <div class="do-text">
           <div class="do-title"><span>Solicitar retiro a domicilio</span><span style="color:var(--ok)">Gratis</span></div>
           <div class="do-desc">Agenda una cita y vamos a tu dirección a retirarla.</div>
@@ -444,13 +452,13 @@ function renderDonate(){
     </div>
 
     ${donMethod==='store' ? `
-      <div class="pickup-detail">🏬 <b>${LOCAL.nombre}</b><br>${LOCAL.direccion}<br><span style="color:var(--muted)">${LOCAL.horario}</span></div>` : ``}
+      <div class="pickup-detail">${icon("store", { size: 15 })} <b>${LOCAL.nombre}</b><br>${LOCAL.direccion}<br><span style="color:var(--muted)">${LOCAL.horario}</span></div>` : ``}
 
     ${donMethod==='home' ? `
       <div class="ship-detail">
-        📍 Dirección de retiro
+        ${icon("mapPin", { size: 14 })} Dirección de retiro
         <input id="donAddr" placeholder="Calle, número, ciudad…" value="${escapeHTML(donAddr)}" />
-        <label class="don-date-label">📅 Fecha de la cita
+        <label class="don-date-label">${icon("calendar", { size: 14 })} Fecha de la cita
           <input type="date" id="donDate" min="${isoOffset(0)}" value="${donDate}" />
         </label>
       </div>` : ``}
@@ -462,8 +470,8 @@ function renderDonate(){
           <div class="di-info">
             <div class="di-name">${escapeHTML(don.item)}</div>
             <div class="di-meta">${don.method==='home'
-              ? `🚚 Retiro a domicilio · ${escapeHTML(don.addr)}${don.date ? ` · cita ${fmtDate(don.date)}` : ''}`
-              : '🏬 Entrega en el local'}</div>
+              ? `${icon("truck", { size: 14 })} Retiro a domicilio · ${escapeHTML(don.addr)}${don.date ? ` · cita ${fmtDate(don.date)}` : ''}`
+              : `${icon("store", { size: 14 })} Entrega en el local`}</div>
             <div class="di-points">Puntos: por determinar al recibir la prenda</div>
           </div>
           <span class="di-status">⏳ ${escapeHTML(don.status)}</span>
@@ -492,5 +500,5 @@ function submitDonation(){
   saveState();
   donName = ""; donMethod = null; donAddr = ""; donDate = "";
   renderDonate();
-  toast("Solicitud de donación enviada ✓");
+  toast("Solicitud de donación enviada");
 }

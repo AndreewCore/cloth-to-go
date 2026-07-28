@@ -81,11 +81,11 @@ npm test         # pruebas del modelo de precios y helpers (runner nativo de Nod
 
 ## 🧱 Arquitectura
 
-El JavaScript se divide en **7 scripts clásicos** que comparten un **ámbito global**, y
+El JavaScript se divide en **10 scripts clásicos** que comparten un **ámbito global**, y
 se cargan en un **orden de dependencias estricto** en `index.html`:
 
 ```
-data → state → dom → catalog → checkout → profile → main
+icons → data → state → dom → catalog → checkout → profile → api → auth → main
 ```
 
 Se evitan los **módulos ES** (`import`/`export`) a propósito para que la demo abra con
@@ -97,6 +97,7 @@ HTML. Los eventos usan **delegación** mediante atributos `data-action`.
 
 | Archivo | Rol |
 |---|---|
+| `js/icons.js` | Set de iconos SVG en línea y el helper `icon()`. Sin dependencias de red. |
 | `js/data.js` | Catálogo, constantes de negocio y helpers puros (formato, validaciones, agua). |
 | `js/state.js` | Estado global, cálculos derivados y persistencia en `localStorage`. |
 | `js/dom.js` | Referencias al DOM, panel deslizante (sheet), toast y modal de confirmación. |
@@ -121,7 +122,7 @@ HTML. Los eventos usan **delegación** mediante atributos `data-action`.
 │   ├── base.css            # Variables de tema, reset y marco del teléfono
 │   └── components.css      # Header, catálogo, sheet, carrito, checkout, perfil…
 ├── js/
-│   ├── data.js  state.js  dom.js
+│   ├── icons.js  data.js  state.js  dom.js
 │   ├── catalog.js  checkout.js  profile.js
 │   └── main.js
 ├── img/

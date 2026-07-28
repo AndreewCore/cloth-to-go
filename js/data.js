@@ -264,10 +264,10 @@ const MATERIALS = MATERIAL_ORDER.filter(m => PRODUCTS.some(p => p.material === m
 /* ---- Programa de puntos ----
    Premios canjeables con los puntos acumulados (cost = puntos requeridos). */
 const REWARDS = [
-  { id:1, icon:"🚚", cost:60,  name:"Envío o retiro gratis",        desc:"Un envío a domicilio o retiro sin costo en tu próximo alquiler." },
-  { id:2, icon:"🎟️", cost:100, name:"1 día de alquiler gratis",     desc:"Te regalamos un día en el período de tu próximo alquiler." },
-  { id:3, icon:"🏷️", cost:150, name:"10% de descuento",             desc:"10% de descuento sobre el subtotal de tu próximo alquiler." },
-  { id:4, icon:"👑", cost:300, name:"Prenda premium 2 días gratis", desc:"Alquila una prenda destacada por 2 días sin costo." },
+  { id:1, icon:"truck", cost:60,  name:"Envío o retiro gratis",        desc:"Un envío a domicilio o retiro sin costo en tu próximo alquiler." },
+  { id:2, icon:"ticket", cost:100, name:"1 día de alquiler gratis",     desc:"Te regalamos un día en el período de tu próximo alquiler." },
+  { id:3, icon:"tag", cost:150, name:"10% de descuento",             desc:"10% de descuento sobre el subtotal de tu próximo alquiler." },
+  { id:4, icon:"crown", cost:300, name:"Prenda premium 2 días gratis", desc:"Alquila una prenda destacada por 2 días sin costo." },
 ];
 
 /* Índice id → producto para acceso O(1) (evita PRODUCTS.find repetido). */

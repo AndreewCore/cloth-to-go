@@ -377,5 +377,7 @@ test("la tarjeta del pedido muestra el depósito reembolsable junto al total", (
   win.renderProfile();
   const dep = app.orderDeposit(app.orders[i]).toFixed(2);
   const html = doc.getElementById("sheetBody").innerHTML;
-  assert.match(html, new RegExp(`↩ \\$${dep.replace(".", "\\.")} se te devuelve`));
+  // Se afirma el importe y su leyenda, no el icono que los precede: el set de
+  // iconos puede cambiar sin que cambie lo que la tarjeta comunica.
+  assert.match(html, new RegExp(`\\$${dep.replace(".", "\\.")} se te devuelve`));
 });
