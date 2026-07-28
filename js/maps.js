@@ -259,6 +259,53 @@ function mapPickerButtonHTML(target, coords){
   return `
     <button type="button" class="map-pick-btn" data-action="pickLocation" data-target="${target}">
       ${icon("mapPin", { size: 16 })} ${coords ? "Cambiar ubicación en el mapa" : "Elegir ubicación exacta en el mapa"}
-    </button>
-    ${coords ? `<div class="map-coords">✓ Punto exacto guardado (${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)})</div>` : ""}`;
+    </button>`;
+}
+
+/**
+ * Campo de dirección del checkout.
+ *
+ * Con el mapa disponible NO se ofrece campo de texto: la dirección se fija
+ * marcando el punto y nada más. Escribirla a mano es justo lo que el mapa vino
+ * a resolver — un texto sin coordenadas deja al repartidor con "por la
+ * ciclovía, casa verde"— y mantener las dos vías abiertas garantiza que la
+ * mayoría siga usando la peor.
+ *
+ * Sin mapa (file://, sin clave o sin red) SÍ vuelve el campo de texto: es la
+ * única forma de terminar un pedido, y dejarlo bloqueado rompería la demo que
+ * tiene que abrirse con doble clic.
+ *
+ * @param {"ship"|"return"} target
+ * @param {string} label Rótulo del campo.
+ * @param {string} addr Dirección actual (texto).
+ * @param {{lat:number,lng:number}|null} coords Punto elegido, si lo hay.
+ * @returns {string} HTML.
+ */
+function addressFieldHTML(target, label, addr, coords){
+  const head = `${icon("mapPin", { size: 14 })} ${label}`;
+  if(!mapsAvailable()){
+    const id = target === "ship" ? "addr" : "retAddr";
+    return `${head}
+      <input id="${id}" placeholder="Calle, número, ciudad…" value="${escapeHTML(addr)}" />
+      ${mapPickerButtonHTML(target, coords)}`;
+  }
+  const cuerpo = coords
+    ? `<div class="addr-picked">
+         <div class="ap-text">${escapeHTML(addr)}</div>
+         <div class="ap-coords">${icon("check", { size: 13 })} Punto exacto guardado (${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)})</div>
+       </div>`
+    : `<div class="addr-empty">Marca en el mapa dónde quieres que ${target === "ship" ? "te entreguemos" : "retiremos"} las prendas.</div>`;
+  return `${head}${cuerpo}${mapPickerButtonHTML(target, coords)}`;
+}
+
+/**
+ * ¿La dirección está lista para continuar?
+ * Con mapa exige el punto: un texto sin coordenadas ya no puede existir por
+ * esta vía, y aceptarlo reabriría la puerta que addressFieldHTML() cierra.
+ * @param {string} addr
+ * @param {{lat:number,lng:number}|null} coords
+ * @returns {boolean}
+ */
+function addressReady(addr, coords){
+  return mapsAvailable() ? !!coords : isValidAddress(addr);
 }

@@ -178,3 +178,45 @@ test("descartar el punto de un campo no toca el del otro", () => {
   assert.equal(app.addressCoords, null);
   assert.ok(app.returnAddressCoords, "el retiro conserva su punto");
 });
+
+/* ---- Con mapa, marcar el punto es la ÚNICA vía ----
+   El valor del mapa está en la coordenada; si se puede seguir escribiendo la
+   dirección a mano, la mayoría lo hará y el reparto vuelve al problema que el
+   mapa vino a resolver. */
+test("con mapa no se ofrece campo de texto para la dirección", () => {
+  const env = loadDom({ storage: { "clothToGo:mapsKey": "CLAVE-DE-PRUEBA" } });
+  env.app.cart = [{ id: 7 }];
+  env.app.setCheckout({ delivery: "ship", returnMethod: "store" });
+  env.window.renderCheckout();
+
+  assert.equal(env.document.getElementById("addr"), null, "no debe haber input de dirección");
+  const html = env.document.getElementById("sheetBody").innerHTML;
+  assert.match(html, /data-action="pickLocation"/);
+  assert.match(html, /addr-empty/, "debe pedir marcar el punto");
+});
+
+test("con mapa, sin punto marcado no se puede continuar al pago", () => {
+  const env = loadDom({ storage: { "clothToGo:mapsKey": "CLAVE-DE-PRUEBA" } });
+  env.app.cart = [{ id: 7 }];
+  // Dirección escrita pero SIN coordenadas: antes bastaba, ahora no.
+  env.app.setCheckout({ delivery: "ship", address: "Av. Principal 123", returnMethod: "store" });
+  env.window.renderCheckout();
+
+  assert.equal(env.app.addressReady("Av. Principal 123", null), false);
+  const btn = env.document.querySelector("#sheetFoot .pay-btn");
+  assert.ok(btn.hasAttribute("disabled"));
+  assert.match(btn.textContent, /Marca la ubicación de envío en el mapa/);
+});
+
+test("con el punto marcado el checkout continúa y muestra la dirección", () => {
+  const env = loadDom({ storage: { "clothToGo:mapsKey": "CLAVE-DE-PRUEBA" } });
+  env.app.cart = [{ id: 7 }];
+  env.app.setCheckout({ delivery: "ship", returnMethod: "store" });
+  env.window.applyPickedLocation("ship", PUNTO);
+  env.window.renderCheckout();
+
+  const html = env.document.getElementById("sheetBody").innerHTML;
+  assert.match(html, /addr-picked/);
+  assert.match(html, /Av\. 9 de Octubre 100/);
+  assert.ok(!env.document.querySelector("#sheetFoot .pay-btn").hasAttribute("disabled"));
+});

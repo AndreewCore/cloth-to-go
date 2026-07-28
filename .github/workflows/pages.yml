@@ -1,0 +1,74 @@
+name: Deploy a GitHub Pages
+
+# Publica main en Pages inyectando la clave de Maps desde un secreto del
+# repositorio, para no tenerla escrita en el código.
+#
+# OJO con lo que esto SÍ y NO consigue: la clave deja de estar en el historial
+# de git (que es público y lo rastrean los scrapers), pero en la página
+# desplegada sigue siendo visible — es una clave de navegador, viaja en el JS
+# que descarga el cliente y no hay forma de ocultarla en un sitio estático.
+# Lo que impide que otros la usen es la restricción por referente HTTP de la
+# propia clave en Google Cloud Console, no el secreto. Ver README (Mapas).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un despliegue a la vez; no se cancela el que esté en curso para no dejar
+# Pages a medias.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Construir y desplegar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # La sustitución va por Node y no por sed: así la clave no aparece en la
+      # línea de comandos (que sí se imprime en el log) y un carácter especial
+      # no puede romper la expresión.
+      - name: Inyectar la clave de Maps
+        env:
+          MAPS_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: |
+          node -e '
+            const fs = require("fs");
+            const f = "js/maps.js";
+            const key = process.env.MAPS_KEY || "";
+            if (!key) {
+              console.log("Sin secreto GOOGLE_MAPS_API_KEY: se despliega sin mapa (la app cae al campo de texto).");
+              process.exit(0);
+            }
+            const src = fs.readFileSync(f, "utf8");
+            const out = src.replace(
+              /const GOOGLE_MAPS_API_KEY = "";/,
+              () => `const GOOGLE_MAPS_API_KEY = ${JSON.stringify(key)};`
+            );
+            if (out === src) {
+              console.error("No se encontró la constante GOOGLE_MAPS_API_KEY en " + f);
+              process.exit(1);
+            }
+            fs.writeFileSync(f, out);
+            console.log("Clave inyectada (" + key.length + " caracteres).");
+          '
+
+      - uses: actions/configure-pages@v5
+
+      # Se sube el repo entero: la app es estática y no tiene paso de build.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
