@@ -34,7 +34,7 @@ function readyCheckout(pay) {
 }
 
 /* ---- placeOrder: tarjeta ---- */
-test("placeOrder con tarjeta: pedido settled, puntos acreditados y carrito vacío", () => {
+test("placeOrder con tarjeta: pedido settled, puntos reservados y carrito vacío", () => {
   readyCheckout("credit");
   const expectedPts = app.orderPoints(); // se calcula con el carrito aún lleno
   win.placeOrder();
@@ -42,22 +42,28 @@ test("placeOrder con tarjeta: pedido settled, puntos acreditados y carrito vací
   assert.equal(app.orders.length, 1);
   const o = app.orders[0];
   assert.equal(o.status, "settled");
-  assert.ok(o.pointsCredited);
-  assert.equal(app.profile.points, expectedPts); // sí se sumaron
+  assert.equal(o.points, expectedPts);
+  // El pedido empieza HOY, así que todavía se puede anular: mientras eso sea
+  // cierto los puntos quedan reservados y no entran al saldo gastable.
+  assert.ok(win.canCancelOrder(o));
+  assert.ok(!o.pointsCredited);
+  assert.equal(app.profile.points, 0);
   assert.equal(app.cart.length, 0);              // carrito vaciado en placeOrder
   assert.equal(app.view, "done");
   // La confirmación se pinta desde el pedido (no del carrito, ya vacío).
-  assert.match(doc.getElementById("sheetBody").innerHTML, /Ganaste/);
+  assert.match(doc.getElementById("sheetBody").innerHTML, /Ganarás/);
 });
 
 /* ---- placeOrder: efectivo ---- */
-test("efectivo entregado hoy: acredita puntos aunque el cobro siga pendiente", () => {
+test("efectivo ya firme: acredita puntos aunque el cobro siga pendiente", () => {
   readyCheckout("cash");
+  // Alquiler empezado ayer: entregado y ya no anulable → puntos definitivos.
+  app.setCheckout({ rentalStart: app.isoOffset(-1), rentalEnd: app.isoOffset(3) });
   win.placeOrder();
 
   const o = app.orders[0];
   assert.equal(o.status, "pending");        // el cobro sigue pendiente…
-  assert.ok(o.pointsCredited);              // …pero la prenda ya se entregó
+  assert.ok(o.pointsCredited);              // …pero el alquiler ya es firme
   assert.equal(app.profile.points, o.points);
   assert.match(doc.getElementById("sheetBody").innerHTML, /Ganaste/);
 });
@@ -75,14 +81,21 @@ test("pedido que empieza más adelante: los puntos quedan reservados", () => {
   assert.match(doc.getElementById("sheetBody").innerHTML, /Ganarás/);
 });
 
-test("los puntos reservados se acreditan cuando llega el día de entrega", () => {
+test("los puntos reservados se acreditan cuando el pedido deja de ser anulable", () => {
   readyCheckout("cash");
   app.setCheckout({ rentalStart: app.isoOffset(2), rentalEnd: app.isoOffset(5) });
   win.placeOrder();
   const o = app.orders[0];
   assert.equal(app.profile.points, 0);
 
-  o.start = app.isoOffset(0);               // llegó el día: la prenda se entrega
+  // Llegó el día de inicio: entregado, pero aún anulable → siguen reservados.
+  o.start = app.isoOffset(0);
+  assert.ok(win.isDelivered(o) && win.canCancelOrder(o));
+  assert.equal(win.creditDeliveredPoints(), 0);
+  assert.equal(app.profile.points, 0);
+
+  // Pasado el día de inicio ya no hay vuelta atrás: ahí sí se acreditan.
+  o.start = app.isoOffset(-1);
   assert.equal(win.creditDeliveredPoints(), o.points);
   assert.equal(app.profile.points, o.points);
   assert.equal(win.creditDeliveredPoints(), 0);   // no vuelve a acreditar
@@ -334,17 +347,19 @@ test("la opción de anular desaparece cuando el pedido ya terminó", () => {
   assert.equal(doc.querySelectorAll('[data-action="cancelOrder"]').length, 0);
 });
 
-test("anular un pedido ya pagado revierte los puntos acreditados", () => {
-  readyCheckout("credit");            // tarjeta → settled y puntos acreditados
+test("un pedido anulable nunca tiene puntos acreditados que revertir", () => {
+  readyCheckout("credit");            // tarjeta → settled, pero empieza hoy
   win.placeOrder();
   const o = app.orders[0];
-  assert.ok(o.pointsCredited);
-  assert.ok(app.profile.points > 0);
+  // La invariante que cierra el agujero: acreditado ⟹ ya no anulable. Mientras
+  // se pueda anular, esos puntos no existen en el saldo y no hay nada que canjear.
+  assert.ok(!o.pointsCredited);
+  assert.equal(app.profile.points, 0);
 
   win.cancelOrder(0);
   app.confirmModalOk();
 
-  assert.equal(app.profile.points, 0);   // devueltos
+  assert.equal(app.profile.points, 0);
   assert.ok(!app.orders[0].pointsCredited);
 });
 
@@ -377,5 +392,7 @@ test("la tarjeta del pedido muestra el depósito reembolsable junto al total", (
   win.renderProfile();
   const dep = app.orderDeposit(app.orders[i]).toFixed(2);
   const html = doc.getElementById("sheetBody").innerHTML;
-  assert.match(html, new RegExp(`↩ \\$${dep.replace(".", "\\.")} se te devuelve`));
+  // Se afirma el importe y su leyenda, no el icono que los precede: el set de
+  // iconos puede cambiar sin que cambie lo que la tarjeta comunica.
+  assert.match(html, new RegExp(`\\$${dep.replace(".", "\\.")} se te devuelve`));
 });
