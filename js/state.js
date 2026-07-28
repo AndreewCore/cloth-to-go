@@ -32,7 +32,10 @@ let cart = [];                       // [{id}] — una unidad por prenda
 //   Ecuador), por eso un pedido anulado NO puede llamarse "cancelado" en la UI.
 // loadState() puede sobreescribir esto si hay datos guardados.
 let orders = [];
-// Perfil: contacto + puntos acumulados + historial de canjes + donaciones.
+// Perfil: contacto + puntos acumulados + canjes + donaciones.
+// `redeemed` es a la vez historial y cartera: cada canje es un premio con
+// nombre propio { id, rewardId, name, cost, date, usedIn } y sigue disponible
+// mientras `usedIn` sea null (después guarda el id del pedido que lo gastó).
 let profile = { name:"", email:"", phone:"", points: 0, redeemed: [], donations: [] };
 let lastEarnedPoints = 0;            // puntos del último pedido (para la confirmación)
 let lastWaterSaved = 0;              // litros de agua ahorrados en el último pedido (para la confirmación/pop-up)
@@ -58,6 +61,7 @@ let address = "";
 let returnMethod = null;             // 'store' | 'home'  — cómo DEVUELVE al terminar
 let returnAddress = "";              // dirección para el retiro a domicilio
 let payMethod = null;                // 'cash' | 'credit' | 'debit'  — método de pago
+let appliedCoupon = null;            // id del canje aplicado al checkout actual (o null)
 let card = { number:"", name:"", expiry:"", cvv:"" };  // datos de tarjeta (no se procesan: backend)
 // Edición del modo de devolución de un pedido (en el perfil)
 let editingOrder = null;             // índice del pedido en edición (o null)
@@ -116,7 +120,40 @@ function depositTotal(){
 function shippingFee(){ return delivery === "ship" ? SHIPPING_FEE : 0; }
 function returnFee(){ return returnMethod === "home" ? SHIPPING_FEE : 0; }
 function grandTotal(){
-  return (cents(subtotal()) + cents(depositTotal()) + cents(shippingFee()) + cents(returnFee())) / 100;
+  return (cents(subtotal()) + cents(depositTotal()) + cents(shippingFee())
+        + cents(returnFee()) - cents(couponDiscount())) / 100;
+}
+
+/* ---------------- Premios canjeados (cupones) ----------------
+   Un canje se guarda en profile.redeemed y vive ahí hasta que un pedido lo
+   gasta. El descuento no se guarda: se deriva del premio y del alquiler, para
+   que siga siendo correcto si el pedido cambia. */
+
+// Canje por id (lo aplicado al checkout y lo enganchado a un pedido).
+function couponById(id){ return profile.redeemed.find(c => c.id === id) || null; }
+// Canjes todavía por usar, del más reciente al más antiguo.
+function availableCoupons(){ return profile.redeemed.filter(c => !c.usedIn); }
+// Siguiente número de canje (correlativo a partir de 1).
+function nextCouponId(){ return profile.redeemed.reduce((m,c) => Math.max(m, c.id || 0), 0) + 1; }
+
+// Contexto de descuento del CARRITO (checkout en curso).
+function cartRewardCtx(){
+  return {
+    items: cart.map(c => productById(c.id)),
+    days: rentalDays(),
+    delivery,
+    ret: returnMethod
+  };
+}
+// Descuento del premio aplicado al checkout actual (0 si no hay ninguno).
+function couponDiscount(){
+  const c = couponById(appliedCoupon);
+  return c ? rewardDiscount(rewardById(c.rewardId), cartRewardCtx()) : 0;
+}
+// Motivo por el que el premio aplicado no rebaja nada aquí (o null).
+function couponIssue(){
+  const c = couponById(appliedCoupon);
+  return c ? rewardIssue(rewardById(c.rewardId), cartRewardCtx()) : null;
 }
 
 // Litros de agua ahorrados por una lista de prendas (ids) al reutilizarlas en
@@ -134,8 +171,11 @@ function totalWaterSaved(){
 
 // Puntos que otorga el pedido actual: según el monto pagado (no reembolsable),
 // los días de alquiler y la cantidad de prendas.
+// Lo cubierto por un premio no vuelve a puntuar: si lo hiciera, canjear
+// alimentaría el siguiente canje.
 function orderPoints(){
-  const spend = subtotal() + shippingFee() + returnFee();   // gasto no reembolsable
+  const spend = (cents(subtotal()) + cents(shippingFee()) + cents(returnFee())
+               - cents(couponDiscount())) / 100;           // gasto no reembolsable
   return Math.round(spend * 10) + rentalDays() * 2 + cart.length * 5;
 }
 
@@ -148,12 +188,27 @@ function orderItemsSubtotal(o){
 function orderDeposit(o){
   return depositForItems(o.items.map(id => productById(id)));
 }
+// Descuento que el premio del pedido le rebaja. Se recalcula (no se lee de un
+// campo guardado) para que editar el pedido no deje el premio desactualizado:
+// un "envío gratis" deja de valer si la devolución pasa a ser en el local.
+function orderDiscount(o){
+  if(!o.couponId) return 0;
+  const c = couponById(o.couponId);
+  if(!c) return 0;
+  return rewardDiscount(rewardById(c.rewardId), {
+    items: o.items.map(id => productById(id)),
+    days: daysBetween(o.start, o.end),
+    delivery: o.delivery,
+    ret: o.ret
+  });
+}
 // Valor total del cobro de un pedido (incluye depósito reembolsable + envío +
-// devolución). Se usa para guardar/actualizar o.total.
+// devolución, menos el premio aplicado). Se usa para guardar/actualizar o.total.
 function orderTotal(o){
   const ship = o.delivery === "ship" ? SHIPPING_FEE : 0;
   const ret  = o.ret === "home" ? SHIPPING_FEE : 0;
-  return (cents(orderItemsSubtotal(o)) + cents(orderDeposit(o)) + cents(ship) + cents(ret)) / 100;
+  return (cents(orderItemsSubtotal(o)) + cents(orderDeposit(o)) + cents(ship)
+        + cents(ret) - cents(orderDiscount(o))) / 100;
 }
 // Estado del cobro del pedido — solo dos valores:
 //   "Cancelado" = ya pagado/cobrado (status 'settled', sea efectivo o tarjeta).
@@ -269,6 +324,23 @@ function loadState(){
       profile = Object.assign(defaultProfile(), s.profile);
       if(!Array.isArray(profile.redeemed)) profile.redeemed = [];
       if(!Array.isArray(profile.donations)) profile.donations = [];
+      // Migración: los canjes anteriores solo eran una línea de historial (sin
+      // id, sin premio asociado y sin forma de aplicarse). Se les completa la
+      // identidad y se dan por DISPONIBLES: el cliente ya pagó esos puntos y
+      // nunca recibió nada a cambio, así que honrarlos es lo correcto.
+      let idSeq = 0;
+      for(const c of profile.redeemed){
+        if(c.id === undefined) c.id = ++idSeq;
+        else idSeq = Math.max(idSeq, c.id);
+        if(c.rewardId === undefined){
+          const rw = REWARDS.find(r => r.name === c.name);
+          c.rewardId = rw ? rw.id : null;
+        }
+        if(c.usedIn === undefined) c.usedIn = null;
+        // Un canje sin premio reconocible (nombre cambiado en REWARDS) no puede
+        // valorarse: se deja como historial, no como cupón utilizable.
+        if(c.rewardId === null) c.usedIn = c.usedIn || "—";
+      }
     }
   } catch(e){ /* datos corruptos: se usan los valores por defecto */ }
 }
