@@ -68,14 +68,16 @@ python3 -m http.server
 
 ### Herramientas de desarrollo (opcional)
 
-Solo para linting/formateo del código; **no son necesarias para que la app funcione**.
+Solo para linting y pruebas; **no son necesarias para que la app funcione**.
 
 ```bash
-npm install      # instala eslint y prettier
-npm run lint     # ESLint sobre js/
-npm run format   # Prettier sobre js/css/html/md
-npm test         # pruebas del modelo de precios y helpers (runner nativo de Node)
+pnpm install     # instala eslint y jsdom
+pnpm lint        # ESLint sobre js/
+pnpm test        # pruebas del modelo de precios, flujo y helpers (runner nativo de Node)
 ```
+
+> No hay formateador automático: el código se alinea a mano (el catálogo de
+> `js/data.js` es una tabla legible que Prettier destruía).
 
 ---
 
@@ -126,7 +128,7 @@ HTML. Los eventos usan **delegación** mediante atributos `data-action`.
 │   └── main.js
 ├── img/
 │   └── Cloth To Go Logo.png
-├── package.json            # Scripts de tooling (lint/format)
+├── package.json            # Scripts de tooling (lint/test)
 ├── eslint.config.js
 └── README.md
 ```
