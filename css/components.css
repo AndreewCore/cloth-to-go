@@ -1026,6 +1026,21 @@ main::-webkit-scrollbar { display: none; }
   font-size: 14px; font-weight: 700; text-align: center;
 }
 
+/* ---- Dirección fijada por el mapa (sin campo de texto) ---- */
+.addr-picked {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 12px; margin-top: 6px;
+}
+.ap-text { font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.35; }
+.ap-coords { font-size: 11px; color: var(--ok); margin-top: 4px; font-weight: 700; }
+/* Sin punto todavía: caja punteada, para que se lea como un hueco por llenar
+   y no como un dato ya resuelto. */
+.addr-empty {
+  border: 1px dashed var(--line); border-radius: 12px;
+  padding: 10px 12px; margin-top: 6px;
+  font-size: 12.5px; color: var(--muted); line-height: 1.4;
+}
+
 /* ---- Puntos ganados (confirmación) ---- */
 .earned-points {
   background: var(--accent-soft); color: var(--accent);
