@@ -13,9 +13,15 @@ en este orden por dependencia.
 - [ ] **`GOOGLE_CLIENT_ID`** definido en el entorno del servidor, **idéntico**
       al Client ID que usa el frontend en `js/auth.js`. Si no coinciden, la
       verificación (`audience`) rechaza todos los tokens.
+- [ ] **`NODE_ENV=production`** en el entorno del servidor. Es lo que activa la
+      exigencia de `CORS_ORIGINS` del punto siguiente; sin esta variable el
+      servidor arranca con la política permisiva de desarrollo.
 - [ ] **`CORS_ORIGINS`** definido con los orígenes exactos autorizados
-      (p. ej. `https://andreewcore.github.io`), sin comodines. Vacío = refleja
-      cualquier origen (ver #18).
+      (p. ej. `https://andreewcore.github.io`), sin comodines. **Con
+      `NODE_ENV=production` el servidor rehúsa arrancar si falta** (#18): es
+      preferible un despliegue que no levanta a uno abierto a todos los
+      orígenes en silencio. Fuera de producción, vacío sigue reflejando
+      cualquier origen, que es lo cómodo en desarrollo.
 - [ ] **`DATABASE_URL`** apuntando a la base de producción (Postgres), con el
       `provider` del `schema.prisma` cambiado a `postgresql` y las migraciones
       aplicadas.
@@ -28,19 +34,25 @@ en este orden por dependencia.
 - [ ] Origen(es) de producción añadidos en Google Cloud Console → *Authorized
       JavaScript origins* del Client ID OAuth.
 
-## Riesgos que BLOQUEAN el login real (deben cerrarse en `feature/backend-deploy`)
+## Riesgos que BLOQUEABAN el login real — cerrados en `feature/backend-deploy`
 
-Detectados en la revisión de seguridad del PR #15. Cada uno tiene su issue con
-criterio de cierre:
+Detectados en la revisión de seguridad del PR #15:
 
-- [ ] **#16** — Errores internos del backend (Prisma) pueden filtrarse al
-      cliente en un 500. Requiere `setErrorHandler` global o try/catch en el
-      upsert, con respuesta genérica.
-- [ ] **#17** — Olvidar `DEPLOYED_API` deja producción en modo demo silencioso.
-      Requiere una guarda de frontend que falle en voz alta en el origen de
-      producción si no hay backend.
-- [ ] **#18** — `CORS_ORIGINS` vacío refleja cualquier origen. Requiere que el
-      servidor rehúse arrancar en `NODE_ENV=production` sin esa variable.
+- [x] **#16** — Errores internos del backend ya no se filtran. `setErrorHandler`
+      global: los 5xx responden `{ error: "Error interno del servidor." }` y el
+      detalle queda solo en el log del servidor. Los 4xx conservan su mensaje,
+      que lo redacta la app y no expone nada del interior.
+- [x] **#17** — `resolveApiBase()` distingue `misconfigured` (origen de
+      producción sin `DEPLOYED_API`) de `undeployed` (cualquier otro host, que
+      es una espera legítima). Ante `misconfigured`, `onGoogleCredential` se
+      niega a decodificar el token en local y avisa al usuario, en vez de
+      autenticar sin verificar la firma.
+- [x] **#18** — Con `NODE_ENV=production`, `corsOrigin()` lanza si falta
+      `CORS_ORIGINS` y el servidor no arranca.
+
+**Ojo:** cerrarlos elimina el fallo *silencioso*, no sustituye a la
+configuración. Los puntos de arriba siguen siendo obligatorios — ahora el
+despliegue te avisa cuando faltan en vez de correr en modo demo sin decirlo.
 
 ## Verificación previa a poner en vivo
 

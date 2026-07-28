@@ -24,7 +24,19 @@ import { createGoogleVerifier } from "./googleAuth.js";
  */
 function corsOrigin() {
   const raw = process.env.CORS_ORIGINS?.trim();
-  if (!raw) return true;
+  if (!raw) {
+    // En producción, olvidar la variable dejaba la API abierta a cualquier
+    // origen sin decir nada. Un deploy permisivo en silencio es peor que uno
+    // que no arranca: el segundo se nota en el primer despliegue.
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "CORS_ORIGINS es obligatoria con NODE_ENV=production: sin ella la API " +
+          "reflejaría cualquier origen. Defínela con la lista de orígenes " +
+          "permitidos separados por comas (ver DEPLOY.md)."
+      );
+    }
+    return true;
+  }
   return raw
     .split(",")
     .map((o) => o.trim())
@@ -47,6 +59,22 @@ export function buildApp(opts = {}) {
   const app = Fastify(fastifyOpts);
 
   app.register(cors, { origin: corsOrigin() });
+
+  // Nada de errores internos hacia el cliente. El handler por defecto de
+  // Fastify responde 500 con `err.message`, que en un fallo de Prisma incluye
+  // nombres de columnas y constraints: un mapa gratis del esquema para quien
+  // sondee la API. El detalle se registra completo del lado del servidor, que
+  // es donde sirve para depurar.
+  app.setErrorHandler((err, request, reply) => {
+    const status = err.statusCode ?? 500;
+    if (status >= 500) {
+      request.log.error({ err }, "Error interno no controlado");
+      return reply.code(500).send({ error: "Error interno del servidor." });
+    }
+    // Los 4xx sí llevan mensaje: los redacta la app para el cliente (validación,
+    // credencial inválida) y no exponen nada del interior.
+    return reply.code(status).send({ error: err.message });
+  });
 
   // Sin GOOGLE_CLIENT_ID no hay contra qué verificar audience: se detecta acá
   // (una vez, al construir la app) en vez de fallar a mitad de una petición.
