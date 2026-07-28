@@ -25,6 +25,44 @@
    desactivado y la app cae al campo de texto. Ver README (sección Mapas). */
 const GOOGLE_MAPS_API_KEY = "";
 
+/* Override local de la clave, mismo patrón que API_OVERRIDE_KEY en api.js: deja
+   probar el mapa sin escribir la clave en el código. Existe porque el repo es
+   público y una clave commiteada acaba scrapeada y facturada a la cuenta; así
+   la clave vive solo en el navegador de quien prueba. */
+const MAPS_OVERRIDE_KEY = "clothToGo:mapsKey";
+
+/* Parámetro de URL que siembra el override (?mapskey=…). Ahorra abrir la
+   consola para pegar el localStorage a mano al probar en local. */
+const MAPS_KEY_PARAM = "mapskey";
+
+/**
+ * Clave efectiva del mapa: el override local si existe, si no la del código.
+ * @returns {string} Cadena vacía si no hay ninguna configurada.
+ */
+function mapsApiKey(){
+  try {
+    // Leer localStorage lanza si el almacenamiento está bloqueado (igual que en
+    // api.js): sin override, la clave del código sigue siendo la respuesta.
+    return localStorage.getItem(MAPS_OVERRIDE_KEY) || GOOGLE_MAPS_API_KEY;
+  } catch {
+    return GOOGLE_MAPS_API_KEY;
+  }
+}
+
+/**
+ * Guarda la clave que venga en ?mapskey= y la borra de la barra de direcciones.
+ * Se limpia la URL porque una clave en el query string se filtra por el
+ * historial y por la cabecera Referer hacia terceros.
+ */
+function adoptMapsKeyFromUrl(){
+  const url = new URL(location.href);
+  const k = url.searchParams.get(MAPS_KEY_PARAM);
+  if(!k) return;
+  try { localStorage.setItem(MAPS_OVERRIDE_KEY, k); } catch { /* sin storage no hay override */ }
+  url.searchParams.delete(MAPS_KEY_PARAM);
+  history.replaceState(null, "", url.pathname + url.search + url.hash);
+}
+
 /* Centro por defecto del mapa: Guayaquil, la ciudad donde opera el local. */
 const MAP_DEFAULT_CENTER = { lat: -2.170998, lng: -79.922359 };
 const MAP_DEFAULT_ZOOM = 15;
@@ -42,7 +80,7 @@ let pickerPlace = null;      // { lat, lng, address } elegido ahora mismo
  * @returns {boolean}
  */
 function mapsAvailable(){
-  return location.protocol !== "file:" && !!GOOGLE_MAPS_API_KEY;
+  return location.protocol !== "file:" && !!mapsApiKey();
 }
 
 /**
@@ -57,7 +95,7 @@ function loadMapsSdk(){
     if(!mapsAvailable()) return reject(new Error("maps-unavailable"));
     if(window.google && window.google.maps) return resolve();
     const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_API_KEY)}&libraries=places&loading=async&language=es&region=EC`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(mapsApiKey())}&libraries=places&loading=async&language=es&region=EC`;
     s.async = true;
     s.onload = () => resolve();
     // Un fallo de carga deja la promesa rechazada PARA SIEMPRE; se limpia para
@@ -221,6 +259,53 @@ function mapPickerButtonHTML(target, coords){
   return `
     <button type="button" class="map-pick-btn" data-action="pickLocation" data-target="${target}">
       ${icon("mapPin", { size: 16 })} ${coords ? "Cambiar ubicación en el mapa" : "Elegir ubicación exacta en el mapa"}
-    </button>
-    ${coords ? `<div class="map-coords">✓ Punto exacto guardado (${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)})</div>` : ""}`;
+    </button>`;
+}
+
+/**
+ * Campo de dirección del checkout.
+ *
+ * Con el mapa disponible NO se ofrece campo de texto: la dirección se fija
+ * marcando el punto y nada más. Escribirla a mano es justo lo que el mapa vino
+ * a resolver — un texto sin coordenadas deja al repartidor con "por la
+ * ciclovía, casa verde"— y mantener las dos vías abiertas garantiza que la
+ * mayoría siga usando la peor.
+ *
+ * Sin mapa (file://, sin clave o sin red) SÍ vuelve el campo de texto: es la
+ * única forma de terminar un pedido, y dejarlo bloqueado rompería la demo que
+ * tiene que abrirse con doble clic.
+ *
+ * @param {"ship"|"return"} target
+ * @param {string} label Rótulo del campo.
+ * @param {string} addr Dirección actual (texto).
+ * @param {{lat:number,lng:number}|null} coords Punto elegido, si lo hay.
+ * @returns {string} HTML.
+ */
+function addressFieldHTML(target, label, addr, coords){
+  const head = `${icon("mapPin", { size: 14 })} ${label}`;
+  if(!mapsAvailable()){
+    const id = target === "ship" ? "addr" : "retAddr";
+    return `${head}
+      <input id="${id}" placeholder="Calle, número, ciudad…" value="${escapeHTML(addr)}" />
+      ${mapPickerButtonHTML(target, coords)}`;
+  }
+  const cuerpo = coords
+    ? `<div class="addr-picked">
+         <div class="ap-text">${escapeHTML(addr)}</div>
+         <div class="ap-coords">${icon("check", { size: 13 })} Punto exacto guardado (${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)})</div>
+       </div>`
+    : `<div class="addr-empty">Marca en el mapa dónde quieres que ${target === "ship" ? "te entreguemos" : "retiremos"} las prendas.</div>`;
+  return `${head}${cuerpo}${mapPickerButtonHTML(target, coords)}`;
+}
+
+/**
+ * ¿La dirección está lista para continuar?
+ * Con mapa exige el punto: un texto sin coordenadas ya no puede existir por
+ * esta vía, y aceptarlo reabriría la puerta que addressFieldHTML() cierra.
+ * @param {string} addr
+ * @param {{lat:number,lng:number}|null} coords
+ * @returns {boolean}
+ */
+function addressReady(addr, coords){
+  return mapsAvailable() ? !!coords : isValidAddress(addr);
 }
