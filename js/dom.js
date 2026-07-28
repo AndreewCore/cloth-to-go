@@ -94,19 +94,23 @@ let onConfirmCb = null;
  * Muestra el modal de confirmación y ejecuta el callback solo si el usuario acepta.
  * @param {string} message Texto principal (puede ir vacío si se usa `detailHTML`).
  * @param {Function} onConfirm Callback al confirmar.
- * @param {string} [icon] Emoji/símbolo grande y centrado arriba (p. ej. 📝).
- * @param {object} [opts] Extras: `title`, `detailHTML`, `okLabel`, `danger`.
+ * @param {string} [iconName] Clave de ICON_PATHS: icono grande centrado arriba.
+ *   Se llama `iconName` y no `icon` para no tapar dentro de esta función a la
+ *   función global icon(), que es justo la que necesita para dibujarlo.
+ * @param {object} [opts] Extras: `title`, `detailHTML`, `okLabel`, `danger`,
+ *   `infoOnly` (oculta "Cancelar": el diálogo informa y no decide nada).
  *   ⚠️ `detailHTML` se inserta como HTML: quien lo arma debe pasar sus valores
  *   por escapeHTML(). El resto de campos van por textContent.
  */
-function confirmDialog(message, onConfirm, icon, opts = {}){
+function confirmDialog(message, onConfirm, iconName, opts = {}){
   const iconEl = document.getElementById("modalIcon");
   const titleEl = document.getElementById("modalTitle");
   const detailEl = document.getElementById("modalDetail");
-  iconEl.textContent = icon || "";
+  // innerHTML sin riesgo: el marcado sale de nuestro set, no de datos del usuario.
+  iconEl.innerHTML = iconName ? icon(iconName, { size: 26 }) : "";
   // Se oculta por clase, no por style.display: un `display:block` inline pisaría
-  // el `display:flex` del CSS y descentraría el emoji dentro de su disco.
-  iconEl.classList.toggle("is-hidden", !icon);
+  // el `display:flex` del CSS y descentraría el icono dentro de su disco.
+  iconEl.classList.toggle("is-hidden", !iconName);
   // El icono de una acción destructiva va en rojo, no en el verde de marca.
   iconEl.classList.toggle("danger", !!opts.danger);
   titleEl.textContent = opts.title || "";
@@ -117,6 +121,10 @@ function confirmDialog(message, onConfirm, icon, opts = {}){
   detailEl.classList.toggle("is-hidden", !opts.detailHTML);
   modalOk.textContent = opts.okLabel || "Confirmar";
   modalOk.classList.toggle("danger", !!opts.danger);
+  // `infoOnly`: el diálogo solo informa, no hay nada que decidir. Ofrecer
+  // "Cancelar" frente a un aviso sugiere que se puede rechazar algo, cuando la
+  // única salida posible es enterarse y cerrar.
+  modalCancel.classList.toggle("is-hidden", !!opts.infoOnly);
   onConfirmCb = onConfirm;
   modalOverlay.classList.add("show");
   modalOk.focus();
