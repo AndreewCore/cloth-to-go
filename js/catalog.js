@@ -124,12 +124,12 @@ function renderGrid(){
   const n = list.length;
   resultsBar.innerHTML = `
     <span class="results-count">${n} ${n===1 ? "prenda" : "prendas"}</span>
-    ${anyFilterActive() ? `<button class="clear-filters" id="clearFilters">Limpiar filtros ✕</button>` : ""}`;
+    ${anyFilterActive() ? `<button class="clear-filters" id="clearFilters">Limpiar filtros ${icon("x", { size: 13 })}</button>` : ""}`;
 
   grid.innerHTML = list.map(p => {
     const avail = unitsAvailable(p);
     const btn = inCart(p.id)
-      ? `<button class="add-btn in-cart" data-add="${p.id}">✓ En carrito</button>`
+      ? `<button class="add-btn in-cart" data-add="${p.id}">${icon("check", { size: 14 })} En carrito</button>`
       : avail > 0
         ? `<button class="add-btn" data-add="${p.id}">+ Alquilar</button>`
         : `<button class="add-btn" disabled>No disponible</button>`;
@@ -142,7 +142,7 @@ function renderGrid(){
       </div>
       <div class="card-body">
         <div class="card-name" data-detail="${p.id}" role="button" tabindex="0" aria-label="Ver detalle de ${escapeHTML(p.name)}">${escapeHTML(p.name)}</div>
-        <div class="card-meta"><span>${escapeHTML(p.cat)}</span><span class="cm-dot">·</span><span class="cm-mat">🧵 ${escapeHTML(materialLabel(p.material))}</span></div>
+        <div class="card-meta"><span>${escapeHTML(p.cat)}</span><span class="cm-dot">·</span><span class="cm-mat">${icon("layers", { size: 12 })} ${escapeHTML(materialLabel(p.material))}</span></div>
         <div class="stars">${starStr(p.stars)}<small>calidad</small></div>
         <div class="price-row">
           <div class="price"><span class="price-amt">$${rentalPrice(p, 1).toFixed(2)}</span><span class="price-per">1er día</span></div>
@@ -166,7 +166,7 @@ function addToCart(id){
   saveState();
   updateBadge();
   renderGrid();
-  toast("Añadido al carrito 🛒");
+  toast("Añadido al carrito");
 }
 
 /* ---------------- Detalle de prenda ---------------- */
@@ -202,15 +202,15 @@ function renderDetail(){
       <p class="dt-note">Mientras más días, más barato sale cada uno. Alquilando varias prendas a la vez ahorras hasta un ${Math.round(VOLUME_DISCOUNT_MAX * 100)}% adicional.</p>
     </div>
     <p class="detail-avail">${unitsAvailable(p) > 0
-      ? `✅ Disponible · ${p.disponibles} unidad${p.disponibles===1?'':'es'} (prenda única de segunda mano)`
+      ? `${icon("checkCircle", { size: 15 })} Disponible · ${p.disponibles} unidad${p.disponibles===1?'':'es'} (prenda única de segunda mano)`
       : isRented(p.id)
-        ? "⛔ Alquilada ahora mismo · vuelve al catálogo cuando termine el alquiler"
-        : "⛔ Ya está en tu carrito (prenda única)"}</p>`;
+        ? `${icon("ban", { size: 15 })} Alquilada ahora mismo · vuelve al catálogo cuando termine el alquiler`
+        : `${icon("ban", { size: 15 })} Ya está en tu carrito (prenda única)`}</p>`;
 
   if(isRented(p.id)){
-    sheetFoot.innerHTML = `<button class="pay-btn" data-action="goProfile">Ver mis pedidos →</button>`;
+    sheetFoot.innerHTML = `<button class="pay-btn" data-action="goProfile">Ver mis pedidos ${icon("arrowRight", { size: 16 })}</button>`;
   } else if(inCart(p.id)){
-    sheetFoot.innerHTML = `<button class="pay-btn" data-action="goCart">Ver carrito →</button>`;
+    sheetFoot.innerHTML = `<button class="pay-btn" data-action="goCart">Ver carrito ${icon("arrowRight", { size: 16 })}</button>`;
   } else {
     sheetFoot.innerHTML = `<button class="pay-btn" data-action="addDetail">Agregar al carrito · desde $${rentalPrice(p, 1).toFixed(2)}</button>`;
   }

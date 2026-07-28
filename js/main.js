@@ -11,7 +11,7 @@
  */
 function enter(name){
   loginEl.classList.add("hide");
-  if(name) greeting.textContent = `Hola, ${name} 🌱`;
+  if(name) greeting.textContent = `Hola, ${name}`;
 }
 // Entra como invitado: sesión efímera (sin persistencia) y arranque limpio.
 // El inicio de sesión con Google lo cablea initGoogleAuth() (ver auth.js).
@@ -30,7 +30,7 @@ document.getElementById("openFilters").onclick = ()=>{ view="filters"; renderShe
 document.getElementById("openSurvey").onclick = ()=>{
   confirmDialog("¿Quieres ayudarnos respondiendo una breve encuesta? Se abrirá en una pestaña nueva.", ()=>{
     window.open("https://forms.gle/eeu4G4Md877Rp2HV9", "_blank", "noopener");
-  }, "📝");
+  }, "clipboard");
 };
 document.getElementById("closeSheet").onclick = closeSheet;
 overlay.onclick = closeSheet;
@@ -93,6 +93,12 @@ sheet.addEventListener("click", e=>{
     case "toCheckout":     view="checkout"; renderSheet(); break;
     case "setDelivery":    delivery = el.dataset.value; renderSheet(); break;
     case "setReturn":      returnMethod = el.dataset.value; renderSheet(); break;
+    // Segundo toque sobre el premio ya aplicado = quitarlo (como los radios
+    // del resto del checkout, pero aquí no elegir es una opción legítima).
+    case "applyCoupon":    { const id = +el.dataset.id;
+                             appliedCoupon = appliedCoupon === id ? null : id;
+                             renderSheet(); break; }
+    case "clearCoupon":    appliedCoupon = null; renderSheet(); break;
     case "toPayment":      view="payment"; renderSheet(); break;
     case "setPay":         payMethod = el.dataset.value; renderSheet(); break;
     case "placeOrder":     placeOrder(); break;
