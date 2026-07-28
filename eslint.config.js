@@ -58,7 +58,7 @@ const PROJECT_GLOBALS = [
   "renderProfile", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
   "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn", "cancelOrder",
   "renderRewards", "redeem",
-  "openDonate", "donateValid", "renderDonate", "submitDonation",
+  "openDonate", "donateValid", "renderDonate", "submitDonation", "openWardrobe",
   // main.js
   "enter",
   // api.js
