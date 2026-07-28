@@ -220,7 +220,7 @@ function mapPickerButtonHTML(target, coords){
   if(!mapsAvailable()) return "";
   return `
     <button type="button" class="map-pick-btn" data-action="pickLocation" data-target="${target}">
-      📍 ${coords ? "Cambiar ubicación en el mapa" : "Elegir ubicación exacta en el mapa"}
+      ${icon("mapPin", { size: 16 })} ${coords ? "Cambiar ubicación en el mapa" : "Elegir ubicación exacta en el mapa"}
     </button>
     ${coords ? `<div class="map-coords">✓ Punto exacto guardado (${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)})</div>` : ""}`;
 }
