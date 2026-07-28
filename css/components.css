@@ -3,6 +3,15 @@
    Header, catálogo, carrito, checkout, confirmación y toast
    ============================================================ */
 
+/* ---- Iconos SVG en línea ----
+   Sustituyen a los emojis. Heredan el color del contenedor (currentColor) y
+   traen su tamaño en el atributo, así que NO se dimensionan con font-size.
+   El vertical-align compensa que un SVG se asienta sobre la línea base y
+   quedaría alto respecto al texto que acompaña. */
+.ico { vertical-align: -.18em; flex: 0 0 auto; }
+/* Dentro de un contenedor flex el vertical-align no aplica: ahí centra el flex. */
+.ico-box { display: inline-flex; align-items: center; justify-content: center; }
+
 /* ---- Header ---- */
 header {
   padding: 38px 20px 14px;
@@ -420,7 +429,7 @@ main::-webkit-scrollbar { display: none; }
   color: var(--muted);
   padding: 50px 20px;
 }
-.empty .em { font-size: 50px; }
+.empty .em { display: flex; justify-content: center; color: var(--line-strong, #c9bfb2); margin-bottom: 6px; }
 
 /* ---- Entrega ---- */
 .section-label { font-size: 13px; font-weight: 700; margin: 8px 0 8px; }
@@ -436,7 +445,7 @@ main::-webkit-scrollbar { display: none; }
   align-items: flex-start;
 }
 .delivery-opt.active { border-color: var(--accent); background: var(--accent-soft); }
-.do-icon { font-size: 24px; }
+.do-icon { display: flex; align-items: center; color: var(--accent); flex: 0 0 auto; }
 .do-text { flex: 1; }
 .do-title { font-size: 14px; font-weight: 700; display: flex; justify-content: space-between; }
 .do-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
@@ -508,7 +517,7 @@ main::-webkit-scrollbar { display: none; }
 
 /* ---- Confirmación ---- */
 .confirm { text-align: center; padding: 30px 20px; }
-.confirm .big { font-size: 64px; }
+.confirm .big { display: flex; justify-content: center; color: var(--accent); margin-bottom: 4px; }
 .confirm h2 { margin: 12px 0 6px; }
 .confirm p { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .confirm .box {
@@ -564,10 +573,11 @@ main::-webkit-scrollbar { display: none; }
 .modal-icon {
   width: 54px; height: 54px; margin: 0 auto 14px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 26px; line-height: 1;
+  line-height: 1; color: var(--accent);
   background: var(--accent-soft); border-radius: 50%;
 }
-.modal-icon.danger { background: #fbeee8; }
+.modal-icon.danger { background: #fbeee8; color: var(--danger); }
+.modal-icon.tone-brown { background: #f0e7de; color: var(--ico-brown); }
 .modal-title {
   margin: 0 0 6px; text-align: center;
   font-size: 17px; font-weight: 800; color: var(--ink);
@@ -817,9 +827,9 @@ main::-webkit-scrollbar { display: none; }
 .logout-btn:hover { background: var(--danger-soft, var(--accent-soft)); color: var(--danger, var(--accent)); border-color: transparent; }
 
 .points-card {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
   background: linear-gradient(135deg, var(--accent), #2f5f2b);
-  color: #fff; border-radius: 16px; padding: 14px 16px; margin-bottom: 6px;
+  color: #fff; border-radius: 16px; padding: 14px 16px; margin-bottom: 10px;
   width: 100%; border: none; cursor: pointer; font-family: inherit; text-align: left;
 }
 .points-card.big { cursor: default; margin-bottom: 12px; }
@@ -827,16 +837,22 @@ main::-webkit-scrollbar { display: none; }
 .pc-label { font-size: 12px; opacity: .85; }
 .pc-value { font-size: 26px; font-weight: 800; margin-top: 2px; }
 .pc-value span { font-size: 13px; font-weight: 600; opacity: .85; }
-.pc-cta { font-size: 13px; font-weight: 700; background: rgba(255,255,255,.22); padding: 6px 12px; border-radius: 20px; white-space: nowrap; }
-.pc-emoji { font-size: 28px; }
+/* inline-flex + gap: antes el "→" era un glifo de texto pegado a la palabra,
+   y su caja de línea lo dejaba descentrado respecto al fondo de la píldora. */
+.pc-cta {
+  display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  font-size: 13px; font-weight: 700; background: rgba(255,255,255,.22);
+  padding: 7px 13px; border-radius: 20px; white-space: nowrap;
+}
+.pc-emoji { display: flex; align-items: center; opacity: .9; flex: 0 0 auto; }
 
 /* ---- Agua ahorrada (perfil) ---- */
 .water-stat {
   display: flex; align-items: center; gap: 12px;
   background: rgba(43,140,209,.10); border: 1px solid rgba(43,140,209,.25);
-  border-radius: 16px; padding: 12px 16px; margin-bottom: 12px;
+  border-radius: 16px; padding: 12px 16px; margin-bottom: 10px;
 }
-.ws-icon { font-size: 26px; flex: 0 0 auto; }
+.ws-icon { display: flex; align-items: center; color: #2b8cd1; flex: 0 0 auto; }
 .ws-label { font-size: 12px; color: var(--muted); font-weight: 700; }
 .ws-value { font-size: 22px; font-weight: 800; color: #2b8cd1; margin-top: 2px; }
 .ws-value span { font-size: 13px; font-weight: 600; opacity: .85; }
@@ -870,15 +886,88 @@ main::-webkit-scrollbar { display: none; }
   box-shadow: 0 4px 14px rgba(63,125,58,.18);
 }
 .donate-card:active { transform: scale(.99); }
-.dc-icon { font-size: 30px; flex: 0 0 auto; }
+.dc-icon { display: flex; align-items: center; color: var(--accent); flex: 0 0 auto; }
 .dc-text { flex: 1; min-width: 0; }
 .dc-title { font-size: 15px; font-weight: 800; color: var(--accent); }
 .dc-desc { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+/* El disco centra un SVG, no un glifo: place-items centraba la caja de línea
+   del "→" y la flecha quedaba visiblemente alta dentro del círculo. */
 .dc-cta {
-  font-size: 18px; font-weight: 800; color: #fff; background: var(--accent);
+  color: #fff; background: var(--accent);
   width: 30px; height: 30px; border-radius: 50%;
-  display: grid; place-items: center; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
 }
+.dc-cta .ico { vertical-align: 0; }
+
+/* ---- Pon tu armario en alquiler (anuncio) ----
+   Comparte la caja de .donate-card, pero en tono neutro y con borde punteado:
+   la tarjeta activa (donar) no debe competir con una que aún no lleva a nada. */
+.wardrobe-card {
+  background: var(--card); border: 2px dashed var(--line);
+  box-shadow: none;
+}
+.wardrobe-card .dc-icon { color: var(--ico-brown); }
+.wardrobe-card .dc-title { color: var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wardrobe-card .dc-cta { background: var(--muted); }
+.soon-tag {
+  font-size: 10px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase;
+  color: var(--accent); background: var(--accent-soft);
+  padding: 3px 8px; border-radius: 20px; white-space: nowrap;
+}
+/* Contenido del diálogo "Muy pronto" */
+.soon-text { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0 0 12px; text-align: center; }
+.soon-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.soon-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg); border-radius: 10px; padding: 10px 12px;
+  font-size: 12.5px; color: var(--ink); text-align: left;
+}
+/* Disco de color por ítem: el mismo tamaño para los tres alinea el texto
+   aunque los trazados de cada icono ocupen distinto alto. */
+.si-icon {
+  width: 34px; height: 34px; border-radius: 50%; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--card);
+}
+.soon-note { font-size: 11.5px; color: var(--muted); text-align: center; margin: 0; }
+
+/* ---- Acentos de color de los iconos ----
+   Los SVG heredan `currentColor`, así que basta con teñir el contenedor: un
+   mismo icono sirve en verde, azul o dorado sin duplicar el trazado. Se
+   aplican solo a los iconos que IDENTIFICAN algo (una opción de envío, un
+   premio, una ventaja); las flechas, checks y equis siguen heredando el color
+   del texto, que es lo que las mantiene legibles como parte de la interfaz. */
+.ico-sky    { color: var(--ico-sky); }
+.ico-violet { color: var(--ico-violet); }
+.ico-gold   { color: var(--ico-gold); }
+.ico-rose   { color: var(--ico-rose); }
+.ico-teal   { color: var(--ico-teal); }
+
+/* Entrega y devolución, un color por opción. Los cuatro comparten los mismos
+   dos iconos (camión y local), así que si el color también se repitiera, las
+   dos preguntas del checkout se verían idénticas y sería fácil creer que ya
+   contestaste la de abajo. Se seleccionan por data-action/data-value porque el
+   marcado reutiliza la clase .delivery-opt para entrega, devolución y pago. */
+[data-action="setDelivery"][data-value="ship"]   .do-icon { color: var(--ico-sky); }
+[data-action="setDelivery"][data-value="pickup"] .do-icon { color: var(--accent); }
+[data-action="setReturn"][data-value="store"]    .do-icon { color: var(--ico-brown); }
+[data-action="setReturn"][data-value="home"]     .do-icon { color: var(--ico-violet); }
+
+/* Métodos de pago: efectivo en dorado, tarjetas en violeta. */
+[data-action="setPay"][data-value="cash"]   .do-icon { color: var(--ico-gold); }
+[data-action="setPay"][data-value="credit"] .do-icon,
+[data-action="setPay"][data-value="debit"]  .do-icon { color: var(--ico-violet); }
+
+/* Premios: cada uno con el color de lo que entrega (envío, días, %, premium). */
+.reward[data-reward="1"] .rw-icon { color: var(--ico-sky); }
+.reward[data-reward="2"] .rw-icon { color: var(--ico-rose); }
+.reward[data-reward="3"] .rw-icon { color: var(--ico-gold); }
+.reward[data-reward="4"] .rw-icon { color: var(--ico-violet); }
+/* Un premio bloqueado no debe gritar más que uno disponible. */
+.reward.locked .rw-icon { color: var(--muted); }
+
+/* El agua ahorrada ya va en azul; su icono acompaña al bloque, no al texto. */
+.water-saved .ico { color: var(--ico-teal); }
 
 .donate-intro {
   font-size: 13px; color: var(--ink); line-height: 1.5;
@@ -924,7 +1013,7 @@ main::-webkit-scrollbar { display: none; }
   border-radius: 14px; padding: 12px; margin-bottom: 10px;
 }
 .reward.locked { opacity: .6; }
-.rw-icon { font-size: 30px; flex: 0 0 auto; }
+.rw-icon { display: flex; align-items: center; color: var(--accent); flex: 0 0 auto; }
 .rw-info { flex: 1; min-width: 0; }
 .rw-name { font-size: 14px; font-weight: 700; color: var(--ink); }
 .rw-desc { font-size: 11px; color: var(--muted); margin: 2px 0; line-height: 1.35; }
@@ -942,6 +1031,60 @@ main::-webkit-scrollbar { display: none; }
   font-size: 12px; color: var(--ink); padding: 7px 2px;
 }
 .redeemed-item span { color: var(--muted); }
+/* Un premio ya gastado no compite por atención con los que aún sirven. */
+.redeemed-item.used { opacity: .6; }
+
+/* ---- Premios aplicables en el checkout ----
+   Comparten la caja de .delivery-opt (misma decisión: elegir una opción de una
+   lista), con el candado para los que no aplican a este pedido. */
+.coupon-opts { display: flex; flex-direction: column; gap: 10px; margin-bottom: 6px; }
+.coupon-opt {
+  border: 2px solid var(--line);
+  background: var(--card);
+  border-radius: 14px;
+  padding: 12px 14px;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.coupon-opt.active { border-color: var(--accent); background: var(--accent-soft); }
+.coupon-opt.active .do-radio { border-color: var(--accent); }
+.coupon-opt.active .do-radio::after {
+  content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
+}
+/* No aplica a este pedido: se muestra igualmente, con el motivo, para que el
+   cliente no crea que perdió el canje. */
+.coupon-opt.locked { opacity: .55; cursor: not-allowed; border-style: dashed; }
+.coupon-opt.locked .do-desc { color: var(--danger); }
+.link-btn {
+  background: none; border: none; padding: 4px 2px; margin-bottom: 6px;
+  color: var(--muted); font-size: 12px; font-family: inherit;
+  text-decoration: underline; cursor: pointer;
+}
+/* Descuento en el resumen: en verde, como el único importe que resta. */
+.summary-row.discount { color: var(--ok); font-weight: 700; }
+/* Premio aplicado (confirmación) */
+.coupon-used {
+  background: var(--accent-soft); color: var(--accent);
+  border-radius: 12px; padding: 12px; margin-top: 10px;
+  font-size: 14px; font-weight: 700; text-align: center;
+}
+
+/* ---- Dirección fijada por el mapa (sin campo de texto) ---- */
+.addr-picked {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 12px; margin-top: 6px;
+}
+.ap-text { font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.35; }
+.ap-coords { font-size: 11px; color: var(--ok); margin-top: 4px; font-weight: 700; }
+/* Sin punto todavía: caja punteada, para que se lea como un hueco por llenar
+   y no como un dato ya resuelto. */
+.addr-empty {
+  border: 1px dashed var(--line); border-radius: 12px;
+  padding: 10px 12px; margin-top: 6px;
+  font-size: 12.5px; color: var(--muted); line-height: 1.4;
+}
 
 /* ---- Puntos ganados (confirmación) ---- */
 .earned-points {
@@ -1196,4 +1339,66 @@ main::-webkit-scrollbar { display: none; }
   .thumb { height: 108px; }
   .sheet-body { padding: 12px 14px; }
   .order { padding: 10px 12px; }
+}
+
+/* ---- Selector de ubicación en el mapa ----
+   Se superpone al marco del teléfono a pantalla completa: elegir un punto
+   necesita todo el espacio disponible, y un mapa de 200px no permite afinar. */
+.map-pick-btn {
+  width: 100%; margin-top: 8px;
+  background: var(--accent-soft); color: var(--accent);
+  border: 1px dashed var(--accent); border-radius: 10px;
+  padding: 10px; font-size: 13px; font-weight: 700;
+  font-family: inherit; cursor: pointer;
+}
+.map-pick-btn:active { transform: scale(.99); }
+.map-coords {
+  margin-top: 6px; font-size: 11.5px; font-weight: 700; color: var(--ok);
+}
+
+.map-overlay {
+  position: absolute; inset: 0; z-index: 120;
+  background: rgba(0,0,0,.45);
+  display: none; align-items: flex-end;
+}
+.map-overlay.show { display: flex; }
+.map-sheet {
+  background: var(--bg); width: 100%; height: 100%;
+  display: flex; flex-direction: column;
+}
+.map-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; border-bottom: 1px solid var(--line);
+  font-size: 16px; color: var(--ink); flex: 0 0 auto;
+}
+.map-close {
+  background: none; border: none; color: var(--muted);
+  font-size: 20px; cursor: pointer; line-height: 1; padding: 4px 6px;
+}
+/* El mapa ocupa todo el hueco libre; el pie mantiene su alto natural. */
+.map-canvas-wrap { position: relative; flex: 1; min-height: 0; }
+.map-canvas { position: absolute; inset: 0; background: var(--card); }
+/* Pin fijo al centro. El translate lo sube media altura para que la PUNTA
+   —y no el centro del dibujo— caiga sobre el punto que el mapa reporta. */
+.map-pin {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -100%);
+  font-size: 32px; pointer-events: none; line-height: 1;
+  filter: drop-shadow(0 3px 4px rgba(0,0,0,.35));
+}
+.map-locate {
+  position: absolute; right: 14px; bottom: 14px;
+  width: 42px; height: 42px; border-radius: 50%;
+  background: var(--card); border: 1px solid var(--line); color: var(--accent);
+  font-size: 19px; cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,.18);
+}
+.map-locate:disabled { opacity: .5; cursor: progress; }
+.map-foot {
+  flex: 0 0 auto; padding: 14px 18px 18px;
+  border-top: 1px solid var(--line); background: var(--bg);
+}
+.map-hint { font-size: 11.5px; color: var(--muted); font-weight: 700; }
+.map-address {
+  font-size: 13px; color: var(--ink); line-height: 1.4;
+  margin: 6px 0 12px; min-height: 36px;
 }

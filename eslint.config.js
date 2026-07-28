@@ -12,6 +12,8 @@ const globals = require("globals");
 
 // Globales reales del proyecto (definidos en el nivel superior de algún js/).
 const PROJECT_GLOBALS = [
+  // icons.js
+  "ICON_PATHS", "icon",
   // data.js
   "LOCAL", "SHIPPING_FEE", "LATE_GRACE_DAYS", "LATE_PENALTY",
   "LAUNDRY_BY_MATERIAL", "OVERHEAD_PER_CYCLE", "CYCLES_PER_STAR", "MIN_MARGIN",
@@ -19,7 +21,8 @@ const PROJECT_GLOBALS = [
   "VOLUME_DISCOUNT_PER_ITEM", "VOLUME_DISCOUNT_MAX", "volumeDiscountRate",
   "rentalListPrice", "rentalFloor", "rentalPrice", "nextDayPrice",
   "DEPOSIT_RATE", "DEPOSIT_MAX", "DEPOSIT_ORDER_MAX", "depositFor", "depositForItems",
-  "IMG", "CATS", "PRODUCTS", "PRODUCT_BY_ID", "productById", "SIZE_ORDER", "SIZES", "REWARDS",
+  "IMG", "CATS", "PRODUCTS", "PRODUCT_BY_ID", "productById", "SIZE_ORDER", "SIZES",
+  "REWARDS", "REWARD_BY_ID", "rewardById", "premiumItem", "rewardDiscount", "rewardIssue",
   "escapeHTML", "conditionLabel", "starStr", "fmtDate", "daysBetween", "imgPlaceholder",
   "isValidEmail", "isValidPhone", "isValidName", "isValidAddress",
   "isValidCardNumber", "isValidExpiry", "isValidCvv",
@@ -28,17 +31,20 @@ const PROJECT_GLOBALS = [
   // state.js
   "isoOffset", "cart", "orders", "profile", "activeCat", "searchQuery",
   "qualityFilter", "sizeFilter", "materialFilter", "sortBy", "view", "detailId", "delivery", "address",
-  "returnMethod", "returnAddress", "payMethod", "card",
+  "returnMethod", "returnAddress", "payMethod", "card", "appliedCoupon",
+  "addressCoords", "returnAddressCoords",
   "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "lastWaterSaved", "lastOrder", "editingProfile",
   "donName", "donMethod", "donAddr", "donDate",
   "rentalStart", "rentalEnd",
   "rentalDays", "isLate", "inCart", "isRented", "unitsAvailable", "cartCount", "cents", "subtotal",
   "cartItemPrice", "subtotalBeforeVolume", "volumeRate", "volumeSavings", "depositTotal",
   "shippingFee", "returnFee", "grandTotal", "orderPoints",
+  "couponById", "availableCoupons", "nextCouponId", "cartRewardCtx",
+  "couponDiscount", "couponIssue", "orderDiscount",
   "waterSavedForItems", "cartWaterSaved", "totalWaterSaved",
   "orderItemsSubtotal", "orderDeposit", "orderTotal", "paymentStatusLabel", "isArchivedOrder",
   "isCancelledOrder", "isPastOrder", "canCancelOrder", "isDelivered",
-  "creditDeliveredPoints", "nextOrderId",
+  "creditDeliveredPoints", "revokeOrderPoints", "nextOrderId",
   "STORAGE_PREFIX", "activeStorageKey", "defaultProfile", "storageKeyFor",
   "resetStateToDefaults", "saveState", "loadState",
   // dom.js
@@ -52,13 +58,14 @@ const PROJECT_GLOBALS = [
   "renderGrid", "addToCart", "openDetail", "renderDetail",
   // checkout.js
   "totalRowHTML", "dateBoxHTML", "renderCart", "removeItem", "renderCheckout",
+  "couponSectionHTML",
   "checkoutValid", "renderPayment", "paymentValid", "placeOrder", "renderDone",
   "resetCheckoutState", "finishOrder", "goToOrders",
   // profile.js
   "renderProfile", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
   "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn", "cancelOrder",
-  "renderRewards", "redeem",
-  "openDonate", "donateValid", "renderDonate", "submitDonation",
+  "renderRewards", "couponListHTML", "redeem",
+  "openDonate", "donateValid", "renderDonate", "submitDonation", "openWardrobe",
   // main.js
   "enter",
   // api.js
@@ -67,7 +74,15 @@ const PROJECT_GLOBALS = [
   "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog", "verifyGoogleCredential",
   // auth.js  (`google` lo aporta el SDK externo de Google Identity)
   "google", "GOOGLE_CLIENT_ID", "currentUser", "authAvailable", "decodeJwt",
-  "activateUserSession", "onGoogleCredential", "initGoogleAuth", "signOut"
+  "activateUserSession", "onGoogleCredential", "initGoogleAuth", "signOut",
+  // maps.js  (`google` ya está arriba: lo aporta el mismo SDK)
+  "GOOGLE_MAPS_API_KEY", "MAPS_OVERRIDE_KEY", "MAPS_KEY_PARAM",
+  "mapsApiKey", "adoptMapsKeyFromUrl",
+  "MAP_DEFAULT_CENTER", "MAP_DEFAULT_ZOOM",
+  "mapsSdkPromise", "pickerMap", "pickerGeocoder", "pickerTarget", "pickerPlace",
+  "mapsAvailable", "loadMapsSdk", "openMapPicker", "setUpPickerMap", "readMapCenter",
+  "useMyLocation", "confirmMapPicker", "applyPickedLocation", "clearPickedLocation", "closeMapPicker",
+  "mapPickerButtonHTML", "addressFieldHTML", "addressReady"
 ];
 
 const projectGlobals = Object.fromEntries(PROJECT_GLOBALS.map(n => [n, "writable"]));

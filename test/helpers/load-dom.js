@@ -22,8 +22,8 @@ const JS_DIR = path.join(ROOT, "js");
 
 // Orden estricto de index.html, sin main.js.
 const FILES = [
-  "data.js", "state.js", "dom.js", "catalog.js",
-  "checkout.js", "profile.js", "api.js", "auth.js"
+  "icons.js", "data.js", "state.js", "dom.js", "catalog.js",
+  "checkout.js", "profile.js", "api.js", "auth.js", "maps.js"
 ];
 
 // Trailer inyectado al final: corre en el mismo scope léxico, así puede leer y
@@ -46,9 +46,13 @@ globalThis.__APP__ = {
     if('returnAddress' in p) returnAddress = p.returnAddress;
     if('payMethod'     in p) payMethod     = p.payMethod;
     if('card'          in p) card          = p.card;
+    if('addressCoords'       in p) addressCoords       = p.addressCoords;
+    if('returnAddressCoords' in p) returnAddressCoords = p.returnAddressCoords;
     if('rentalStart'   in p) rentalStart   = p.rentalStart;
     if('rentalEnd'     in p) rentalEnd     = p.rentalEnd;
+    if('appliedCoupon' in p) appliedCoupon = p.appliedCoupon;
   },
+  get appliedCoupon(){ return appliedCoupon; },
   // Persistencia, para probar la migración de loadState: fija la clave activa
   // (normalmente la pone activateUserSession) y carga lo sembrado en localStorage.
   STORAGE_PREFIX,
@@ -58,24 +62,73 @@ globalThis.__APP__ = {
   confirmModalOk(){ const cb = onConfirmCb; closeModal(); if(cb) cb(); },
   get modalMessage(){ return modalText.textContent; },
   get modalHTML(){ return document.getElementById("modal").innerHTML; },
+  // Selector de ubicación (maps.js). Las coordenadas son variables del scope
+  // compartido, invisibles desde fuera igual que el resto del checkout.
+  get addressCoords(){ return addressCoords; },
+  get returnAddressCoords(){ return returnAddressCoords; },
+  mapsAvailable, applyPickedLocation, clearPickedLocation, mapPickerButtonHTML, isValidAddress,
+  get address(){ return address; },
+  get returnAddress(){ return returnAddress; },
+  // La clave escrita en el código, no la efectiva: es la que vigila el guardrail
+  // de "nada de claves commiteadas". La efectiva sale de mapsApiKey().
+  get hardcodedMapsKey(){ return GOOGLE_MAPS_API_KEY; },
+  mapsApiKey, adoptMapsKeyFromUrl, MAPS_OVERRIDE_KEY, addressReady, addressFieldHTML,
+  // Premios: el catálogo y los derivados del canje aplicado.
+  REWARDS, SHIPPING_FEE, rewardById, rewardDiscount, rewardIssue,
+  couponById, availableCoupons, couponDiscount, couponIssue, cartRewardCtx, orderDiscount,
+  get products(){ return PRODUCTS; },
+  // Filtros y orden: son variables let de state.js, invisibles fuera del scope.
+  setFilters(p){
+    if('activeCat'      in p) activeCat      = p.activeCat;
+    if('searchQuery'    in p) searchQuery    = p.searchQuery;
+    if('qualityFilter'  in p) qualityFilter  = p.qualityFilter;
+    if('sizeFilter'     in p) sizeFilter     = p.sizeFilter;
+    if('materialFilter' in p) materialFilter = p.materialFilter;
+    if('sortBy'         in p) sortBy         = p.sortBy;
+  },
+  // Formulario de donación y editor de devolución (también variables let).
+  setDonation(p){
+    if('donName'   in p) donName   = p.donName;
+    if('donMethod' in p) donMethod = p.donMethod;
+    if('donAddr'   in p) donAddr   = p.donAddr;
+    if('donDate'   in p) donDate   = p.donDate;
+  },
+  setReturnEdit(p){
+    if('editRet'     in p) editRet     = p.editRet;
+    if('editRetAddr' in p) editRetAddr = p.editRetAddr;
+  },
+  get editingOrder(){ return editingOrder; },
+  get backend(){ return backend; },
+  get productCount(){ return PRODUCTS.length; },
+  get activeStorageKey(){ return activeStorageKey; },
   // Puros, para aserciones sin recalcular a mano.
   orderPoints, orderTotal, orderDeposit, isoOffset, productById,
+  storageKeyFor, decodeJwt, resolveApiBase, backendForHost, isMixedContent,
 };
 `;
 
 /**
  * Monta un DOM limpio con la app cargada.
+ * @param {object} [opts] Ajustes del entorno, para los módulos que leen el
+ *   contexto al cargarse (api.js resuelve `backend` en su nivel superior):
+ *   - `url`: origen de la página (protocolo/host que ven api.js y auth.js).
+ *   - `storage`: pares clave/valor sembrados en localStorage ANTES de ejecutar
+ *     los scripts, única forma de probar el override del backend.
  * @returns {{window, document, app}} `app` es la API __APP__ del trailer.
  */
-function loadDom() {
+function loadDom(opts = {}) {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const dom = new JSDOM(html, {
     // outside-only: NO ejecuta los <script> del HTML (ni baja el SDK de Google),
     // pero habilita getInternalVMContext() para correr los scripts nosotros.
     runScripts: "outside-only",
-    url: "https://cloth.test/",    // http (no file://): localStorage/location válidos
+    // http por defecto (no file://): localStorage/location válidos.
+    url: opts.url || "https://cloth.test/",
     pretendToBeVisual: true
   });
+  for (const [k, v] of Object.entries(opts.storage || {})) {
+    dom.window.localStorage.setItem(k, v);
+  }
   const ctx = dom.getInternalVMContext();
   const source =
     FILES.map(f => fs.readFileSync(path.join(JS_DIR, f), "utf8")).join("\n") +
