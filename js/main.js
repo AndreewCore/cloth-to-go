@@ -11,7 +11,7 @@
  */
 function enter(name){
   loginEl.classList.add("hide");
-  if(name) greeting.textContent = `Hola, ${name} 🌱`;
+  if(name) greeting.textContent = `Hola, ${name}`;
 }
 // Entra como invitado: sesión efímera (sin persistencia) y arranque limpio.
 // El inicio de sesión con Google lo cablea initGoogleAuth() (ver auth.js).
@@ -30,7 +30,7 @@ document.getElementById("openFilters").onclick = ()=>{ view="filters"; renderShe
 document.getElementById("openSurvey").onclick = ()=>{
   confirmDialog("¿Quieres ayudarnos respondiendo una breve encuesta? Se abrirá en una pestaña nueva.", ()=>{
     window.open("https://forms.gle/eeu4G4Md877Rp2HV9", "_blank", "noopener");
-  }, "📝");
+  }, "clipboard");
 };
 document.getElementById("closeSheet").onclick = closeSheet;
 overlay.onclick = closeSheet;

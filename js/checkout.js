@@ -21,7 +21,7 @@ function totalRowHTML(label, total){
     <div class="summary-row total">
       <span>${label}</span>
       <span class="total-vals">
-        ${dep > 0 ? `<span class="refund-inline" title="Depósito que se te devuelve al terminar el alquiler">↩ $${dep.toFixed(2)} se te devuelve</span>` : ""}
+        ${dep > 0 ? `<span class="refund-inline" title="Depósito que se te devuelve al terminar el alquiler">${icon("undo", { size: 13 })} $${dep.toFixed(2)} se te devuelve</span>` : ""}
         <span class="total-amount">$${total.toFixed(2)}</span>
       </span>
     </div>`;
@@ -31,7 +31,7 @@ function totalRowHTML(label, total){
 function dateBoxHTML(){
   return `
     <div class="date-box">
-      <div class="dl">📅 Período de alquiler</div>
+      <div class="dl">${icon("calendar", { size: 15 })} Período de alquiler</div>
       <div class="date-row">
         <div class="date-field">
           <label>Desde</label>
@@ -49,7 +49,7 @@ function dateBoxHTML(){
 function renderCart(){
   sheetTitle.textContent = "Tu carrito";
   if(cart.length===0){
-    sheetBody.innerHTML = `<div class="empty"><div class="em">👕</div><p>Tu carrito está vacío.<br>Agrega prendas para alquilar.</p></div>`;
+    sheetBody.innerHTML = `<div class="empty"><div class="em">${icon("shirt", { size: 34 })}</div><p>Tu carrito está vacío.<br>Agrega prendas para alquilar.</p></div>`;
     sheetFoot.innerHTML = "";
     return;
   }
@@ -83,9 +83,9 @@ function renderCart(){
       <div class="summary-row deposit"><span>Depósito <span class="refund-tag">reembolsable</span></span><span>$${depositTotal().toFixed(2)}</span></div>
       ${totalRowHTML("Total", subtotal()+depositTotal())}
     </div>
-    <p class="summary-note">💡 El depósito se devuelve al regresar las prendas en buen estado.${savings > 0 ? ` <b>¡Ahorras $${savings.toFixed(2)} por alquilar varias prendas a la vez!</b>` : ` Mientras más días alquiles, más barato sale cada día; y llevando varias prendas ahorras hasta un ${Math.round(VOLUME_DISCOUNT_MAX*100)}%.`}</p>`;
+    <p class="summary-note">${icon("bulb", { size: 14 })} El depósito se devuelve al regresar las prendas en buen estado.${savings > 0 ? ` <b>¡Ahorras $${savings.toFixed(2)} por alquilar varias prendas a la vez!</b>` : ` Mientras más días alquiles, más barato sale cada día; y llevando varias prendas ahorras hasta un ${Math.round(VOLUME_DISCOUNT_MAX*100)}%.`}</p>`;
 
-  sheetFoot.innerHTML = `<button class="pay-btn" data-action="toCheckout">Continuar a entrega →</button>`;
+  sheetFoot.innerHTML = `<button class="pay-btn" data-action="toCheckout">Continuar a entrega ${icon("arrowRight", { size: 16 })}</button>`;
 }
 
 function removeItem(id){
@@ -106,7 +106,7 @@ function renderCheckout(){
     <div class="section-label">¿Cómo quieres recibir tu pedido?</div>
     <div class="delivery-opts">
       <div class="delivery-opt ${delivery==='ship'?'active':''}" data-action="setDelivery" data-value="ship" role="button" tabindex="0" aria-pressed="${delivery==='ship'}">
-        <div class="do-icon">🚚</div>
+        <div class="do-icon">${icon("truck", { size: 22 })}</div>
         <div class="do-text">
           <div class="do-title"><span>Envío a domicilio</span><span style="color:var(--accent)">$${ship.toFixed(2)}</span></div>
           <div class="do-desc">Recíbelo en 24–48 h en tu dirección.</div>
@@ -114,7 +114,7 @@ function renderCheckout(){
         <div class="do-radio"></div>
       </div>
       <div class="delivery-opt ${delivery==='pickup'?'active':''}" data-action="setDelivery" data-value="pickup" role="button" tabindex="0" aria-pressed="${delivery==='pickup'}">
-        <div class="do-icon">🏬</div>
+        <div class="do-icon">${icon("store", { size: 22 })}</div>
         <div class="do-text">
           <div class="do-title"><span>Retiro en local</span><span style="color:var(--ok)">Gratis</span></div>
           <div class="do-desc">Recoge en nuestro único local físico.</div>
@@ -124,12 +124,12 @@ function renderCheckout(){
     </div>
     ${delivery==='ship' ? `
       <div class="ship-detail">
-        📍 Dirección de envío
+        ${icon("mapPin", { size: 14 })} Dirección de envío
         <input id="addr" placeholder="Calle, número, ciudad…" value="${escapeHTML(address)}" />
       </div>` : ``}
     ${delivery==='pickup' ? `
       <div class="pickup-detail">
-        🏬 <b>${LOCAL.nombre}</b><br>
+        ${icon("store", { size: 15 })} <b>${LOCAL.nombre}</b><br>
         ${LOCAL.direccion}<br>
         <span style="color:var(--muted)">${LOCAL.horario}</span>
       </div>` : ``}
@@ -137,7 +137,7 @@ function renderCheckout(){
     <div class="section-label">¿Cómo deseas devolver la ropa al terminar el alquiler?</div>
     <div class="delivery-opts">
       <div class="delivery-opt ${returnMethod==='store'?'active':''}" data-action="setReturn" data-value="store" role="button" tabindex="0" aria-pressed="${returnMethod==='store'}">
-        <div class="do-icon">🏬</div>
+        <div class="do-icon">${icon("store", { size: 22 })}</div>
         <div class="do-text">
           <div class="do-title"><span>Devolver en el local</span><span style="color:var(--ok)">Gratis</span></div>
           <div class="do-desc">Acércate a nuestro local físico al terminar el alquiler.</div>
@@ -145,7 +145,7 @@ function renderCheckout(){
         <div class="do-radio"></div>
       </div>
       <div class="delivery-opt ${returnMethod==='home'?'active':''}" data-action="setReturn" data-value="home" role="button" tabindex="0" aria-pressed="${returnMethod==='home'}">
-        <div class="do-icon">🚚</div>
+        <div class="do-icon">${icon("truck", { size: 22 })}</div>
         <div class="do-text">
           <div class="do-title"><span>Retiro a domicilio</span><span style="color:var(--accent)">$${ship.toFixed(2)}</span></div>
           <div class="do-desc">Pasamos por tu dirección a retirar las prendas.</div>
@@ -155,7 +155,7 @@ function renderCheckout(){
     </div>
     ${returnMethod==='home' ? `
       <div class="ship-detail">
-        📍 Dirección de retiro
+        ${icon("mapPin", { size: 14 })} Dirección de retiro
         <input id="retAddr" placeholder="Calle, número, ciudad…" value="${escapeHTML(returnAddress)}" />
       </div>` : ``}
 
@@ -168,15 +168,15 @@ function renderCheckout(){
       <div class="summary-row"><span>Envío</span><span>${delivery==='ship'?'$'+ship.toFixed(2):delivery==='pickup'?'$0.00':'—'}</span></div>
       <div class="summary-row"><span>Devolución</span><span>${returnMethod==='home'?'$'+ship.toFixed(2):returnMethod==='store'?'$0.00':'—'}</span></div>
       ${couponDiscount() > 0 ? `
-        <div class="summary-row discount"><span>🎟️ ${escapeHTML(couponById(appliedCoupon).name)}</span><span>−$${couponDiscount().toFixed(2)}</span></div>` : ""}
+        <div class="summary-row discount"><span>${icon("ticket", { size: 14 })} ${escapeHTML(couponById(appliedCoupon).name)}</span><span>−$${couponDiscount().toFixed(2)}</span></div>` : ""}
       ${totalRowHTML("Total a pagar", total)}
     </div>
-    <p class="summary-note">💡 El depósito se devuelve al regresar las prendas en buen estado.</p>
+    <p class="summary-note">${icon("bulb", { size: 14 })} El depósito se devuelve al regresar las prendas en buen estado.</p>
   `;
 
   const valid = checkoutValid();
 
-  let payLabel = 'Continuar al pago →';
+  let payLabel = `Continuar al pago ${icon("arrowRight", { size: 16 })}`;
   if(!delivery)                                          payLabel = 'Elige cómo recibir tu pedido';
   else if(delivery==='ship' && !isValidAddress(address)) payLabel = 'Ingresa una dirección de envío válida';
   else if(!returnMethod)                                 payLabel = 'Elige cómo devolver la ropa';
@@ -215,7 +215,7 @@ function couponSectionHTML(){
         return `
         <div class="coupon-opt ${activo?'active':''} ${usable?'':'locked'}"
              ${usable ? `data-action="applyCoupon" data-id="${c.id}" role="button" tabindex="0" aria-pressed="${activo}"` : ""}>
-          <div class="do-icon">${rw ? rw.icon : "🎟️"}</div>
+          <div class="do-icon">${icon(rw ? rw.icon : "ticket", { size: 20 })}</div>
           <div class="do-text">
             <div class="do-title">
               <span>${escapeHTML(c.name)}</span>
@@ -249,7 +249,7 @@ function renderPayment(){
     <div class="section-label">¿Cómo deseas pagar?</div>
     <div class="delivery-opts">
       <div class="delivery-opt ${payMethod==='cash'?'active':''}" data-action="setPay" data-value="cash" role="button" tabindex="0" aria-pressed="${payMethod==='cash'}">
-        <div class="do-icon">💵</div>
+        <div class="do-icon">${icon("cash", { size: 22 })}</div>
         <div class="do-text">
           <div class="do-title"><span>Efectivo</span></div>
           <div class="do-desc">Pagas al recibir o retirar tu pedido.</div>
@@ -257,7 +257,7 @@ function renderPayment(){
         <div class="do-radio"></div>
       </div>
       <div class="delivery-opt ${payMethod==='credit'?'active':''}" data-action="setPay" data-value="credit" role="button" tabindex="0" aria-pressed="${payMethod==='credit'}">
-        <div class="do-icon">💳</div>
+        <div class="do-icon">${icon("card", { size: 22 })}</div>
         <div class="do-text">
           <div class="do-title"><span>Tarjeta de crédito</span></div>
           <div class="do-desc">Visa, Mastercard, etc.</div>
@@ -265,7 +265,7 @@ function renderPayment(){
         <div class="do-radio"></div>
       </div>
       <div class="delivery-opt ${payMethod==='debit'?'active':''}" data-action="setPay" data-value="debit" role="button" tabindex="0" aria-pressed="${payMethod==='debit'}">
-        <div class="do-icon">🏦</div>
+        <div class="do-icon">${icon("bank", { size: 22 })}</div>
         <div class="do-text">
           <div class="do-title"><span>Tarjeta de débito</span></div>
           <div class="do-desc">Débito bancario.</div>
@@ -290,18 +290,18 @@ function renderPayment(){
             <input id="cardCvv" inputmode="numeric" maxlength="4" placeholder="123" value="${escapeHTML(card.cvv)}" />
           </label>
         </div>
-        <p class="pay-note">🔒 Demo: los datos de la tarjeta no se procesan ni se guardan. La pasarela de pago se integrará con el backend.</p>
+        <p class="pay-note">${icon("lock", { size: 14 })} Demo: los datos de la tarjeta no se procesan ni se guardan. La pasarela de pago se integrará con el backend.</p>
       </div>` : ``}
 
     ${payMethod==='cash' ? `
-      <div class="pickup-detail">💵 Pagarás <b>$${total.toFixed(2)}</b> en efectivo al recibir o retirar tu pedido.</div>` : ``}
+      <div class="pickup-detail">${icon("cash", { size: 15 })} Pagarás <b>$${total.toFixed(2)}</b> en efectivo al recibir o retirar tu pedido.</div>` : ``}
 
     <div class="summary">
       ${couponDiscount() > 0 ? `
-        <div class="summary-row discount"><span>🎟️ ${escapeHTML(couponById(appliedCoupon).name)}</span><span>−$${couponDiscount().toFixed(2)}</span></div>` : ""}
+        <div class="summary-row discount"><span>${icon("ticket", { size: 14 })} ${escapeHTML(couponById(appliedCoupon).name)}</span><span>−$${couponDiscount().toFixed(2)}</span></div>` : ""}
       ${totalRowHTML("Total a pagar", total)}
     </div>
-    <p class="summary-note">💡 El depósito se devuelve al regresar las prendas en buen estado.</p>
+    <p class="summary-note">${icon("bulb", { size: 14 })} El depósito se devuelve al regresar las prendas en buen estado.</p>
   `;
 
   const valid = paymentValid();
@@ -384,15 +384,15 @@ function renderDone(){
   const o = lastOrder;
   sheetBody.innerHTML = `
     <div class="confirm">
-      <div class="big">🎉</div>
+      <div class="big">${icon("sparkles", { size: 46 })}</div>
       <h2>Alquiler confirmado</h2>
-      <p>Gracias por elegir CLOTH TO GO. Cuida tus prendas y devuélvelas a tiempo 💚</p>
+      <p>Gracias por elegir CLOTH TO GO. Cuida tus prendas y devuélvelas a tiempo ${icon("heart", { size: 14 })}</p>
       ${o.pointsCredited
-        ? `<div class="earned-points">🌱 Ganaste <b>${o.points}</b> puntos con este alquiler</div>`
-        : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos cuando tu alquiler sea definitivo</div>`}
-      ${o.couponId ? `<div class="coupon-used">🎟️ Premio aplicado: <b>−$${orderDiscount(o).toFixed(2)}</b></div>` : ``}
-      ${lastWaterSaved > 0 ? `<div class="water-saved">💧 Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
-      <button class="pay-btn ver-pedidos" data-action="goToOrders">Ver mis pedidos →</button>
+        ? `<div class="earned-points">${icon("sprout", { size: 16 })} Ganaste <b>${o.points}</b> puntos con este alquiler</div>`
+        : `<div class="earned-points pending">${icon("sprout", { size: 16 })} Ganarás <b>${o.points}</b> puntos cuando recibas tus prendas</div>`}
+      ${o.couponId ? `<div class="coupon-used">${icon("ticket", { size: 16 })} Premio aplicado: <b>−$${orderDiscount(o).toFixed(2)}</b></div>` : ``}
+      ${lastWaterSaved > 0 ? `<div class="water-saved">${icon("droplet", { size: 16 })} Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
+      <button class="pay-btn ver-pedidos" data-action="goToOrders">Ver mis pedidos ${icon("arrowRight", { size: 16 })}</button>
     </div>`;
   sheetFoot.innerHTML = `<button class="pay-btn ghost" data-action="finish">Volver al catálogo</button>`;
 }
