@@ -898,6 +898,32 @@ main::-webkit-scrollbar { display: none; }
 }
 .dc-cta .ico { vertical-align: 0; }
 
+/* ---- Pon tu armario en alquiler (anuncio) ----
+   Comparte la caja de .donate-card, pero en tono neutro y con borde punteado:
+   la tarjeta activa (donar) no debe competir con una que aún no lleva a nada. */
+.wardrobe-card {
+  background: var(--card); border: 2px dashed var(--line);
+  box-shadow: none;
+}
+.wardrobe-card .dc-icon { opacity: .75; }
+.wardrobe-card .dc-title { color: var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.wardrobe-card .dc-cta { background: var(--muted); }
+.soon-tag {
+  font-size: 10px; font-weight: 800; letter-spacing: .3px; text-transform: uppercase;
+  color: var(--accent); background: var(--accent-soft);
+  padding: 3px 8px; border-radius: 20px; white-space: nowrap;
+}
+/* Contenido del diálogo "Muy pronto" */
+.soon-text { font-size: 13px; color: var(--muted); line-height: 1.5; margin: 0 0 12px; text-align: center; }
+.soon-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.soon-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg); border-radius: 10px; padding: 10px 12px;
+  font-size: 12.5px; color: var(--ink); text-align: left;
+}
+.soon-item span { font-size: 18px; flex: 0 0 auto; }
+.soon-note { font-size: 11.5px; color: var(--muted); text-align: center; margin: 0; }
+
 .donate-intro {
   font-size: 13px; color: var(--ink); line-height: 1.5;
   background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; margin: 0 0 6px;
