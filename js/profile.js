@@ -136,12 +136,12 @@ function renderProfile(){
     </button>
 
     <button class="donate-card wardrobe-card" data-action="openWardrobe" aria-label="Poner tu armario en alquiler (próximamente)">
-      <span class="dc-icon">🚪</span>
+      <span class="dc-icon">${icon("wardrobe", { size: 24 })}</span>
       <div class="dc-text">
         <div class="dc-title">Pon tu armario en alquiler <span class="soon-tag">Próximamente</span></div>
         <div class="dc-desc">Gana dinero alquilando la ropa que no usas a otros usuarios.</div>
       </div>
-      <span class="dc-cta">→</span>
+      <span class="dc-cta">${icon("arrowRight", { size: 16 })}</span>
     </button>
 
     <div class="section-label">Información de contacto</div>
@@ -379,18 +379,19 @@ function openWardrobe(){
   confirmDialog(
     "",
     ()=>{},
-    "🚪",
+    "wardrobe",
     {
       title: "Muy pronto",
       okLabel: "Entendido",
       infoOnly: true,
+      tone: "brown",
       detailHTML: `
         <p class="soon-text">Estamos preparando la función para que <b>publiques tu propio armario</b>
         y ganes dinero alquilando la ropa que ya no usas.</p>
         <div class="soon-list">
-          <div class="soon-item"><span>📸</span><div>Publica tus prendas con foto y talla</div></div>
-          <div class="soon-item"><span>💵</span><div>Fija tu precio y recibe tus ganancias</div></div>
-          <div class="soon-item"><span>🛡️</span><div>Depósito y seguro por daños incluidos</div></div>
+          <div class="soon-item"><span class="si-icon ico-sky">${icon("camera", { size: 20 })}</span><div>Publica tus prendas con foto y talla</div></div>
+          <div class="soon-item"><span class="si-icon ico-gold">${icon("cash", { size: 20 })}</span><div>Recibe ganancias por alquilar tus prendas</div></div>
+          <div class="soon-item"><span class="si-icon ico-violet">${icon("shield", { size: 20 })}</span><div>Depósito y seguro por daños incluidos</div></div>
         </div>
         <p class="soon-note">Te avisaremos por correo en cuanto esté disponible.</p>`
     }
@@ -413,7 +414,7 @@ function renderRewards(){
     ${REWARDS.map(rw => {
       const can = profile.points >= rw.cost;
       return `
-      <div class="reward ${can ? "" : "locked"}">
+      <div class="reward ${can ? "" : "locked"}" data-reward="${rw.id}">
         <div class="rw-icon">${icon(rw.icon, { size: 22 })}</div>
         <div class="rw-info">
           <div class="rw-name">${rw.name}</div>
