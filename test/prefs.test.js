@@ -178,3 +178,70 @@ test("desde ajustes, el botón atrás vuelve al perfil", () => {
   const env = loadDom();
   assert.equal(env.app.SHEET_BACK.settings, "profile");
 });
+
+/* ---- Contrato del tema en CSS ----
+   Estas pruebas nacen de un fallo real: el tema oscuro salió con campos de
+   formulario ilegibles, el chip activo en blanco sobre blanco y el logo
+   invisible. Ninguna prueba de DOM podía verlo, porque el fallo estaba en la
+   hoja de estilos. Se comprueba el contrato que el CSS debe cumplir. */
+const fs = require("node:fs");
+const path = require("node:path");
+
+const BASE_CSS = fs.readFileSync(path.join(__dirname, "..", "css", "base.css"), "utf8");
+const COMP_CSS = fs.readFileSync(path.join(__dirname, "..", "css", "components.css"), "utf8");
+
+/** Cuerpo de una regla CSS por su selector exacto. */
+function bloque(css, selector) {
+  const i = css.indexOf(selector + " {");
+  assert.notEqual(i, -1, `no se encontró la regla ${selector}`);
+  return css.slice(i, css.indexOf("}", i));
+}
+
+test("ambos temas declaran color-scheme", () => {
+  // Sin esto el navegador pinta los controles nativos (inputs, selector de
+  // fecha, scrollbars) con su estilo claro sobre fondo oscuro.
+  assert.match(bloque(BASE_CSS, ":root"), /color-scheme:\s*light/);
+  assert.match(bloque(BASE_CSS, ':root[data-theme="dark"]'), /color-scheme:\s*dark/);
+});
+
+test("cada variable del tema claro tiene su equivalente en el oscuro", () => {
+  // Una variable sin par queda con el valor del tema claro sobre fondo oscuro,
+  // que es exactamente cómo se colaron los campos ilegibles.
+  const vars = (css) => new Set([...css.matchAll(/^\s*(--[a-z-]+):/gm)].map((m) => m[1]));
+  const claro = vars(bloque(BASE_CSS, ":root"));
+  const oscuro = vars(bloque(BASE_CSS, ':root[data-theme="dark"]'));
+  // --text-scale la fija prefs.js en tiempo de ejecución, no el tema.
+  const exentas = new Set(["--text-scale"]);
+  const faltan = [...claro].filter((v) => !oscuro.has(v) && !exentas.has(v));
+  assert.deepEqual(faltan, [], `sin equivalente en tema oscuro: ${faltan.join(", ")}`);
+});
+
+test("el chip activo se invierte con variables, no con blanco fijo", () => {
+  const regla = bloque(COMP_CSS, ".chip.active");
+  assert.match(regla, /background:\s*var\(--ink\)/);
+  assert.match(regla, /color:\s*var\(--bg\)/);
+  assert.doesNotMatch(regla, /#fff/);
+});
+
+test("ningún texto blanco fijo va sobre un relleno de --accent", () => {
+  // --accent es verde CLARO en tema oscuro: el blanco encima desaparece.
+  // Los degradados de --cta sí se mantienen oscuros en ambos temas.
+  const sospechosas = [...COMP_CSS.matchAll(/\{[^}]*\}/g)]
+    .map((m) => m[0])
+    .filter((r) => /background:\s*var\(--accent\)/.test(r) && /color:\s*#fff/.test(r));
+  assert.deepEqual(sospechosas, [], "usa var(--on-accent) en vez de #fff");
+});
+
+test("los campos de formulario fijan fondo y color propios", () => {
+  // Heredar el estilo del navegador fue la causa de los inputs ilegibles.
+  const i = COMP_CSS.indexOf(".ship-detail input,");
+  assert.notEqual(i, -1, "debe existir el bloque común de campos");
+  const regla = COMP_CSS.slice(i, COMP_CSS.indexOf("}", i));
+  assert.match(regla, /background:\s*var\(--field\)/);
+  assert.match(regla, /color:\s*var\(--ink\)/);
+});
+
+test("el logo recibe una base clara en tema oscuro", () => {
+  // Es un PNG de trazo oscuro sobre fondo transparente: sin base, desaparece.
+  assert.match(COMP_CSS, /:root\[data-theme="dark"\]\s*\.brand-logo\s*\{[^}]*background:/);
+});

@@ -33,6 +33,25 @@
   --page: #c2cdb6;         /* fondo detrás del teléfono, en escritorio */
   --text-scale: 1;         /* lo fija prefs.js según el tamaño elegido */
   --shadow: 0 10px 30px rgba(31,42,28,.16);
+  /* Superficies y estados que antes iban con literales. Sin nombre propio no
+     había forma de que el tema oscuro los alcanzara. */
+  --field: #ffffff;        /* fondo de campos de formulario */
+  --disabled-bg: #d7cfc3;
+  --disabled-ink: #6b6459;
+  --grip: #d7d0c5;         /* asa del panel deslizante */
+  --radio-line: #cfc8bd;
+  --water: #2b8cd1;        /* azul del ahorro de agua */
+  --water-soft: rgba(43,140,209,.12);
+  --warn-bg: #f6e6cf;      --warn-ink: #8a4b13;
+  --neutral-bg: #e6e6e6;   --neutral-ink: #555555;
+  --danger-soft: #fbeee8;  --danger-line: #e8c7b8;
+  --on-accent: #ffffff;    /* texto sobre relleno de acento */
+
+  /* Le dice al navegador con qué esquema pintar lo que NO controlamos:
+     controles nativos, el desplegable de <input type=date> y las barras de
+     desplazamiento. Sin esto el tema oscuro deja campos blancos con texto
+     oscuro, que fue exactamente el fallo reportado. */
+  color-scheme: light;
 }
 
 /* ============================================================
@@ -68,6 +87,18 @@
   --ico-brown:  #cfa279;
   --frame: #0d100c;
   --page: #0a0c09;
+  --field: #171c15;
+  --disabled-bg: #2b332a;
+  --disabled-ink: #7b8676;
+  --grip: #3a453599;
+  --radio-line: #4a5546;
+  --water: #6fc0e8;
+  --water-soft: rgba(111,192,232,.14);
+  --warn-bg: #3a2c14;      --warn-ink: #f0c489;
+  --neutral-bg: #2a2f28;   --neutral-ink: #a6b09f;
+  --danger-soft: #35211a;  --danger-line: #5c3a2c;
+  --on-accent: #0f140e;    /* sobre los verdes claros del tema oscuro, tinta */
+  color-scheme: dark;
 }
 
 /* Contraste alto: refuerza el texto secundario y los bordes, que son lo
