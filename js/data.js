@@ -262,13 +262,102 @@ const MATERIAL_ORDER = ["algodon", "lana", "lino", "cuero", "sintetico"];
 const MATERIALS = MATERIAL_ORDER.filter(m => PRODUCTS.some(p => p.material === m));
 
 /* ---- Programa de puntos ----
-   Premios canjeables con los puntos acumulados (cost = puntos requeridos). */
+   Premios canjeables con los puntos acumulados (cost = puntos requeridos).
+   `type` decide cómo se traduce el premio a dinero en rewardDiscount(); los
+   ids se mantienen estables porque quedan grabados en los canjes guardados. */
 const REWARDS = [
-  { id:1, icon:"🚚", cost:60,  name:"Envío o retiro gratis",        desc:"Un envío a domicilio o retiro sin costo en tu próximo alquiler." },
-  { id:2, icon:"🎟️", cost:100, name:"1 día de alquiler gratis",     desc:"Te regalamos un día en el período de tu próximo alquiler." },
-  { id:3, icon:"🏷️", cost:150, name:"10% de descuento",             desc:"10% de descuento sobre el subtotal de tu próximo alquiler." },
-  { id:4, icon:"👑", cost:300, name:"Prenda premium 2 días gratis", desc:"Alquila una prenda destacada por 2 días sin costo." },
+  { id:1, type:"shipping",    icon:"🚚", cost:60,  name:"Envío o retiro gratis",        desc:"Un envío a domicilio o retiro sin costo en tu próximo alquiler." },
+  { id:2, type:"freeDay",     icon:"🎟️", cost:100, name:"1 día de alquiler gratis",     desc:"Te regalamos un día en el período de tu próximo alquiler." },
+  { id:3, type:"percent",     icon:"🏷️", cost:150, name:"10% de descuento",             desc:"10% de descuento sobre el subtotal de tu próximo alquiler.", rate:0.10 },
+  { id:4, type:"premiumDays", icon:"👑", cost:300, name:"Prenda premium 2 días gratis", desc:"Alquila una prenda destacada por 2 días sin costo.", days:2, minStars:5 },
 ];
+
+/* Premio por id, para resolver un canje guardado (que solo almacena rewardId). */
+const REWARD_BY_ID = new Map(REWARDS.map(r => [r.id, r]));
+function rewardById(id){ return REWARD_BY_ID.get(id); }
+
+/* Prenda destacada más cara del contexto, o null si no hay ninguna.
+   El premio premium se aplica a la de mayor precio que califica: es la lectura
+   que el cliente espera de "gratis" y la única que no sorprende. */
+function premiumItem(items, days, minStars){
+  const candidatos = items.filter(p => p.stars >= minStars);
+  if(!candidatos.length) return null;
+  return candidatos.reduce((mejor, p) =>
+    rentalPrice(p, days, items.length) > rentalPrice(mejor, days, items.length) ? p : mejor);
+}
+
+/**
+ * Traduce un premio a un descuento en dólares sobre un alquiler concreto.
+ *
+ * Es puro y se calcula, nunca se guarda: así un pedido que cambia (p. ej. su
+ * modo de devolución) recalcula el premio junto con el resto del cobro, igual
+ * que el precio y el depósito.
+ *
+ * El descuento NUNCA toca el depósito: es dinero reembolsable, no ingreso, y
+ * rebajarlo dejaría a la empresa cubriendo menos riesgo del que asumió.
+ *
+ * @param {object} rw Premio de REWARDS.
+ * @param {{items:object[], days:number, delivery:string, ret:string}} ctx
+ *   Prendas, días del período y modos de entrega/devolución del alquiler.
+ * @returns {number} Descuento en USD (0 si el premio no aplica a este pedido).
+ */
+function rewardDiscount(rw, ctx){
+  if(!rw) return 0;
+  const { items, days, delivery, ret } = ctx;
+  if(!items.length) return 0;
+  const n = items.length;
+  const precio = (p, d) => rentalPrice(p, Math.max(1, d), n);
+  const suma = d => items.reduce((s, p) => s + cents(precio(p, d)), 0);
+
+  let bruto = 0;
+  switch(rw.type){
+    // Cubre UNA tarifa de logística: el premio dice "envío O retiro", no ambos.
+    case "shipping":
+      bruto = (delivery === "ship" || ret === "home") ? cents(SHIPPING_FEE) : 0;
+      break;
+    // Un día menos de alquiler. Con un solo día no hay nada que regalar sin
+    // dejar el alquiler en cero, así que el premio se reserva para otro pedido.
+    case "freeDay":
+      bruto = days >= 2 ? suma(days) - suma(days - 1) : 0;
+      break;
+    case "percent":
+      bruto = Math.round(suma(days) * rw.rate);
+      break;
+    // La prenda destacada sale gratis hasta `rw.days` días; si el alquiler dura
+    // menos, se regala solo lo que realmente se cobró por ella.
+    case "premiumDays": {
+      const p = premiumItem(items, days, rw.minStars);
+      bruto = p ? cents(precio(p, Math.min(days, rw.days))) : 0;
+      break;
+    }
+  }
+  // Tope: el premio puede dejar el alquiler en $0, nunca en negativo (que sería
+  // devolverle al cliente parte del depósito).
+  const cobrable = suma(days)
+    + (delivery === "ship" ? cents(SHIPPING_FEE) : 0)
+    + (ret === "home" ? cents(SHIPPING_FEE) : 0);
+  return Math.max(0, Math.min(bruto, cobrable)) / 100;
+}
+
+/**
+ * Motivo por el que un premio no rebajaría nada en este alquiler, o null si sí
+ * aplica. Sirve para explicarlo en el checkout en vez de mostrar un "-$0.00"
+ * mudo que parece un error de la app.
+ * @param {object} rw Premio de REWARDS.
+ * @param {{items:object[], days:number, delivery:string, ret:string}} ctx
+ * @returns {string|null}
+ */
+function rewardIssue(rw, ctx){
+  if(!rw) return null;
+  const { items, days, delivery, ret } = ctx;
+  if(rw.type === "shipping" && delivery !== "ship" && ret !== "home")
+    return "Solo aplica si eliges envío a domicilio o retiro a domicilio.";
+  if(rw.type === "freeDay" && days < 2)
+    return "Necesitas un alquiler de 2 días o más para regalar uno.";
+  if(rw.type === "premiumDays" && !premiumItem(items, days, rw.minStars))
+    return `Ninguna prenda del carrito es destacada (${rw.minStars}★).`;
+  return null;
+}
 
 /* Índice id → producto para acceso O(1) (evita PRODUCTS.find repetido). */
 const PRODUCT_BY_ID = new Map(PRODUCTS.map(p => [p.id, p]));
