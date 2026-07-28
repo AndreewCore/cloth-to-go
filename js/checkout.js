@@ -126,6 +126,7 @@ function renderCheckout(){
       <div class="ship-detail">
         ${icon("mapPin", { size: 14 })} Dirección de envío
         <input id="addr" placeholder="Calle, número, ciudad…" value="${escapeHTML(address)}" />
+        ${mapPickerButtonHTML("ship", addressCoords)}
       </div>` : ``}
     ${delivery==='pickup' ? `
       <div class="pickup-detail">
@@ -157,6 +158,7 @@ function renderCheckout(){
       <div class="ship-detail">
         ${icon("mapPin", { size: 14 })} Dirección de retiro
         <input id="retAddr" placeholder="Calle, número, ciudad…" value="${escapeHTML(returnAddress)}" />
+        ${mapPickerButtonHTML("return", returnAddressCoords)}
       </div>` : ``}
 
     ${couponSectionHTML()}
@@ -336,6 +338,10 @@ function placeOrder(){
     delivery,
     ret: returnMethod,
     retAddr: returnMethod === "home" ? returnAddress.trim() : "",
+    // Coordenadas del pedido: lo que de verdad usa el reparto. Se guardan con
+    // el pedido y no solo en el checkout, que se limpia al terminar.
+    shipCoords: delivery === "ship" ? addressCoords : null,
+    retCoords: returnMethod === "home" ? returnAddressCoords : null,
     pay: payMethod,
     // Tarjeta: se cobra al confirmar → "settled" (Descontado).
     // Efectivo: se paga al recibir/retirar → "pending" (Cancelado más adelante).
@@ -401,6 +407,7 @@ function renderDone(){
 // en placeOrder). Compartido por "Volver al catálogo" y "Ver mis pedidos".
 function resetCheckoutState(){
   delivery = null; address = ""; returnMethod = null; returnAddress = "";
+  addressCoords = null; returnAddressCoords = null;
   payMethod = null; card = { number:"", name:"", expiry:"", cvv:"" };
   appliedCoupon = null;
   lastEarnedPoints = 0; lastWaterSaved = 0; lastOrder = null;

@@ -124,6 +124,29 @@
       </div>
     </div>
   </div>
+
+  <!-- Selector de ubicación (Google Maps). Vive fuera del panel deslizante
+       porque necesita toda la pantalla del teléfono. El pin va fijo en el
+       centro y lo que se arrastra es el mapa: en móvil el dedo taparía
+       justo el punto que intentas afinar. -->
+  <div class="map-overlay" id="mapOverlay">
+    <div class="map-sheet" role="dialog" aria-modal="true" aria-label="Elegir ubicación en el mapa">
+      <div class="map-head">
+        <b>Marca tu ubicación</b>
+        <button class="map-close" id="mapClose" aria-label="Cerrar el mapa">✕</button>
+      </div>
+      <div class="map-canvas-wrap">
+        <div class="map-canvas" id="mapCanvas"></div>
+        <div class="map-pin" aria-hidden="true">📍</div>
+        <button class="map-locate" id="mapLocate" aria-label="Centrar en mi ubicación">◎</button>
+      </div>
+      <div class="map-foot">
+        <div class="map-hint">Arrastra el mapa hasta tu puerta</div>
+        <div class="map-address" id="mapAddress"></div>
+        <button class="pay-btn" id="mapConfirm" disabled>Usar esta ubicación</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Carga en orden de dependencias:
@@ -139,6 +162,7 @@
 <script src="js/profile.js"></script>
 <script src="js/api.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/maps.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

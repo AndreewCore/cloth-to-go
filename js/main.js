@@ -41,9 +41,19 @@ backBtn.onclick = ()=>{ const prev = SHEET_BACK[view]; if(prev){ view = prev; re
 // Modal de confirmación in-app
 modalOk.onclick = ()=>{ const cb = onConfirmCb; closeModal(); if(cb) cb(); };
 modalCancel.onclick = closeModal;
+
+// Selector de ubicación (maps.js). Los controles viven fuera del panel
+// deslizante, así que no los alcanza su delegación de eventos.
+document.getElementById("mapClose").onclick = closeMapPicker;
+document.getElementById("mapConfirm").onclick = confirmMapPicker;
+document.getElementById("mapLocate").onclick = useMyLocation;
+document.getElementById("mapOverlay").onclick = e=>{
+  if(e.target === document.getElementById("mapOverlay")) closeMapPicker();
+};
 modalOverlay.onclick = e=>{ if(e.target === modalOverlay) closeModal(); };
 document.addEventListener("keydown", e=>{
   if(e.key === "Escape" && modalOverlay.classList.contains("show")) closeModal();
+  else if(e.key === "Escape" && document.getElementById("mapOverlay").classList.contains("show")) closeMapPicker();
 });
 
 
@@ -126,6 +136,7 @@ sheet.addEventListener("click", e=>{
     case "cancelOrder":    cancelOrder(+el.dataset.idx); break;
     case "toggleLateInfo": toggleLateInfo(+el.dataset.idx); break;
     case "clearFiltersSheet": clearFilters(); break;
+    case "pickLocation":   openMapPicker(el.dataset.target); break;
     case "closeSheet":     closeSheet(); break;
   }
 });
@@ -133,8 +144,10 @@ sheet.addEventListener("click", e=>{
 // Inputs del panel: actualizan estado sin re-render (para no perder el foco).
 sheet.addEventListener("input", e=>{
   const t = e.target;
-  if(t.id === "addr")          address = t.value;
-  else if(t.id === "retAddr")  returnAddress = t.value;
+  // Escribir a mano invalida el punto del mapa: el texto y las coordenadas
+  // dejarían de referirse al mismo sitio, y mandaríamos el reparto al viejo.
+  if(t.id === "addr"){          address = t.value; clearPickedLocation("ship"); }
+  else if(t.id === "retAddr"){  returnAddress = t.value; clearPickedLocation("return"); }
   else if(t.id === "pfPhone")  t.value = t.value.replace(/[^0-9]/g, ""); // solo números
   // Datos de tarjeta (formateo en vivo)
   else if(t.id === "cardNumber"){ t.value = t.value.replace(/[^0-9 ]/g, ""); card.number = t.value; }
