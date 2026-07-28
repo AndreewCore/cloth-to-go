@@ -11,7 +11,7 @@
  */
 function enter(name){
   loginEl.classList.add("hide");
-  if(name) greeting.textContent = `Hola, ${name} 🌱`;
+  if(name) greeting.textContent = `Hola, ${name}`;
 }
 // Entra como invitado: sesión efímera (sin persistencia) y arranque limpio.
 // El inicio de sesión con Google lo cablea initGoogleAuth() (ver auth.js).
@@ -30,7 +30,7 @@ document.getElementById("openFilters").onclick = ()=>{ view="filters"; renderShe
 document.getElementById("openSurvey").onclick = ()=>{
   confirmDialog("¿Quieres ayudarnos respondiendo una breve encuesta? Se abrirá en una pestaña nueva.", ()=>{
     window.open("https://forms.gle/eeu4G4Md877Rp2HV9", "_blank", "noopener");
-  }, "📝");
+  }, "clipboard");
 };
 document.getElementById("closeSheet").onclick = closeSheet;
 overlay.onclick = closeSheet;
@@ -41,9 +41,19 @@ backBtn.onclick = ()=>{ const prev = SHEET_BACK[view]; if(prev){ view = prev; re
 // Modal de confirmación in-app
 modalOk.onclick = ()=>{ const cb = onConfirmCb; closeModal(); if(cb) cb(); };
 modalCancel.onclick = closeModal;
+
+// Selector de ubicación (maps.js). Los controles viven fuera del panel
+// deslizante, así que no los alcanza su delegación de eventos.
+document.getElementById("mapClose").onclick = closeMapPicker;
+document.getElementById("mapConfirm").onclick = confirmMapPicker;
+document.getElementById("mapLocate").onclick = useMyLocation;
+document.getElementById("mapOverlay").onclick = e=>{
+  if(e.target === document.getElementById("mapOverlay")) closeMapPicker();
+};
 modalOverlay.onclick = e=>{ if(e.target === modalOverlay) closeModal(); };
 document.addEventListener("keydown", e=>{
   if(e.key === "Escape" && modalOverlay.classList.contains("show")) closeModal();
+  else if(e.key === "Escape" && document.getElementById("mapOverlay").classList.contains("show")) closeMapPicker();
 });
 
 
@@ -93,6 +103,12 @@ sheet.addEventListener("click", e=>{
     case "toCheckout":     view="checkout"; renderSheet(); break;
     case "setDelivery":    delivery = el.dataset.value; renderSheet(); break;
     case "setReturn":      returnMethod = el.dataset.value; renderSheet(); break;
+    // Segundo toque sobre el premio ya aplicado = quitarlo (como los radios
+    // del resto del checkout, pero aquí no elegir es una opción legítima).
+    case "applyCoupon":    { const id = +el.dataset.id;
+                             appliedCoupon = appliedCoupon === id ? null : id;
+                             renderSheet(); break; }
+    case "clearCoupon":    appliedCoupon = null; renderSheet(); break;
     case "toPayment":      view="payment"; renderSheet(); break;
     case "setPay":         payMethod = el.dataset.value; renderSheet(); break;
     case "placeOrder":     placeOrder(); break;
@@ -110,6 +126,7 @@ sheet.addEventListener("click", e=>{
     case "openRewards":    view="rewards"; renderSheet(); break;
     case "redeem":         redeem(+el.dataset.id); break;
     case "openDonate":     openDonate(); break;
+    case "openWardrobe":   openWardrobe(); break;
     case "setDonateMethod": donMethod = el.dataset.value; renderSheet(); break;
     case "submitDonation": submitDonation(); break;
     case "editReturn":     openReturnEditor(+el.dataset.idx); break;
@@ -119,6 +136,7 @@ sheet.addEventListener("click", e=>{
     case "cancelOrder":    cancelOrder(+el.dataset.idx); break;
     case "toggleLateInfo": toggleLateInfo(+el.dataset.idx); break;
     case "clearFiltersSheet": clearFilters(); break;
+    case "pickLocation":   openMapPicker(el.dataset.target); break;
     case "closeSheet":     closeSheet(); break;
   }
 });
@@ -126,8 +144,10 @@ sheet.addEventListener("click", e=>{
 // Inputs del panel: actualizan estado sin re-render (para no perder el foco).
 sheet.addEventListener("input", e=>{
   const t = e.target;
-  if(t.id === "addr")          address = t.value;
-  else if(t.id === "retAddr")  returnAddress = t.value;
+  // Escribir a mano invalida el punto del mapa: el texto y las coordenadas
+  // dejarían de referirse al mismo sitio, y mandaríamos el reparto al viejo.
+  if(t.id === "addr"){          address = t.value; clearPickedLocation("ship"); }
+  else if(t.id === "retAddr"){  returnAddress = t.value; clearPickedLocation("return"); }
   else if(t.id === "pfPhone")  t.value = t.value.replace(/[^0-9]/g, ""); // solo números
   // Datos de tarjeta (formateo en vivo)
   else if(t.id === "cardNumber"){ t.value = t.value.replace(/[^0-9 ]/g, ""); card.number = t.value; }
@@ -176,6 +196,8 @@ sheet.addEventListener("keydown", e=>{
 });
 
 /* ---------------- Init ---------------- */
+// Antes de cualquier render: decide si el botón del mapa se ofrece en esta carga.
+adoptMapsKeyFromUrl();
 renderFilters();
 renderGrid();
 updateBadge();
