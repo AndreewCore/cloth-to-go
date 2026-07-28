@@ -577,6 +577,7 @@ main::-webkit-scrollbar { display: none; }
   background: var(--accent-soft); border-radius: 50%;
 }
 .modal-icon.danger { background: #fbeee8; color: var(--danger); }
+.modal-icon.tone-brown { background: #f0e7de; color: var(--ico-brown); }
 .modal-title {
   margin: 0 0 6px; text-align: center;
   font-size: 17px; font-weight: 800; color: var(--ink);
@@ -905,7 +906,7 @@ main::-webkit-scrollbar { display: none; }
   background: var(--card); border: 2px dashed var(--line);
   box-shadow: none;
 }
-.wardrobe-card .dc-icon { opacity: .75; }
+.wardrobe-card .dc-icon { color: var(--ico-brown); }
 .wardrobe-card .dc-title { color: var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .wardrobe-card .dc-cta { background: var(--muted); }
 .soon-tag {
@@ -942,13 +943,15 @@ main::-webkit-scrollbar { display: none; }
 .ico-rose   { color: var(--ico-rose); }
 .ico-teal   { color: var(--ico-teal); }
 
-/* Opciones de entrega y devolución: a domicilio en azul, en local en verde.
-   Se seleccionan por data-action/data-value porque el marcado reutiliza la
-   misma clase .delivery-opt para entrega, devolución y pago. */
-[data-action="setDelivery"][data-value="ship"]  .do-icon,
-[data-action="setReturn"][data-value="home"]    .do-icon { color: var(--ico-sky); }
-[data-action="setDelivery"][data-value="pickup"] .do-icon,
-[data-action="setReturn"][data-value="store"]   .do-icon { color: var(--accent); }
+/* Entrega y devolución, un color por opción. Los cuatro comparten los mismos
+   dos iconos (camión y local), así que si el color también se repitiera, las
+   dos preguntas del checkout se verían idénticas y sería fácil creer que ya
+   contestaste la de abajo. Se seleccionan por data-action/data-value porque el
+   marcado reutiliza la clase .delivery-opt para entrega, devolución y pago. */
+[data-action="setDelivery"][data-value="ship"]   .do-icon { color: var(--ico-sky); }
+[data-action="setDelivery"][data-value="pickup"] .do-icon { color: var(--accent); }
+[data-action="setReturn"][data-value="store"]    .do-icon { color: var(--ico-brown); }
+[data-action="setReturn"][data-value="home"]     .do-icon { color: var(--ico-violet); }
 
 /* Métodos de pago: efectivo en dorado, tarjetas en violeta. */
 [data-action="setPay"][data-value="cash"]   .do-icon { color: var(--ico-gold); }
