@@ -22,7 +22,7 @@ const JS_DIR = path.join(ROOT, "js");
 
 // Orden estricto de index.html, sin main.js.
 const FILES = [
-  "data.js", "state.js", "dom.js", "catalog.js",
+  "icons.js", "data.js", "state.js", "dom.js", "catalog.js",
   "checkout.js", "profile.js", "api.js", "auth.js"
 ];
 
