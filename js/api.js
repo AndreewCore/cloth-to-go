@@ -13,6 +13,11 @@ const DEPLOYED_API = null;
 // Puerto donde escucha el backend en desarrollo (el PORT de server/.env).
 const LOCAL_API_PORT = 3000;
 
+// Hosts donde la app se publica de cara al público. Existen para distinguir un
+// "todavía no hay backend" (legítimo: la demo corre con datos locales) de un
+// "producción quedó sin configurar", que es un fallo y no debe pasar callado.
+const PRODUCTION_HOSTS = ["andreewcore.github.io"];
+
 // Permite apuntar el sitio desplegado a un backend de prueba sin tocar el
 // código: basta con escribir la clave en localStorage desde la consola.
 const API_OVERRIDE_KEY = "clothToGo:apiBase";
@@ -24,7 +29,18 @@ const API_OFF_REASONS = {
   override: `El valor de ${API_OVERRIDE_KEY} en localStorage no es una URL http(s) válida.`,
   undeployed: "No hay backend publicado para este dominio todavía.",
   mixed: "Una página https no puede consultar un backend http (mixed content).",
+  misconfigured:
+    "DEPLOYED_API sigue en null en un origen de producción: el despliegue " +
+    "quedó sin configurar. El login real está deshabilitado a propósito.",
 };
+
+/**
+ * ¿La app se está sirviendo desde un origen de producción?
+ * @returns {boolean}
+ */
+function isProductionHost() {
+  return PRODUCTION_HOSTS.includes(location.hostname);
+}
 
 /**
  * Lee el origen forzado desde localStorage, aceptándolo solo si es una URL
@@ -94,7 +110,12 @@ function resolveApiBase() {
   // El override elige el destino, pero no exime de las reglas del navegador:
   // las comprobaciones siguientes valen para cualquier origen.
   const base = override ? override.base : backendForHost();
-  if (!base) return { enabled: false, reason: "undeployed" };
+  // Sin backend en un host de producción no es "todavía no": es un despliegue
+  // mal configurado. Se separa del caso legítimo para que auth.js pueda negarse
+  // a caer al modo demo, en vez de validar identidades sin verificar firma.
+  if (!base) {
+    return { enabled: false, reason: isProductionHost() ? "misconfigured" : "undeployed" };
+  }
   if (isMixedContent(base)) return { enabled: false, reason: "mixed" };
 
   return { enabled: true, base };
