@@ -278,3 +278,62 @@ test("un canje de un premio ya inexistente queda como historial, no como cupón"
   assert.equal(app.profile.redeemed[0].rewardId, null);
   assert.equal(app.availableCoupons().length, 0);
 });
+
+/* ---- El agujero del "canje por un pedido que nunca se cumplió" ----
+   Los puntos se acreditaban el día de inicio, cuando el pedido TODAVÍA era
+   anulable: bastaba con canjearlos y anular para quedarse con el premio. */
+test("un pedido anulable no acredita puntos: no hay nada que canjear", () => {
+  carritoConEnvio();
+  app.setCheckout({ payMethod: "credit",
+    card: { number: "4111111111111111", name: "Ana Ruiz", expiry: "12/30", cvv: "123" },
+    rentalStart: app.isoOffset(0), rentalEnd: app.isoOffset(6) });
+  win.placeOrder();
+
+  const o = app.orders[0];
+  assert.ok(o.points > 0, "el pedido sí genera puntos…");
+  assert.ok(win.canCancelOrder(o));
+  assert.ok(!o.pointsCredited, "…pero no se acreditan mientras se pueda anular");
+  assert.equal(app.profile.points, 0);
+});
+
+test("no se puede farmear premios pidiendo, canjeando y anulando", () => {
+  for (let i = 0; i < 3; i++) {
+    carritoConEnvio();
+    app.setCheckout({ payMethod: "credit",
+      card: { number: "4111111111111111", name: "Ana Ruiz", expiry: "12/30", cvv: "123" },
+      rentalStart: app.isoOffset(0), rentalEnd: app.isoOffset(6) });
+    win.placeOrder();
+    win.redeem(1);                       // 60 pts: sin saldo, no debe canjear
+    win.cancelOrder(app.orders.length - 1);
+    app.confirmModalOk();
+  }
+  assert.equal(app.profile.points, 0);
+  assert.equal(app.profile.redeemed.length, 0, "ningún premio salió de la nada");
+  assert.equal(app.availableCoupons().length, 0);
+});
+
+/* ---- Red de seguridad: la reversión alcanza a los premios ya canjeados ----
+   Alcanzable por la migración de loadState(), que marca como acreditados
+   pedidos guardados que todavía admiten anulación. */
+test("revertir un pedido revoca los canjes que sus puntos financiaron", () => {
+  carritoConEnvio();
+  app.setCheckout({ payMethod: "credit",
+    card: { number: "4111111111111111", name: "Ana Ruiz", expiry: "12/30", cvv: "123" },
+    rentalStart: app.isoOffset(0), rentalEnd: app.isoOffset(6) });
+  win.placeOrder();
+  const o = app.orders[0];
+
+  // Simula el estado que dejaba la migración: acreditado pese a ser anulable.
+  app.profile.points = o.points;
+  o.pointsCredited = true;
+  win.redeem(1);                         // 60 pts → cupón
+  app.confirmModalOk();
+  assert.equal(app.availableCoupons().length, 1);
+
+  win.cancelOrder(0);
+  app.confirmModalOk();
+
+  assert.equal(app.profile.points, 0, "el saldo no puede sobrevivir a la anulación");
+  assert.equal(app.availableCoupons().length, 0, "ni el premio que financió");
+  assert.ok(app.profile.redeemed[0].revoked, "queda en el historial como revocado");
+});

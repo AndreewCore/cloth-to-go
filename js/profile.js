@@ -73,7 +73,7 @@ function renderProfile(){
         : `<div class="ci-ret">${retLabel}${o.ret === "home" && o.retAddr ? ` · <span class="ret-addr">📍 ${escapeHTML(o.retAddr)}</span>` : ""}</div>`}
       ${!archived ? `
         ${!o.pointsCredited ? `
-          <div class="points-pending">🌱 Ganarás ${o.points} pts cuando recibas tus prendas</div>` : ""}
+          <div class="points-pending">🌱 Ganarás ${o.points} pts cuando tu alquiler sea definitivo</div>` : ""}
         <button class="ret-edit" data-action="editReturn" data-idx="${i}">✏️ Cambiar modo de devolución</button>
         ${editingOrder === i ? returnEditorHTML(i) : ""}
         ${canCancelOrder(o) ? `
@@ -306,10 +306,7 @@ function cancelOrder(i){
       o.cancelledAt = isoOffset(0);
       // Los puntos solo se revierten si llegaron a acreditarse; los de un pedido
       // pendiente nunca entraron al saldo, así que no hay nada que restar.
-      if(o.pointsCredited){
-        profile.points = Math.max(0, profile.points - o.points);
-        o.pointsCredited = false;
-      }
+      const revocados = revokeOrderPoints(o);
       // El premio vuelve a la cartera: el alquiler no llegó a existir, así que
       // los puntos que costó no pueden quedarse gastados.
       if(o.couponId){
@@ -323,7 +320,11 @@ function cancelOrder(i){
       saveState();
       renderProfile();
       renderGrid();             // las prendas reaparecen en el catálogo al instante
-      toast("Pedido anulado · prendas devueltas al catálogo");
+      // Perder un premio en silencio sería peor que el propio cobro: si la
+      // reversión tuvo que revocar canjes, se dice cuántos y por qué.
+      toast(revocados
+        ? `Pedido anulado · ${revocados} ${revocados === 1 ? "premio revocado" : "premios revocados"} (sus puntos venían de este pedido)`
+        : "Pedido anulado · prendas devueltas al catálogo");
     },
     "🗑",
     {
@@ -382,7 +383,7 @@ function renderRewards(){
 
     ${couponListHTML(availableCoupons(), "Premios por usar",
       `<p class="summary-note">🎟️ Aplícalos en el paso de <b>entrega y pago</b> de tu próximo alquiler.</p>`)}
-    ${couponListHTML(profile.redeemed.filter(c => c.usedIn), "Premios usados")}
+    ${couponListHTML(profile.redeemed.filter(c => c.usedIn || c.revoked), "Historial de canjes")}
 
     <p class="summary-note">Ganas puntos con cada alquiler completado (según el monto, los días y la cantidad de prendas).</p>
   `;
@@ -400,12 +401,14 @@ function couponListHTML(lista, label, noteHTML = ""){
   return `
     <div class="section-label">${label}</div>
     ${lista.map(c => {
-      const usado = !!c.usedIn;
-      const dónde = c.usedIn === "—" ? "" : ` · pedido #${escapeHTML(c.usedIn)}`;
+      const inactivo = !!(c.usedIn || c.revoked);
+      let nota = "";
+      if(c.revoked)                              nota = " · anulado con el pedido";
+      else if(c.usedIn && c.usedIn !== "—")      nota = ` · pedido #${escapeHTML(c.usedIn)}`;
       return `
-      <div class="redeemed-item${usado ? " used" : ""}">
-        ${usado ? "✅" : "🎟️"} ${escapeHTML(c.name)}
-        <span>${escapeHTML(c.date)} · ${c.cost} pts${usado ? dónde : ""}</span>
+      <div class="redeemed-item${inactivo ? " used" : ""}">
+        ${c.revoked ? "⚠️" : c.usedIn ? "✅" : "🎟️"} ${escapeHTML(c.name)}
+        <span>${escapeHTML(c.date)} · ${c.cost} pts${nota}</span>
       </div>`;
     }).join("")}
     ${noteHTML}`;

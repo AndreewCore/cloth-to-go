@@ -389,7 +389,7 @@ function renderDone(){
       <p>Gracias por elegir CLOTH TO GO. Cuida tus prendas y devuélvelas a tiempo 💚</p>
       ${o.pointsCredited
         ? `<div class="earned-points">🌱 Ganaste <b>${o.points}</b> puntos con este alquiler</div>`
-        : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos cuando recibas tus prendas</div>`}
+        : `<div class="earned-points pending">🌱 Ganarás <b>${o.points}</b> puntos cuando tu alquiler sea definitivo</div>`}
       ${o.couponId ? `<div class="coupon-used">🎟️ Premio aplicado: <b>−$${orderDiscount(o).toFixed(2)}</b></div>` : ``}
       ${lastWaterSaved > 0 ? `<div class="water-saved">💧 Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
       <button class="pay-btn ver-pedidos" data-action="goToOrders">Ver mis pedidos →</button>
