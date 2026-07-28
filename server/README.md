@@ -62,7 +62,7 @@ ese token (sin comprobar la firma) — esta ruta es la que de verdad autentica.
 |---|---|
 | `DATABASE_URL` | Conexión de Prisma. `file:./dev.db` en desarrollo. |
 | `PORT` | Puerto del servidor (por defecto `3000`). |
-| `CORS_ORIGINS` | Orígenes autorizados a leer la API, separados por comas. Si está vacía se refleja cualquier origen — cómodo en desarrollo y para abrir el frontend por `file://`, pero **defínela en producción**: `CORS_ORIGINS="https://clothtogo.app"`. |
+| `CORS_ORIGINS` | Orígenes autorizados a leer la API, separados por comas: `CORS_ORIGINS="https://clothtogo.app"`. Vacía refleja cualquier origen — cómodo en desarrollo y para abrir el frontend por `file://`. **Con `NODE_ENV=production` es obligatoria: si falta, el servidor no arranca** (#18), para que un despliegue no quede abierto a todos los orígenes sin avisar. |
 | `GOOGLE_CLIENT_ID` | Client ID de Google Cloud Console usado como `audience` al verificar el ID token en `POST /api/auth/google`. Debe coincidir con el `GOOGLE_CLIENT_ID` de `js/auth.js`. Sin esta variable, la ruta responde `500` en vez de arrancar rota. |
 
 > CORS limita quién puede **leer** la respuesta, no quién puede **enviar** la
