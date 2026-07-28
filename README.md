@@ -101,6 +101,7 @@ HTML. Los eventos usan **delegación** mediante atributos `data-action`.
 |---|---|
 | `js/icons.js` | Set de iconos SVG en línea y el helper `icon()`. Sin dependencias de red. |
 | `js/data.js` | Catálogo, constantes de negocio y helpers puros (formato, validaciones, agua). |
+| `js/maps.js` | Selector de ubicación con Google Maps (opcional). Sin clave/red cae al campo de texto. |
 | `js/state.js` | Estado global, cálculos derivados y persistencia en `localStorage`. |
 | `js/dom.js` | Referencias al DOM, panel deslizante (sheet), toast y modal de confirmación. |
 | `js/catalog.js` | Grilla, filtros/orden, panel de filtros, detalle y agregar al carrito. |
@@ -145,6 +146,48 @@ Para que el prototipo sea autocontenido, se **simulan**:
 - **Pago**: los datos de tarjeta **no se procesan ni se guardan**; el pago es de muestra.
 - **Stock**: cada prenda es única (segunda mano), con disponibilidad fija en 1.
 - **Persistencia**: carrito, perfil y pedidos se guardan en `localStorage` del navegador.
+
+---
+
+## 🗺️ Mapas: cómo conseguir la API key
+
+El selector de ubicación (envío y retiro a domicilio) usa **Google Maps**. Es
+**opcional**: sin clave, sin red o abriendo por `file://`, el botón del mapa no
+aparece y el campo de dirección escrito a mano funciona igual que siempre.
+
+Para activarlo:
+
+1. Entra en [Google Cloud Console](https://console.cloud.google.com/) con tu
+   cuenta de Google y **crea un proyecto** (arriba a la izquierda, "Nuevo proyecto").
+   Nómbralo p. ej. `cloth-to-go`.
+2. **Activa la facturación** en *Facturación* → *Vincular cuenta*. Google la exige
+   aunque no vayas a pagar: hay **$200 de crédito gratis al mes**, que para una
+   demo de clase no se agotan ni de lejos. Sin facturación el mapa sale en gris
+   con la marca de agua "solo para fines de desarrollo".
+3. En *APIs y servicios* → *Biblioteca*, activa estas dos:
+   - **Maps JavaScript API** (dibuja el mapa)
+   - **Geocoding API** (convierte el punto en una dirección legible)
+4. En *APIs y servicios* → *Credenciales* → *Crear credenciales* → **Clave de API**.
+   Copia la clave que aparece.
+5. **Restringe la clave** (importante: viaja en el HTML y es pública). En la
+   propia clave:
+   - *Restricciones de aplicación* → **Sitios web**, y añade los orígenes desde
+     los que se sirve la app, p. ej.:
+     - `https://andreewcore.github.io/*`
+     - `http://localhost:8000/*`
+   - *Restricciones de API* → **Restringir clave** y marca solo las dos APIs de arriba.
+6. Pega la clave en `js/maps.js`:
+   ```js
+   const GOOGLE_MAPS_API_KEY = "AIza…";
+   ```
+7. Sirve la app por http (`python3 -m http.server`) y entra por
+   `http://localhost:8000`. Por `file://` el mapa **no** carga a propósito.
+
+> ⚠️ Sin el paso 5 cualquiera puede copiar la clave del código y gastar tu cuota.
+> La restricción por origen es lo que la protege, no el secreto.
+
+Si el mapa no aparece, abre la consola del navegador: Google explica ahí el
+motivo exacto (`RefererNotAllowedMapError`, `ApiNotActivatedMapError`, etc.).
 
 ---
 

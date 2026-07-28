@@ -58,8 +58,13 @@ let view = "cart";                   // cart | checkout | done | detail | profil
 let detailId = null;
 let delivery = null;                 // 'ship' | 'pickup'  — cómo RECIBE el pedido
 let address = "";
+// Punto exacto elegido en el mapa ({lat,lng}) o null si solo hay texto.
+// La entrega se guía por las coordenadas: el texto es para que el cliente se
+// reconozca, no para que el repartidor busque una numeración que quizá no existe.
+let addressCoords = null;
 let returnMethod = null;             // 'store' | 'home'  — cómo DEVUELVE al terminar
 let returnAddress = "";              // dirección para el retiro a domicilio
+let returnAddressCoords = null;      // punto exacto del retiro ({lat,lng}) o null
 let payMethod = null;                // 'cash' | 'credit' | 'debit'  — método de pago
 let appliedCoupon = null;            // id del canje aplicado al checkout actual (o null)
 let card = { number:"", name:"", expiry:"", cvv:"" };  // datos de tarjeta (no se procesan: backend)

@@ -32,6 +32,7 @@ const PROJECT_GLOBALS = [
   "isoOffset", "cart", "orders", "profile", "activeCat", "searchQuery",
   "qualityFilter", "sizeFilter", "materialFilter", "sortBy", "view", "detailId", "delivery", "address",
   "returnMethod", "returnAddress", "payMethod", "card", "appliedCoupon",
+  "addressCoords", "returnAddressCoords",
   "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "lastWaterSaved", "lastOrder", "editingProfile",
   "donName", "donMethod", "donAddr", "donDate",
   "rentalStart", "rentalEnd",
@@ -73,7 +74,13 @@ const PROJECT_GLOBALS = [
   "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog", "verifyGoogleCredential",
   // auth.js  (`google` lo aporta el SDK externo de Google Identity)
   "google", "GOOGLE_CLIENT_ID", "currentUser", "authAvailable", "decodeJwt",
-  "activateUserSession", "onGoogleCredential", "initGoogleAuth", "signOut"
+  "activateUserSession", "onGoogleCredential", "initGoogleAuth", "signOut",
+  // maps.js  (`google` ya está arriba: lo aporta el mismo SDK)
+  "GOOGLE_MAPS_API_KEY", "MAP_DEFAULT_CENTER", "MAP_DEFAULT_ZOOM",
+  "mapsSdkPromise", "pickerMap", "pickerGeocoder", "pickerTarget", "pickerPlace",
+  "mapsAvailable", "loadMapsSdk", "openMapPicker", "setUpPickerMap", "readMapCenter",
+  "useMyLocation", "confirmMapPicker", "applyPickedLocation", "clearPickedLocation", "closeMapPicker",
+  "mapPickerButtonHTML"
 ];
 
 const projectGlobals = Object.fromEntries(PROJECT_GLOBALS.map(n => [n, "writable"]));
