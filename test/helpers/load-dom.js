@@ -23,7 +23,7 @@ const JS_DIR = path.join(ROOT, "js");
 // Orden estricto de index.html, sin main.js.
 const FILES = [
   "data.js", "state.js", "dom.js", "catalog.js",
-  "checkout.js", "profile.js", "api.js", "auth.js"
+  "checkout.js", "profile.js", "api.js", "auth.js", "maps.js"
 ];
 
 // Trailer inyectado al final: corre en el mismo scope léxico, así puede leer y
@@ -46,6 +46,8 @@ globalThis.__APP__ = {
     if('returnAddress' in p) returnAddress = p.returnAddress;
     if('payMethod'     in p) payMethod     = p.payMethod;
     if('card'          in p) card          = p.card;
+    if('addressCoords'       in p) addressCoords       = p.addressCoords;
+    if('returnAddressCoords' in p) returnAddressCoords = p.returnAddressCoords;
     if('rentalStart'   in p) rentalStart   = p.rentalStart;
     if('rentalEnd'     in p) rentalEnd     = p.rentalEnd;
   },
@@ -58,6 +60,14 @@ globalThis.__APP__ = {
   confirmModalOk(){ const cb = onConfirmCb; closeModal(); if(cb) cb(); },
   get modalMessage(){ return modalText.textContent; },
   get modalHTML(){ return document.getElementById("modal").innerHTML; },
+  // Selector de ubicación (maps.js). Las coordenadas son variables del scope
+  // compartido, invisibles desde fuera igual que el resto del checkout.
+  get addressCoords(){ return addressCoords; },
+  get returnAddressCoords(){ return returnAddressCoords; },
+  mapsAvailable, applyPickedLocation, clearPickedLocation, mapPickerButtonHTML, isValidAddress,
+  get address(){ return address; },
+  get returnAddress(){ return returnAddress; },
+  get mapsApiKey(){ return GOOGLE_MAPS_API_KEY; },
   // Puros, para aserciones sin recalcular a mano.
   orderPoints, orderTotal, orderDeposit, isoOffset, productById,
 };
