@@ -1497,7 +1497,12 @@ main::-webkit-scrollbar { display: none; }
    oscuro se pierde contra el fondo. Se le da una base clara en vez de
    invertirlo, que le cambiaría el color de marca. */
 :root[data-theme="dark"] .brand-logo {
-  background: #e8eee4;
+  background: var(--logo-plate);
   border-radius: 10px;
   padding: 3px 5px;
+}
+/* El sello de la bienvenida lleva el mismo tratamiento: es el mismo PNG y se
+   pierde igual contra el fondo oscuro. */
+:root[data-theme="dark"] .login-mark {
+  background: var(--logo-plate);
 }

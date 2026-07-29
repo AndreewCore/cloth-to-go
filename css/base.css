@@ -53,6 +53,7 @@
   --welcome-halo: rgba(141,206,124,.30);
   --welcome-halo-soft: rgba(141,206,124,.20);
   --welcome-grid: rgba(255,255,255,.05);
+  --logo-plate: var(--accent-soft);   /* base del logo; en claro ya contrasta */
 
   /* Le dice al navegador con qué esquema pintar lo que NO controlamos:
      controles nativos, el desplegable de <input type=date> y las barras de
@@ -110,6 +111,7 @@
   --welcome-halo: rgba(120,180,105,.16);
   --welcome-halo-soft: rgba(120,180,105,.10);
   --welcome-grid: rgba(255,255,255,.03);
+  --logo-plate: #e8eee4;              /* el PNG es de trazo oscuro: necesita base clara */
   color-scheme: dark;
 }
 

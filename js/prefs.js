@@ -137,6 +137,8 @@ function setPref(key, value) {
 function toggleTheme() {
   setPref("theme", effectiveTheme() === "dark" ? "light" : "dark");
   renderThemeButton();
+  // El botón de Google lo dibuja su SDK: no basta con cambiar variables CSS.
+  if (typeof renderGoogleButton === "function") renderGoogleButton();
   return prefs.theme;
 }
 
@@ -165,6 +167,7 @@ function watchSystemTheme() {
     if (prefs.theme !== "auto") return;
     applyPrefs();
     renderThemeButton();
+    if (typeof renderGoogleButton === "function") renderGoogleButton();
   };
   if (typeof mq.addEventListener === "function") mq.addEventListener("change", alCambiar);
 }
