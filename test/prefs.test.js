@@ -254,3 +254,23 @@ test("la bienvenida no lleva verdes fijos: es la primera pantalla del tema", () 
   assert.match(regla, /var\(--welcome-to\)/);
   assert.doesNotMatch(regla, /#[0-9a-fA-F]{6}/);
 });
+
+test("el botón de Google se repinta con el tema del SDK, no con CSS", () => {
+  // Lo dibuja el SDK de Google: cambiar variables CSS no lo alcanza, y el
+  // marcado ya generado no reacciona. Hay que volver a pedirlo.
+  const env = loadDom({ storage: { "clothToGo:prefs": JSON.stringify({ theme: "light" }) } });
+  const temas = [];
+  env.window.google = {
+    accounts: { id: { initialize(){}, renderButton(_el, o){ temas.push(o.theme); } } }
+  };
+  env.document.getElementById("googleBtn").hidden = false;
+
+  env.window.renderGoogleButton();
+  env.window.toggleTheme();
+
+  assert.deepEqual(temas, ["outline", "filled_black"]);
+});
+
+test("el sello de la bienvenida recibe la misma base que el logo del header", () => {
+  assert.match(COMP_CSS, /:root\[data-theme="dark"\]\s*\.login-mark\s*\{[^}]*var\(--logo-plate\)/);
+});
