@@ -74,6 +74,13 @@ let editRet = null;                  // 'store' | 'home' (selección temporal)
 let editRetAddr = "";                // dirección de retiro temporal
 let rentalStart = isoOffset(0);      // hoy
 let rentalEnd = isoOffset(3);        // hoy + 3 días
+// Mes visible en el calendario de tarifas (YYYY-MM). null = el mes de rentalStart:
+// así, al elegir fechas nuevas, el calendario vuelve solo a lo que se acaba de
+// tocar en vez de quedarse donde el cliente navegó hace tres pantallas.
+let calMonth = null;
+// Primer clic de un rango a medio elegir (ISO), o null si no hay ninguno en
+// curso. Efímero: no se guarda ni viaja al pedido.
+let calPendingStart = null;
 
 /* ---------------- Cálculos ---------------- */
 function rentalDays(){ return daysBetween(rentalStart, rentalEnd); }
@@ -104,6 +111,31 @@ function cartItemPrice(p){ return rentalPrice(p, rentalDays(), cart.length); }
 function subtotal(){
   return cart.reduce((s,c) => s + cents(cartItemPrice(productById(c.id))), 0) / 100;
 }
+/**
+ * Subtotal del carrito si el alquiler durase exactamente `days` días, sin tocar
+ * las fechas elegidas. Base de las tarifas por día del calendario.
+ * @param {number} days Días de alquiler (mínimo 1).
+ * @returns {number} USD.
+ */
+function subtotalForDays(days){
+  const d = Math.max(1, days);
+  return cart.reduce((s,c) => s + cents(rentalPrice(productById(c.id), d, cart.length)), 0) / 100;
+}
+
+/**
+ * Cuánto añade al total el día n-ésimo del alquiler (el día 1 es la base, no un
+ * incremento). Sale de restar dos subtotales, así que respeta por construcción
+ * los tramos, el descuento por volumen y el piso de coste: en las prendas
+ * ancladas a su piso los días extra devuelven 0, que es justo lo que el
+ * calendario quiere hacer visible.
+ * @param {number} n Índice del día dentro del alquiler (1 = primero).
+ * @returns {number} USD que suma ese día.
+ */
+function dayMarginalCost(n){
+  if(n <= 1) return subtotalForDays(1);
+  return (cents(subtotalForDays(n)) - cents(subtotalForDays(n - 1))) / 100;
+}
+
 // Precio del carrito SIN el descuento por volumen, para poder mostrar cuánto
 // se ahorra el cliente por llevar varias prendas.
 function subtotalBeforeVolume(){
