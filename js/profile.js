@@ -57,7 +57,8 @@ function renderProfile(){
 
       ${o.items.map(id => { const p = productById(id); return `
         <div class="order-item">
-          <div class="ci-thumb">${imgPlaceholder(p)}</div>
+          <div class="ci-thumb" data-action="openDetail" data-id="${p.id}"
+               role="button" tabindex="0" aria-label="Ver detalle de ${escapeHTML(p.name)}">${imgPlaceholder(p)}</div>
           <div class="oi-info">
             <div class="oi-name">${escapeHTML(p.name)}</div>
             <div class="oi-meta">Talla ${escapeHTML(p.size)} · $${rentalPrice(p, days, o.items.length).toFixed(2)}</div>

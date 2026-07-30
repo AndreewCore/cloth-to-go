@@ -370,6 +370,13 @@ main::-webkit-scrollbar { display: none; }
 /* Con top:0 el encabezado quedaría debajo de la muesca del mockup (26px,
    z-index 60): se baja el título para que no lo tape. */
 .sheet.full .sheet-head { padding-top: 36px; }
+/* Pestaña de detalle apilada: sube por encima del panel principal (50) con su
+   propio overlay, que atenúa el perfil igual que el overlay base atenúa el
+   home. Ver openStackSheet() en dom.js. Los selectores llevan la clase base
+   (.overlay/.sheet) para ganar por especificidad y no por orden en el archivo:
+   si no, mover este bloque devolvería el overlay a su z-index de siempre. */
+.overlay.stack-overlay { z-index: 52; }
+.sheet.stack { z-index: 55; }
 .sheet-head {
   padding: 16px 20px 10px;
   border-bottom: 1px solid var(--line);
@@ -417,6 +424,10 @@ main::-webkit-scrollbar { display: none; }
 .ci-thumb { width: 50px; height: 50px; border-radius: 10px; position: relative; overflow: hidden; flex: 0 0 auto; }
 .ci-thumb .img-ph svg { width: 18px; height: 18px; }
 .ci-thumb .img-ph .ph-txt { display: none; }
+/* Miniaturas que abren el detalle de la prenda (pedidos del perfil). El propio
+   data-action las distingue de las del carrito, que solo ilustran. */
+.ci-thumb[data-action] { cursor: pointer; }
+.ci-thumb[data-action]:active { transform: scale(.96); }
 .ci-info { flex: 1; min-width: 0; }
 .ci-name { font-size: 14px; font-weight: 700; }
 .ci-meta { font-size: 11px; color: var(--muted); }
