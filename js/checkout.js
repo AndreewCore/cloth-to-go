@@ -28,7 +28,94 @@ function totalRowHTML(label, total){
 }
 
 /* ---- Bloque reutilizable: selector de fechas ---- */
+
+/** Mes que muestra el calendario: el que el cliente navegó, o el del inicio. */
+function calVisibleMonth(){ return calMonth || monthOf(rentalStart); }
+
+/**
+ * Índice de un día dentro del alquiler contando desde el inicio elegido.
+ * El día de inicio es el 1; el día de devolución cae fuera del rango cobrado
+ * (se entrega esa mañana, no se cobra), de ahí que un alquiler de N días ocupe
+ * las celdas [inicio, devolución).
+ * @param {string} iso Día del calendario.
+ * @returns {number} Índice ≥ 1 (puede exceder rentalDays() al previsualizar
+ *   una extensión del alquiler).
+ */
+function calDayIndex(iso){
+  return Math.round((new Date(iso) - new Date(rentalStart)) / 86400000) + 1;
+}
+
+/**
+ * Etiqueta de coste bajo un día del calendario.
+ *
+ * El objetivo de negocio es que se vea de un golpe dónde deja de subir el
+ * precio: los días que no suman nada salen en verde con "+$0", y así alargar
+ * el alquiler (y tener margen para devolver sin retraso) resulta obviamente
+ * conveniente. Los días posteriores a la devolución también se etiquetan: son
+ * la previsualización de lo que costaría extender.
+ * @param {string} iso Día del calendario.
+ * @returns {{cls:string, txt:string}|null} null si el día no tiene coste que mostrar.
+ */
+function calDayCost(iso){
+  if(cart.length === 0) return null;
+  if(iso < rentalStart) return null;
+  if(iso === rentalEnd) return { cls: "ret", txt: "dev." };
+  const n = calDayIndex(iso);
+  const add = dayMarginalCost(n);
+  if(n === 1) return { cls: "base", txt: `$${add.toFixed(2)}` };
+  return add === 0
+    ? { cls: "free", txt: "+$0" }
+    : { cls: "paid", txt: `+$${add.toFixed(2)}` };
+}
+
+/** Cuadrícula del mes visible con el rango marcado y la tarifa de cada día. */
+function calGridHTML(){
+  const hoy = isoOffset(0);
+  const ym = calVisibleMonth();
+  const dows = ["L","M","X","J","V","S","D"];
+  const cells = monthGrid(ym).map(c => {
+    const past = c.iso < hoy;
+    const cost = past ? null : calDayCost(c.iso);
+    // Con un rango a medio elegir solo se resalta ese día: marcar el rango
+    // viejo mientras se elige el nuevo confunde sobre qué está seleccionado.
+    const sel = calPendingStart
+      ? c.iso === calPendingStart
+      : c.iso >= rentalStart && c.iso <= rentalEnd;
+    const cls = [
+      "cal-day",
+      c.out ? "out" : "",
+      past ? "past" : "",
+      sel ? "in" : "",
+      !calPendingStart && c.iso === rentalStart ? "start" : "",
+      !calPendingStart && c.iso === rentalEnd ? "end" : "",
+      c.iso === calPendingStart ? "start pending" : "",
+    ].filter(Boolean).join(" ");
+    return `<button type="button" class="${cls}" data-action="pickDay" data-iso="${c.iso}" ${past?"disabled":""}
+              aria-label="${fmtDate(c.iso)}${cost ? ` · ${cost.txt}` : ""}">
+        <span class="cd-n">${c.day}</span>
+        <span class="cd-c ${cost ? cost.cls : ""}">${cost ? cost.txt : ""}</span>
+      </button>`;
+  }).join("");
+
+  // No se retrocede antes del mes en curso: no se alquila hacia el pasado.
+  const atFloor = ym <= monthOf(hoy);
+  return `
+    <div class="cal">
+      <div class="cal-head">
+        <button type="button" class="cal-nav" data-action="calPrev" ${atFloor?"disabled":""} aria-label="Mes anterior">${icon("arrowLeft", { size: 15 })}</button>
+        <span class="cal-month">${monthLabel(ym)}</span>
+        <button type="button" class="cal-nav" data-action="calNext" aria-label="Mes siguiente">${icon("arrowRight", { size: 15 })}</button>
+      </div>
+      <div class="cal-dow">${dows.map(d=>`<span>${d}</span>`).join("")}</div>
+      <div class="cal-grid">${cells}</div>
+    </div>`;
+}
+
 function dateBoxHTML(){
+  const dias = rentalDays();
+  const resumen = calPendingStart
+    ? `${icon("calendar", { size: 13 })} Inicio ${fmtDate(calPendingStart)} · elige el día de devolución`
+    : `${dias} ${dias===1?'día':'días'} de alquiler · ${fmtDate(rentalStart)} → ${fmtDate(rentalEnd)}`;
   return `
     <div class="date-box">
       <div class="dl">${icon("calendar", { size: 15 })} Período de alquiler</div>
@@ -42,8 +129,42 @@ function dateBoxHTML(){
           <input type="date" id="rentEnd" value="${rentalEnd}" min="${rentalStart}" />
         </div>
       </div>
-      <div class="date-total">${rentalDays()} ${rentalDays()===1?'día':'días'} de alquiler · ${fmtDate(rentalStart)} → ${fmtDate(rentalEnd)}</div>
+      ${calGridHTML()}
+      ${cart.length ? `<div class="cal-legend">
+        <span><i class="lg free"></i> no suma nada</span>
+        <span><i class="lg paid"></i> suma al total</span>
+        <span><i class="lg ret"></i> devolución</span>
+      </div>` : ""}
+      <div class="date-total ${calPendingStart ? "pending" : ""}">${resumen}</div>
     </div>`;
+}
+
+/**
+ * Clic en un día del calendario: primer clic fija el inicio, segundo cierra el
+ * rango. Un clic anterior o igual al inicio pendiente reinicia la selección en
+ * vez de rechazarla — es lo que hace el cliente cuando se equivoca de mes.
+ * @param {string} iso Día pulsado.
+ */
+function pickCalendarDay(iso){
+  if(!iso || iso < isoOffset(0)) return;         // no se alquila hacia atrás
+  if(calPendingStart === null){
+    calPendingStart = iso;
+  } else if(iso > calPendingStart){
+    rentalStart = calPendingStart;
+    rentalEnd = iso;
+    calPendingStart = null;
+  } else {
+    calPendingStart = iso;
+  }
+  renderSheet();
+}
+
+/** Navega el calendario `n` meses, sin bajar del mes en curso. */
+function shiftCalendar(n){
+  const next = shiftMonth(calVisibleMonth(), n);
+  if(next < monthOf(isoOffset(0))) return;
+  calMonth = next;
+  renderSheet();
 }
 /* ---- Carrito ---- */
 function renderCart(){
