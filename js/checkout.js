@@ -46,26 +46,22 @@ function calDayIndex(iso){
 }
 
 /**
- * Etiqueta de coste bajo un día del calendario.
+ * Etiqueta de coste bajo un día del calendario: solo la cifra.
  *
- * El objetivo de negocio es que se vea de un golpe dónde deja de subir el
- * precio: los días que no suman nada salen en verde con "+$0", y así alargar
- * el alquiler (y tener margen para devolver sin retraso) resulta obviamente
- * conveniente. Los días posteriores a la devolución también se etiquetan: son
- * la previsualización de lo que costaría extender.
+ * El importe se explica solo — un "+$0.00" ya dice que ese día no encarece
+ * nada, y rotularlo además con palabras suena a que el negocio se justifica.
+ * El color hace el resto del trabajo. Los días posteriores al fin del rango
+ * también se etiquetan: son la previsualización de lo que costaría alargar.
  * @param {string} iso Día del calendario.
- * @returns {{cls:string, txt:string}|null} null si el día no tiene coste que mostrar.
+ * @returns {{cls:string, txt:string}|null} null si el día no lleva cifra.
  */
 function calDayCost(iso){
   if(cart.length === 0) return null;
   if(iso < rentalStart) return null;
-  if(iso === rentalEnd) return { cls: "ret", txt: "dev." };
-  const n = calDayIndex(iso);
-  const add = dayMarginalCost(n);
-  if(n === 1) return { cls: "base", txt: `$${add.toFixed(2)}` };
-  return add === 0
-    ? { cls: "free", txt: "+$0" }
-    : { cls: "paid", txt: `+$${add.toFixed(2)}` };
+  const add = dayMarginalCost(calDayIndex(iso));
+  // El primer día es la base del alquiler, no un incremento: va sin el "+".
+  if(calDayIndex(iso) === 1) return { cls: "base", txt: `$${add.toFixed(2)}` };
+  return { cls: add === 0 ? "free" : "paid", txt: `+$${add.toFixed(2)}` };
 }
 
 /** Cuadrícula del mes visible con el rango marcado y la tarifa de cada día. */
@@ -81,14 +77,20 @@ function calGridHTML(){
     const sel = calPendingStart
       ? c.iso === calPendingStart
       : c.iso >= rentalStart && c.iso <= rentalEnd;
+    // El rango se pinta como una barra continua, así que cada extremo necesita
+    // saber que lo es: solo ahí se redondea la esquina. Un día suelto (rango
+    // pendiente o de un solo día) es start y end a la vez y queda redondeado
+    // por los dos lados.
+    const esInicio = calPendingStart ? c.iso === calPendingStart : c.iso === rentalStart;
+    const esFin    = calPendingStart ? c.iso === calPendingStart : c.iso === rentalEnd;
     const cls = [
       "cal-day",
       c.out ? "out" : "",
       past ? "past" : "",
       sel ? "in" : "",
-      !calPendingStart && c.iso === rentalStart ? "start" : "",
-      !calPendingStart && c.iso === rentalEnd ? "end" : "",
-      c.iso === calPendingStart ? "start pending" : "",
+      sel && esInicio ? "start" : "",
+      sel && esFin ? "end" : "",
+      c.iso === calPendingStart ? "pending" : "",
     ].filter(Boolean).join(" ");
     return `<button type="button" class="${cls}" data-action="pickDay" data-iso="${c.iso}" ${past?"disabled":""}
               aria-label="${fmtDate(c.iso)}${cost ? ` · ${cost.txt}` : ""}">
@@ -114,7 +116,7 @@ function calGridHTML(){
 function dateBoxHTML(){
   const dias = rentalDays();
   const resumen = calPendingStart
-    ? `${icon("calendar", { size: 13 })} Inicio ${fmtDate(calPendingStart)} · elige el día de devolución`
+    ? `${icon("calendar", { size: 13 })} Inicio ${fmtDate(calPendingStart)} · elige hasta cuándo`
     : `${dias} ${dias===1?'día':'días'} de alquiler · ${fmtDate(rentalStart)} → ${fmtDate(rentalEnd)}`;
   return `
     <div class="date-box">
@@ -130,11 +132,6 @@ function dateBoxHTML(){
         </div>
       </div>
       ${calGridHTML()}
-      ${cart.length ? `<div class="cal-legend">
-        <span><i class="lg free"></i> no suma nada</span>
-        <span><i class="lg paid"></i> suma al total</span>
-        <span><i class="lg ret"></i> devolución</span>
-      </div>` : ""}
       <div class="date-total ${calPendingStart ? "pending" : ""}">${resumen}</div>
     </div>`;
 }

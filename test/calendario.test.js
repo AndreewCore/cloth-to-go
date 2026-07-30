@@ -208,11 +208,13 @@ test("etiquetas de los días en la cuadrícula", async (t) => {
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
   };
 
-  await t.test("el día de devolución se rotula 'dev.' y no cobra", () => {
+  await t.test("el último día del rango lleva cifra, no un rótulo aparte", () => {
+    // Se decidió no rotular la devolución: basta con ver el rango marcado.
+    // Todos los días del calendario hablan el mismo idioma, el del importe.
     const { app } = setup([1], { rentalStart: iso(0), rentalEnd: iso(3) });
     const c = app.calDayCost(iso(3));
-    assert.equal(c.cls, "ret");
-    assert.equal(c.txt, "dev.");
+    assert.ok(["free", "paid"].includes(c.cls));
+    assert.match(c.txt, /^\+\$\d+\.\d\d$/);
   });
 
   await t.test("el primer día muestra la base, sin signo +", () => {
@@ -223,13 +225,13 @@ test("etiquetas de los días en la cuadrícula", async (t) => {
     assert.ok(!c.txt.startsWith("+"));
   });
 
-  await t.test("un día que no suma sale en verde como '+$0'", () => {
+  await t.test("un día que no suma sale en verde como '+$0.00'", () => {
     const { app } = setup([], { rentalStart: iso(0), rentalEnd: iso(9) });
     const barata = app.products.slice().sort((a, b) => a.value - b.value)[0];
     app.cart = [{ id: barata.id }];
     const c = app.calDayCost(iso(1));
     assert.equal(c.cls, "free");
-    assert.equal(c.txt, "+$0");
+    assert.equal(c.txt, "+$0.00");
   });
 
   await t.test("un día que sí suma sale con su importe", () => {
@@ -399,18 +401,23 @@ test("render del bloque de fechas", async (t) => {
     assert.ok(document.querySelector(".cal-day.pending"));
   });
 
-  await t.test("el resumen pide la fecha de devolución mientras hay un pendiente", () => {
+  await t.test("el resumen pide el día final mientras hay un pendiente", () => {
     const { app, document } = setup([1]);
     app.view = "cart";
     app.pickCalendarDay(app.isoOffset(1));
-    assert.match(document.querySelector(".date-total").textContent, /devolución/);
+    assert.match(document.querySelector(".date-total").textContent, /hasta cuándo/);
   });
 
-  await t.test("la leyenda solo aparece con carrito", () => {
+  await t.test("no se explica el precio con palabras, solo con la cifra", () => {
+    // Rotular "no suma nada" sonaba a que el negocio se justifica; el importe
+    // y el color bastan. Este test evita que la leyenda vuelva por descuido.
     const { app, document } = setup([1]);
     app.view = "cart";
     app.renderSheet();
-    assert.ok(document.querySelector(".cal-legend"), "con carrito debe haber leyenda");
+    assert.equal(document.querySelector(".cal-legend"), null);
+    const box = document.querySelector(".date-box").textContent;
+    assert.ok(!/no suma nada|devoluci\u00f3n/i.test(box),
+      "el calendario no debe rotular la devolución ni explicar el precio");
   });
 
   await t.test("el botón de mes anterior está bloqueado en el mes en curso", () => {
