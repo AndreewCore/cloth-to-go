@@ -875,6 +875,56 @@ main::-webkit-scrollbar { display: none; }
   overflow: hidden;
   margin-bottom: 14px;
 }
+/* ---- Galería de fotos del detalle ----
+   Solo aparece con dos o más fotos; con una, el marcado es el de siempre. */
+.gallery.detail-img { margin-bottom: 8px; }
+.gal-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  border: none; border-radius: 50%;
+  background: rgba(20,26,18,.55);
+  color: #fff;
+  cursor: pointer;
+  /* Sobre una foto cualquiera, el círculo oscuro puede perderse: el reborde
+     claro lo separa igual en una prenda negra que en una blanca. */
+  box-shadow: 0 0 0 1px rgba(255,255,255,.25);
+}
+.gal-nav:hover { background: rgba(20,26,18,.75); }
+.gal-prev { left: 8px; }
+.gal-next { right: 8px; }
+.gal-count {
+  position: absolute;
+  right: 8px; bottom: 8px;
+  z-index: 3;
+  background: rgba(20,26,18,.6);
+  color: #fff;
+  border-radius: 20px;
+  padding: 2px 9px;
+  font-size: 11px; font-weight: 700;
+}
+.gal-dots { display: flex; justify-content: center; gap: 2px; margin-bottom: 12px; }
+/* El botón mide 22px aunque el punto se dibuje de 7: un objetivo de 7px es
+   imposible de acertar con el pulgar. El área táctil va en el botón y el
+   dibujo en el ::before, así que agrandar una no engorda el otro. */
+.gal-dot {
+  width: 22px; height: 22px; padding: 0;
+  border: none; background: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.gal-dot::before {
+  content: "";
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: background .15s;
+}
+.gal-dot.on::before { background: var(--accent); }
+
 .detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .detail-name { font-size: 20px; font-weight: 800; line-height: 1.15; }
 .detail-cat { font-size: 12px; color: var(--muted); margin-top: 2px; }

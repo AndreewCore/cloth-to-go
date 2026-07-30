@@ -25,7 +25,11 @@ model Product {
   disponibles Int    @default(1)
   material    String
   weightKg    Float
-  img         String
+  /// Fotos de la prenda como JSON (["img/products/1.webp", …]), de la portada a
+  /// la última. SQLite no tiene listas de escalares y Prisma no las emula, así
+  /// que se guarda serializado y la API lo devuelve ya como array: el formato
+  /// del almacén no debe filtrarse al cliente.
+  imgs        String
   desc        String
 
   @@map("products")

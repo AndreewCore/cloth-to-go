@@ -133,6 +133,9 @@ globalThis.__APP__ = {
   get modalOpen(){ return modalOverlay.classList.contains("show"); },
   // Detalle desde imagen: pestaña apilada sobre el perfil.
   openDetail, openSheet, closeSheet, closeStackSheet,
+  // Galería del detalle.
+  productImages, coverImage, galleryHTML, moveGallery, showGalleryImage,
+  get detailImg(){ return detailImg; }, set detailImg(v){ detailImg = v; },
   get sheetOpen(){ return sheet.classList.contains("show"); },
   get sheetFull(){ return sheet.classList.contains("full"); },
   get stackOpen(){ return sheetStack.classList.contains("show"); },
