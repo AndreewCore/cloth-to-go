@@ -33,7 +33,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # La sustitución va por Node y no por sed: así la clave no aparece en la
       # línea de comandos (que sí se imprime en el log) y un carácter especial
@@ -63,12 +63,12 @@ jobs:
             console.log("Clave inyectada (" + key.length + " caracteres).");
           '
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
       # Se sube el repo entero: la app es estática y no tiene paso de build.
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: .
 
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
