@@ -307,7 +307,73 @@ function renderPayment(){
   if(!payMethod)            label = 'Elige un método de pago';
   else if(isCard && !valid) label = 'Completa los datos de la tarjeta';
 
-  sheetFoot.innerHTML = `<button class="pay-btn" data-action="placeOrder" ${valid?'':'disabled'}>${label}</button>`;
+  sheetFoot.innerHTML = `<button class="pay-btn" data-action="confirmOrder" ${valid?'':'disabled'}>${label}</button>`;
+}
+
+/* ---- Resumen previo a confirmar ----
+   Último punto donde el cliente puede echarse atrás sin coste. Repite las
+   fechas, las prendas, lo que se cobra y lo que vuelve, porque el pago es el
+   paso donde más se abandona: el total incluye el depósito y, sin desglosarlo
+   otra vez aquí, se lee como si el alquiler costase mucho más de lo que cuesta. */
+
+/**
+ * Miniaturas y nombres de las prendas del carrito para el diálogo.
+ * @returns {string} HTML con los valores ya escapados.
+ */
+function confirmItemsHTML(){
+  return cart.map(c => {
+    const p = productById(c.id);
+    return `
+      <li class="oc-item">
+        <span class="oc-thumb">${imgPlaceholder(p)}</span>
+        <span class="oc-name">${escapeHTML(p.name)}</span>
+        <span class="oc-price">$${cartItemPrice(p).toFixed(2)}</span>
+      </li>`;
+  }).join("");
+}
+
+/**
+ * Cuerpo del diálogo de confirmación: período, prendas, cobro y reembolso.
+ * @returns {string} HTML (todo lo variable pasa por escapeHTML()).
+ */
+function confirmDetailHTML(){
+  const dias = rentalDays();
+  const dep = depositTotal();
+  const desc = couponDiscount();
+  const aPagar = grandTotal();
+  const envio = shippingFee() + returnFee();
+  return `
+    <div class="order-confirm">
+      <div class="oc-dates">
+        ${icon("calendar", { size: 14 })}
+        <b>${escapeHTML(fmtDate(rentalStart))} → ${escapeHTML(fmtDate(rentalEnd))}</b>
+        <span class="oc-days">${dias} ${dias === 1 ? "día" : "días"}</span>
+      </div>
+      <ul class="oc-items">${confirmItemsHTML()}</ul>
+      <div class="oc-rows">
+        <div class="oc-row"><span>Alquiler</span><span>$${subtotal().toFixed(2)}</span></div>
+        ${envio > 0 ? `<div class="oc-row"><span>Envío y retiro</span><span>$${envio.toFixed(2)}</span></div>` : ""}
+        ${desc > 0 ? `<div class="oc-row discount"><span>Premio canjeado</span><span>−$${desc.toFixed(2)}</span></div>` : ""}
+        ${dep > 0 ? `<div class="oc-row"><span>Depósito</span><span>$${dep.toFixed(2)}</span></div>` : ""}
+        <div class="oc-row pay"><span>Pagas ahora</span><span>$${aPagar.toFixed(2)}</span></div>
+      </div>
+      ${dep > 0 ? `<div class="oc-refund">${icon("undo", { size: 14 })}
+        Se te devuelven <b>$${dep.toFixed(2)}</b> al regresar las prendas en buen estado.</div>` : ""}
+    </div>`;
+}
+
+/**
+ * Abre el resumen final y solo registra el pedido si el cliente lo acepta.
+ * Es lo que dispara el botón de pago; placeOrder() sigue siendo la operación
+ * de verdad y se puede llamar suelta (los tests lo hacen).
+ */
+function confirmOrder(){
+  if(!checkoutValid() || !paymentValid()) return;
+  confirmDialog("", placeOrder, "check", {
+    title: "¿Confirmas tu alquiler?",
+    detailHTML: confirmDetailHTML(),
+    okLabel: `Confirmar y pagar $${grandTotal().toFixed(2)}`,
+  });
 }
 
 // ¿El método de pago está completo? (efectivo siempre; tarjeta exige datos válidos)
