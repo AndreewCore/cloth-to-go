@@ -191,20 +191,59 @@ function renderProfile(){
 
 /* ---- Indicador de ahorro de agua ----
    Antes era una tarjeta con un número suelto: parecía pulsable sin serlo, y el
-   número no decía si estaba bien o mal. Ahora es una barra con la siguiente
-   meta y los puntos que paga, más las metas ya conseguidas. Los puntos los
-   acredita creditWaterGoals() (state.js), no esta vista. */
+   número no decía si estaba bien o mal. Ahora es UNA barra con todas las metas
+   como marcadores pulsables: el detalle de cada meta (nombre, litros, puntos)
+   solo aparece al tocar su marcador, para no saturar la tarjeta. Los puntos
+   los acredita creditWaterGoals() (state.js), no esta vista. */
 
-/** Barra de progreso, meta siguiente e hitos ya logrados. */
+// Meta cuyo detalle está desplegado (id), o null. Estado efímero de la vista:
+// no se persiste ni sobrevive a la sesión.
+let selectedWaterGoalId = null;
+
+/** Muestra/oculta el detalle de una meta al tocar su marcador. */
+function toggleWaterGoalInfo(id){
+  selectedWaterGoalId = selectedWaterGoalId === id ? null : id;
+  renderSheet();
+}
+
+/** Barra de progreso única con marcadores de meta pulsables. */
 function waterGoalHTML(){
   const litros = totalWaterSaved();
   const meta = nextWaterGoal();
-  const pct = Math.round(waterGoalProgress() * 100);
   const logradas = reachedWaterGoals();
+  const n = WATER_GOALS.length;
+  /* La barra reparte las metas en tramos IGUALES (no proporcionales a litros):
+     con escala lineal la primera meta caería en el 5% y los marcadores se
+     amontonarían al inicio. El avance dentro del tramo lo da
+     waterGoalProgress(), que ya mide desde la meta anterior. */
+  const pct = meta
+    ? Math.round(((logradas.length + waterGoalProgress()) / n) * 100)
+    : 100;
 
-  const pie = meta
-    ? `Te faltan <b>${fmtLiters(meta.liters - litros)} L</b> para “${escapeHTML(meta.name)}” · <b>+${meta.points} pts</b>`
-    : `Todas las metas conseguidas. Eres una leyenda circular.`;
+  const marks = WATER_GOALS.map((g, i) => {
+    const hecha = logradas.some(x => x.id === g.id);
+    const activa = selectedWaterGoalId === g.id;
+    const left = ((i + 1) / n) * 100;
+    return `<button type="button" class="wg-mark${hecha ? " done" : ""}${activa ? " active" : ""}"
+      style="left:${left}%" data-action="waterGoalInfo" data-id="${g.id}"
+      aria-expanded="${activa}"
+      aria-label="Meta ${escapeHTML(g.name)}: ${fmtLiters(g.liters)} litros, ${g.points} puntos${hecha ? ", conseguida" : ""}">
+      ${hecha ? icon("check", { size: 9 }) : ""}
+    </button>`;
+  }).join("");
+
+  const sel = WATER_GOALS.find(g => g.id === selectedWaterGoalId);
+  let info = "";
+  if(sel){
+    const hecha = logradas.some(x => x.id === sel.id);
+    const estado = hecha
+      ? `Conseguida · <b>+${sel.points} pts</b> acreditados`
+      : `Te faltan <b>${fmtLiters(sel.liters - litros)} L</b> · premia <b>+${sel.points} pts</b>`;
+    info = `<div class="wg-goal-info${hecha ? " done" : ""}">
+      <span class="wgi-ico">${icon(hecha ? "award" : "droplet", { size: 14 })}</span>
+      <span><b>${escapeHTML(sel.name)}</b> · ${fmtLiters(sel.liters)} L<br>${estado}</span>
+    </div>`;
+  }
 
   return `
     <div class="water-goal" aria-label="Agua ahorrada y metas">
@@ -214,22 +253,16 @@ function waterGoalHTML(){
           <div class="wg-label">Agua ahorrada reutilizando ropa</div>
           <div class="wg-value">~${fmtLiters(litros)} <span>litros</span></div>
         </div>
-        ${meta ? `<span class="wg-next">${fmtLiters(meta.liters)} L</span>` : ""}
+        <span class="wg-next">${fmtLiters(WATER_GOALS[n - 1].liters)} L</span>
       </div>
-      <div class="wg-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"
-           aria-label="Progreso hacia la siguiente meta de ahorro de agua">
-        <span class="wg-fill" style="width:${pct}%"></span>
+      <div class="wg-track">
+        <div class="wg-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"
+             aria-label="Progreso de ahorro de agua sobre todas las metas">
+          <span class="wg-fill" style="width:${pct}%"></span>
+        </div>
+        ${marks}
       </div>
-      <div class="wg-foot">${pie}</div>
-      <ul class="wg-badges">
-        ${WATER_GOALS.map(g => {
-          const hecha = logradas.some(x => x.id === g.id);
-          return `<li class="wg-badge${hecha ? " done" : ""}" title="${escapeHTML(g.name)} · ${fmtLiters(g.liters)} L">
-            <span class="wgb-ico">${icon(hecha ? "check" : "droplet", { size: 12 })}</span>
-            <span class="wgb-name">${escapeHTML(g.name)}</span>
-          </li>`;
-        }).join("")}
-      </ul>
+      ${info}
     </div>`;
 }
 

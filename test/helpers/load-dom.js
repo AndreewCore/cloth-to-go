@@ -112,7 +112,8 @@ globalThis.__APP__ = {
   // aportan por su cuenta: los tests de puntos por pedido lo restan para no
   // confundir "el pedido no ha acreditado" con "el saldo es cero".
   WATER_GOALS, totalWaterSaved, waterSavedForItems, reachedWaterGoals, nextWaterGoal,
-  waterGoalProgress, creditWaterGoals, waterGoalHTML, renderProfile, renderSheet,
+  waterGoalProgress, creditWaterGoals, waterGoalHTML, toggleWaterGoalInfo,
+  renderProfile, renderSheet,
   waterPointsCredited(){
     return (profile.waterGoals || []).reduce(
       (s, id) => s + (WATER_GOALS.find(g => g.id === id)?.points || 0), 0);

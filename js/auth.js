@@ -65,7 +65,10 @@ function activateUserSession(user){
   // no hay tareas programadas, así que la puesta al día ocurre al abrir sesión.
   // Las metas se liquidan junto a los puntos por pedido: dependen de los mismos
   // pedidos y un perfil recién migrado puede traer metas ya ganadas sin cobrar.
-  if(creditDeliveredPoints() | creditWaterGoals().length) saveState();
+  const goalsHit = creditWaterGoals();
+  if(creditDeliveredPoints() || goalsHit.length) saveState();
+  // Metas cruzadas mientras la app estaba cerrada: se felicitan al entrar.
+  celebrateWaterGoals(goalsHit);
   // La identidad de Google rellena el perfil (el usuario puede editar el resto).
   if(user){
     if(user.name)    profile.name    = user.name;

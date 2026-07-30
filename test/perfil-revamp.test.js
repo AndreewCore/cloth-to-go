@@ -221,7 +221,7 @@ test("orden y contenido del perfil", async (t) => {
     assert.equal(document.querySelector(".water-stat"), null, "la tarjeta vieja se retiró");
   });
 
-  await t.test("muestra la barra, la meta siguiente y sus puntos", () => {
+  await t.test("muestra la barra con un marcador por meta y sin detalle abierto", () => {
     const { app, document } = conAgua(6000);
     app.view = "profile";
     app.renderSheet();
@@ -229,16 +229,30 @@ test("orden y contenido del perfil", async (t) => {
     assert.ok(bar);
     const pct = Number(bar.getAttribute("aria-valuenow"));
     assert.ok(pct >= 0 && pct <= 100);
+    assert.equal(document.querySelectorAll(".wg-mark").length, app.WATER_GOALS.length);
+    // El nombre y los puntos de la meta NO se muestran hasta tocar su marcador.
+    assert.equal(document.querySelector(".wg-goal-info"), null);
+  });
+
+  await t.test("tocar un marcador despliega el detalle de esa meta (y otro toque lo cierra)", () => {
+    const { app, document } = conAgua(6000);
+    app.view = "profile";
+    app.renderSheet();
     const meta = app.nextWaterGoal();
-    assert.match(document.querySelector(".wg-foot").textContent,
-      new RegExp(`\\+${meta.points} pts`));
+    app.toggleWaterGoalInfo(meta.id);
+    const info = document.querySelector(".wg-goal-info");
+    assert.ok(info, "falta el detalle de la meta");
+    assert.match(info.textContent, new RegExp(`\\+${meta.points} pts`));
+    assert.match(info.textContent, new RegExp(meta.name));
+    app.toggleWaterGoalInfo(meta.id);
+    assert.equal(document.querySelector(".wg-goal-info"), null, "el segundo toque debe cerrarlo");
   });
 
   await t.test("marca como conseguidas las metas alcanzadas", () => {
     const { app, document } = conAgua(25000);
     app.view = "profile";
     app.renderSheet();
-    const hechas = document.querySelectorAll(".wg-badge.done");
+    const hechas = document.querySelectorAll(".wg-mark.done");
     assert.equal(hechas.length, app.reachedWaterGoals().length);
   });
 
@@ -273,6 +287,10 @@ test("la confirmación anuncia la meta recién conseguida", async (t) => {
     assert.ok(app.lastWaterGoals.length > 0, "debería haber cruzado una meta");
     assert.match(document.getElementById("sheetBody").innerHTML, /Meta/);
     assert.match(document.getElementById("sheetBody").innerHTML, /goal-hit/);
+    // Además del acuse en pantalla, salta el pop-up de felicitación.
+    assert.ok(document.getElementById("modalOverlay").classList.contains("show"),
+      "falta el pop-up de felicidades");
+    assert.match(document.getElementById("modalTitle").textContent, /Felicidades/);
   });
 
   await t.test("sin meta cruzada no se anuncia nada", () => {
