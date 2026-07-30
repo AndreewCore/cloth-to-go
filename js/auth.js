@@ -91,8 +91,40 @@ function signOut(){
   activateUserSession(null);   // vacía carrito/perfil/pedidos de la sesión actual
   currentUser = null;
   greeting.textContent = "Moda circular · paga por día";
+  loginHint("");               // un fallo anterior no debe recibir al que vuelve
   loginEl.classList.remove("hide");
   initGoogleAuth();            // repinta el botón de Google en la bienvenida
+}
+
+/**
+ * Escribe (o borra) el aviso bajo el botón de Google, dentro de la propia
+ * tarjeta de bienvenida.
+ *
+ * Existe porque el toast no basta ahí: dura 1,6 s y vive fuera de la tarjeta,
+ * así que un fallo de login se lo pierde quien estaba mirando el botón. El
+ * elemento ya tiene `role="status"`, de modo que un lector de pantalla lo
+ * anuncia sin robar el foco.
+ * @param {string} [msg] Texto del aviso; vacío o ausente lo oculta.
+ */
+function loginHint(msg){
+  const el = document.getElementById("loginHint");
+  if(!el) return;
+  el.textContent = msg || "";
+  el.hidden = !msg;
+}
+
+/**
+ * Anuncia un fallo de inicio de sesión por los dos canales a la vez.
+ *
+ * El toast es lo que el usuario ya conoce del resto de la app; el hint es lo
+ * que sigue ahí cuando el toast se va. Un fallo silencioso en esta pantalla
+ * deja al usuario mirando un botón que "no hace nada", que es exactamente lo
+ * que pasó en producción.
+ * @param {string} msg Mensaje para el usuario.
+ */
+function loginFailed(msg){
+  toast(msg);
+  loginHint(msg);
 }
 
 /**
@@ -100,33 +132,40 @@ function signOut(){
  *
  * Si hay backend desplegado, la identidad DEBE venir verificada por el servidor
  * (firma comprobada): si la verificación falla o rechaza el token, NO se inicia
- * sesión — caer al decode local anularía justamente esa verificación. El decode
- * local sin firma queda reservado al modo demo, cuando de verdad no hay backend
- * (file://, sin desplegar), donde no hay nada que autorizar.
+ * sesión — caer al decode local anularía justamente esa verificación. Sin
+ * backend (file://, GitHub Pages sin API) se identifica con el decode local:
+ * no hay nada que autorizar mientras el estado viva solo en el navegador.
  * @param {{credential:string}} resp Respuesta de Google con el ID token.
  */
 async function onGoogleCredential(resp){
   const token = resp && resp.credential;
   let claims;
+  loginHint("");
   if(backend.enabled){
     claims = await verifyGoogleCredential(token);
     if(!claims){
-      toast("No se pudo verificar tu sesión. Intenta de nuevo.");
+      loginFailed("No se pudo verificar tu sesión. Inténtalo de nuevo.");
       return;
     }
-  } else if(backend.reason === "misconfigured"){
-    // Producción sin DEPLOYED_API. Caer al decode local aquí significaría dar
-    // por buena una identidad sin verificar firma, y en un sitio público eso es
-    // suplantación trivial: basta con fabricar un JWT. Se falla en voz alta.
-    console.error(API_OFF_REASONS.misconfigured);
-    toast("El inicio de sesión no está disponible en este momento.");
-    return;
   } else {
-    // Modo demo: sin servidor no hay firma que comprobar (solo identifica).
+    // Sin servidor no hay firma que comprobar: el token solo IDENTIFICA.
+    //
+    // Esto también aplica en producción, y es deliberado. Antes se rechazaba
+    // aquí por miedo a la suplantación, pero rompía el único login de la demo
+    // para protegerla de nada: la identidad solo elige la clave de
+    // localStorage (storageKeyFor), así que falsificar un JWT únicamente abre
+    // otra clave EN TU PROPIO navegador. No hay datos ajenos que leer ni nada
+    // que autorizar mientras el estado no salga del cliente.
+    //
+    // El día que el backend guarde pedidos o dinero, esto deja de ser cierto
+    // de golpe — pero ese día `backend.enabled` es true y la rama de arriba
+    // exige la verificación del servidor. El riesgo y la defensa aparecen a la
+    // vez; no hace falta anticiparla rompiendo la demo.
+    if(backend.reason === "misconfigured") console.warn(API_OFF_REASONS.misconfigured);
     claims = decodeJwt(token);
   }
   if(!claims || !claims.sub){
-    toast("No se pudo iniciar sesión con Google");
+    loginFailed("No se pudo iniciar sesión con Google.");
     return;
   }
   activateUserSession({
