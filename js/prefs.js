@@ -128,31 +128,21 @@ function setPref(key, value) {
 }
 
 /**
- * Alterna claro/oscuro desde el botón del header.
+ * Alterna claro/oscuro.
  *
- * Sale de `auto` a propósito: si el usuario pulsa el botón es porque quiere
- * decidir él, y dejarlo en automático haría que el sistema le revirtiera la
- * elección al cambiar de hora o de perfil.
+ * Sale de `auto` a propósito: si el usuario lo alterna es porque quiere decidir
+ * él, y dejarlo en automático haría que el sistema le revirtiera la elección al
+ * cambiar de hora o de perfil.
+ *
+ * Ya no hay interruptor suelto en el header (lo sustituyó el engranaje de
+ * Preferencias), pero la función se conserva: es el atajo de un solo paso que
+ * usan los tests y el que necesitará cualquier acceso rápido que se añada.
  */
 function toggleTheme() {
   setPref("theme", effectiveTheme() === "dark" ? "light" : "dark");
-  renderThemeButton();
   // El botón de Google lo dibuja su SDK: no basta con cambiar variables CSS.
   if (typeof renderGoogleButton === "function") renderGoogleButton();
   return prefs.theme;
-}
-
-/** Pinta el icono del botón de tema según lo que hará al pulsarlo. */
-function renderThemeButton() {
-  const btn = document.getElementById("toggleTheme");
-  if (!btn) return;
-  const oscuro = effectiveTheme() === "dark";
-  // El icono anuncia el destino, no el estado actual: es lo que el usuario
-  // espera de un interruptor ("pulsa para ir a claro").
-  btn.innerHTML = icon(oscuro ? "sun" : "moon", { size: 21 });
-  const etiqueta = oscuro ? "Cambiar a tema claro" : "Cambiar a tema oscuro";
-  btn.setAttribute("aria-label", etiqueta);
-  btn.setAttribute("title", etiqueta);
 }
 
 /**
@@ -166,7 +156,6 @@ function watchSystemTheme() {
   const alCambiar = () => {
     if (prefs.theme !== "auto") return;
     applyPrefs();
-    renderThemeButton();
     if (typeof renderGoogleButton === "function") renderGoogleButton();
   };
   if (typeof mq.addEventListener === "function") mq.addEventListener("change", alCambiar);
