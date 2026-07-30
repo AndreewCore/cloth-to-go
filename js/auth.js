@@ -150,5 +150,24 @@ function initGoogleAuth(){
     return;
   }
   google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onGoogleCredential });
-  google.accounts.id.renderButton(box, { theme: "outline", size: "large", shape: "pill", text: "signin_with", width: 240 });
+  renderGoogleButton();
+}
+
+/**
+ * Pinta (o repinta) el botón de Google con el tema activo.
+ *
+ * El botón lo dibuja el SDK, no nuestro CSS, así que el tema hay que pasárselo
+ * a él: `filled_black` en oscuro, `outline` en claro. Y como el marcado ya
+ * generado no reacciona al cambio de tema, hay que volver a pedirlo — de ahí
+ * que esto sea una función aparte y no una línea dentro de initGoogleAuth().
+ */
+function renderGoogleButton(){
+  const box = document.getElementById("googleBtn");
+  if(!box || box.hidden) return;
+  if(typeof google === "undefined" || !google.accounts || !google.accounts.id) return;
+  box.innerHTML = "";
+  google.accounts.id.renderButton(box, {
+    theme: effectiveTheme() === "dark" ? "filled_black" : "outline",
+    size: "large", shape: "pill", text: "signin_with", width: 240
+  });
 }

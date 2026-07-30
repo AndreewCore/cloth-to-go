@@ -29,13 +29,119 @@
   --ico-rose:   #b0426b;   /* premios, favoritos */
   --ico-teal:   #10736b;   /* impacto ambiental */
   --ico-brown:  #7a5230;   /* armario, prendas propias */
+  --frame: #1f2a1c;        /* marco del mockup y muesca */
+  --page: #c2cdb6;         /* fondo detrás del teléfono, en escritorio */
+  --text-scale: 1;         /* lo fija prefs.js según el tamaño elegido */
   --shadow: 0 10px 30px rgba(31,42,28,.16);
+  /* Superficies y estados que antes iban con literales. Sin nombre propio no
+     había forma de que el tema oscuro los alcanzara. */
+  --field: #ffffff;        /* fondo de campos de formulario */
+  --disabled-bg: #d7cfc3;
+  --disabled-ink: #6b6459;
+  --grip: #d7d0c5;         /* asa del panel deslizante */
+  --radio-line: #cfc8bd;
+  --water: #2b8cd1;        /* azul del ahorro de agua */
+  --water-soft: rgba(43,140,209,.12);
+  --warn-bg: #f6e6cf;      --warn-ink: #8a4b13;
+  --neutral-bg: #e6e6e6;   --neutral-ink: #555555;
+  --danger-soft: #fbeee8;  --danger-line: #e8c7b8;
+  --on-accent: #ffffff;    /* texto sobre relleno de acento */
+  /* Fondo de la bienvenida. Es la primera pantalla que se ve, así que si se
+     queda en verde claro delata el tema antes de que la app llegue a pintarse. */
+  --welcome-from: #3f7d3a;
+  --welcome-to: #1f2a1c;
+  --welcome-halo: rgba(141,206,124,.30);
+  --welcome-halo-soft: rgba(141,206,124,.20);
+  --welcome-grid: rgba(255,255,255,.05);
+  --logo-plate: var(--accent-soft);   /* base del logo; en claro ya contrasta */
+
+  /* Le dice al navegador con qué esquema pintar lo que NO controlamos:
+     controles nativos, el desplegable de <input type=date> y las barras de
+     desplazamiento. Sin esto el tema oscuro deja campos blancos con texto
+     oscuro, que fue exactamente el fallo reportado. */
+  color-scheme: light;
+}
+
+/* ============================================================
+   Tema oscuro. Solo redefine variables: ninguna regla de componente
+   necesita saber en qué tema está, que es lo que evita mantener dos
+   hojas de estilo en paralelo.
+
+   Los verdes bajan de saturación y suben de luminosidad. Sobre fondo
+   oscuro, el verde de marca (#356b31) queda por debajo de 3:1 y se
+   vuelve ilegible: no es el mismo color en los dos temas porque el
+   contraste no es una propiedad del color, sino del par.
+   ============================================================ */
+:root[data-theme="dark"] {
+  --bg: #161a14;
+  --card: #1f251d;
+  --ink: #e8eee4;
+  --muted: #a3b09c;
+  --accent: #8fd18a;
+  --accent-soft: #24301f;
+  --cta: #3f9c4b;
+  --cta-strong: #348040;
+  --cta-glow: rgba(63,156,75,.35);
+  --star: #c3d95e;
+  --ok: #8fd18a;
+  --line: #303a2c;
+  --danger: #e59274;
+  --shadow: 0 10px 30px rgba(0,0,0,.5);
+  --ico-sky:    #6fc0e8;
+  --ico-violet: #b9a3ee;
+  --ico-gold:   #e0b96a;
+  --ico-rose:   #ee92b6;
+  --ico-teal:   #6ecfc4;
+  --ico-brown:  #cfa279;
+  --frame: #0d100c;
+  --page: #0a0c09;
+  --field: #171c15;
+  --disabled-bg: #2b332a;
+  --disabled-ink: #7b8676;
+  --grip: #3a453599;
+  --radio-line: #4a5546;
+  --water: #6fc0e8;
+  --water-soft: rgba(111,192,232,.14);
+  --warn-bg: #3a2c14;      --warn-ink: #f0c489;
+  --neutral-bg: #2a2f28;   --neutral-ink: #a6b09f;
+  --danger-soft: #35211a;  --danger-line: #5c3a2c;
+  --on-accent: #0f140e;    /* sobre los verdes claros del tema oscuro, tinta */
+  --welcome-from: #1d3a1b;
+  --welcome-to: #0a0e09;
+  --welcome-halo: rgba(120,180,105,.16);
+  --welcome-halo-soft: rgba(120,180,105,.10);
+  --welcome-grid: rgba(255,255,255,.03);
+  --logo-plate: #e8eee4;              /* el PNG es de trazo oscuro: necesita base clara */
+  color-scheme: dark;
+}
+
+/* Contraste alto: refuerza el texto secundario y los bordes, que son lo
+   primero que se pierde con poca visión. No cambia los acentos, para no
+   romper el significado del color por familia. */
+:root[data-contrast="high"] {
+  --muted: #3d4838;
+  --line: #9fae96;
+}
+:root[data-theme="dark"][data-contrast="high"] {
+  --muted: #d2dccb;
+  --line: #6f7d68;
+}
+
+/* Sin animaciones: se respeta la preferencia del sistema aunque no se haya
+   tocado el ajuste (ver shouldReduceMotion en prefs.js). */
+:root[data-reduce-motion="true"] *,
+:root[data-reduce-motion="true"] *::before,
+:root[data-reduce-motion="true"] *::after {
+  animation-duration: .001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: .001ms !important;
+  scroll-behavior: auto !important;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; }
 body {
-  background: #c2cdb6;
+  background: var(--page);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   color: var(--ink);
   display: flex;
@@ -53,7 +159,7 @@ body {
   max-height: 95vh;
   background: var(--bg);
   border-radius: 44px;
-  box-shadow: var(--shadow), 0 0 0 12px #1f2a1c, 0 0 0 14px #34402e;
+  box-shadow: var(--shadow), 0 0 0 12px var(--frame), 0 0 0 14px color-mix(in srgb, var(--frame) 80%, #fff);
   /* overflow:clip recorta SIN crear caja desplazable: así ningún scroll
      programático (p. ej. scrollIntoView) puede correr el marco del teléfono y
      dejar el encabezado cortado. `hidden` queda de reserva para navegadores
@@ -64,12 +170,17 @@ body {
   display: flex;
   flex-direction: column;
 }
+/* Tamaño de texto: `zoom` sobre el marco escala texto Y espacio, que es lo que
+   necesita quien amplía por baja visión. Va aquí y no en <html> porque en
+   escritorio el mockup debe crecer sin arrastrar el fondo de la página. */
+.phone { zoom: var(--text-scale, 1); }
+
 .notch {
   position: absolute;
   top: 0; left: 50%;
   transform: translateX(-50%);
   width: 150px; height: 26px;
-  background: #1f2a1c;
+  background: var(--frame);
   border-radius: 0 0 18px 18px;
   z-index: 60;
 }
