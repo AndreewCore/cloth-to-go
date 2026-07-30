@@ -53,7 +53,7 @@ const PROJECT_GLOBALS = [
   "toggleWaterGoalInfo", "celebrateWaterGoals",
   "orderItemsSubtotal", "orderDeposit", "orderTotal", "paymentStatusLabel", "isArchivedOrder",
   "isCancelledOrder", "isPastOrder", "canCancelOrder", "isDelivered",
-  "creditDeliveredPoints", "revokeOrderPoints", "nextOrderId",
+  "countsForRewards", "creditDeliveredPoints", "revokeOrderPoints", "nextOrderId",
   "STORAGE_PREFIX", "activeStorageKey", "defaultProfile", "storageKeyFor",
   "resetStateToDefaults", "saveState", "loadState",
   // dom.js

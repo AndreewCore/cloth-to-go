@@ -374,11 +374,21 @@ test("un pedido anulado se lista en el historial, no entre los activos", () => {
   assert.match(html, /Anulado/);
 });
 
-test("anular un pedido descuenta sus litros de agua ahorrada", () => {
-  const i = placedOrder();
-  const conPedido = win.totalWaterSaved();
-  assert.ok(conPedido > 0);
+test("un pedido todavía anulable no suma litros de agua", () => {
+  placedOrder();
+  // Contarlos antes de que el alquiler sea firme era explotable: bastaba
+  // confirmar el pedido para cruzar una meta, cobrar sus puntos y anularlo
+  // después — los puntos del pedido se revierten, los de la meta no.
+  assert.equal(win.totalWaterSaved(), 0);
+});
 
+test("un alquiler ya entregado y firme suma sus litros", () => {
+  placedOrder(app.isoOffset(-3));
+  assert.ok(win.totalWaterSaved() > 0, "un alquiler cumplido sí reutilizó ropa");
+});
+
+test("anular un pedido lo deja fuera de la cuenta de agua ahorrada", () => {
+  const i = placedOrder();
   win.cancelOrder(i);
   app.confirmModalOk();
 

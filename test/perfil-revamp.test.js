@@ -274,14 +274,34 @@ test("orden y contenido del perfil", async (t) => {
 });
 
 test("la confirmación anuncia la meta recién conseguida", async (t) => {
-  await t.test("un pedido que cruza una meta lo dice al confirmar", () => {
-    const { app, window, document } = loadDom();
+  /** Deja el checkout listo con la prenda de más litros; `start` fija el inicio. */
+  function pedidoGordo(app, start) {
     app.profile = { ...app.profile, points: 0, waterGoals: [] };
     // Prenda con litros de sobra para pasar la primera meta.
     const gorda = app.products.slice().sort((a, b) =>
       app.waterSavedForItems([b.id]) - app.waterSavedForItems([a.id]))[0];
     app.cart = [{ id: gorda.id }];
-    app.setCheckout({ delivery: "pickup", returnMethod: "store", payMethod: "cash" });
+    app.setCheckout({ delivery: "pickup", returnMethod: "store", payMethod: "cash",
+      rentalStart: start, rentalEnd: app.isoOffset(3) });
+  }
+
+  await t.test("un pedido recién confirmado todavía no cruza la meta", () => {
+    const { app, window, document } = loadDom();
+    // Mientras el pedido se pueda anular sus litros no están ganados: cobrarlos
+    // aquí permitía cruzar la meta, quedarse sus puntos y anular el alquiler.
+    pedidoGordo(app, app.isoOffset(0));
+    window.placeOrder();
+
+    assert.deepEqual(app.lastWaterGoals, [], "la meta no se gana al confirmar");
+    assert.ok(!document.getElementById("modalOverlay").classList.contains("show"),
+      "no hay nada que celebrar todavía");
+  });
+
+  await t.test("un alquiler ya firme cruza la meta y la celebra", () => {
+    const { app, window, document } = loadDom();
+    // Inicio en el pasado: el alquiler ya se entregó y no admite anulación, así
+    // que sus litros cuentan y la meta se cobra al liquidar el pedido.
+    pedidoGordo(app, app.isoOffset(-3));
     window.placeOrder();
 
     assert.ok(app.lastWaterGoals.length > 0, "debería haber cruzado una meta");
