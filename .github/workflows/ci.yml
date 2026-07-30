@@ -1,6 +1,6 @@
 name: CI
 
-# Corre lint (raíz) y tests (server/) en cada push y pull request, para
+# Corre lint y tests (raíz y server/) en cada push y pull request, para
 # detectar roturas antes de que lleguen a dev/staging/main.
 on:
   push:
@@ -11,19 +11,55 @@ jobs:
     name: Lint (ESLint)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Sin `version`: toma la de `packageManager` en package.json (pnpm 11),
       # única fuente de verdad. Fijarla aquí además choca con packageManager.
-      - uses: pnpm/action-setup@v4
+      # Va antes de setup-node: `cache: pnpm` necesita el binario ya instalado.
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          # Explícito a propósito: desde setup-node v6 el cacheo automático es
+          # solo para npm, así que para pnpm hay que pedirlo a mano.
+          cache: pnpm
+
+      # El .gitignore evita que se cuele; esto detecta si ya se coló. Un
+      # node_modules versionado rompe la instalación en CI de forma opaca
+      # (runs #106–#109), y el mensaje de error no apunta a la causa.
+      - name: Comprobar que no hay node_modules versionado
+        run: |
+          if git ls-files --error-unmatch -- '*node_modules*' > /dev/null 2>&1; then
+            echo "::error::Hay rutas node_modules versionadas:"
+            git ls-files -- '*node_modules*'
+            exit 1
+          fi
+
+      - run: pnpm install
+      - run: pnpm run lint
+
+  test-front:
+    name: Tests del frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
 
-      - run: pnpm install
-      - run: pnpm run lint
+      - name: Instalar dependencias
+        run: pnpm install
+
+      # Los tests cargan los classic scripts en un contexto `vm` y usan jsdom
+      # para las vistas; por eso hace falta instalar aunque la app no tenga
+      # dependencias en tiempo de ejecución.
+      - name: Ejecutar tests
+        run: pnpm test
 
   test-server:
     name: Tests del servidor (API)
@@ -32,13 +68,11 @@ jobs:
     env:
       DATABASE_URL: "file:./dev.db"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      # Sin `version`: toma la de `packageManager` en package.json (pnpm 11),
-      # única fuente de verdad. Fijarla aquí además choca con packageManager.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
