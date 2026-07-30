@@ -61,6 +61,9 @@ let detailId = null;
 // panel principal. Lo decide openDetail() y manda en dónde pinta renderDetail()
 // y a dónde vuelven sus botones. Efímero: no se persiste.
 let stackedDetail = false;
+// Foto visible de la galería del detalle. Efímero como stackedDetail: abrir otra
+// prenda lo devuelve a 0, y no tiene sentido persistir por qué foto ibas.
+let detailImg = 0;
 let delivery = null;                 // 'ship' | 'pickup'  — cómo RECIBE el pedido
 let address = "";
 // Punto exacto elegido en el mapa ({lat,lng}) o null si solo hay texto.

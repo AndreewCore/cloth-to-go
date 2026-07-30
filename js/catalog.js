@@ -194,11 +194,83 @@ function addToCart(id){
  */
 function openDetail(id){
   detailId = id;
+  detailImg = 0;                     // cada prenda se abre por su portada
   stackedDetail = FULL_VIEWS.has(view) && sheet.classList.contains("show");
   if(stackedDetail){ renderDetail(); openStackSheet(); return; }
   view = "detail";
   renderSheet();
   openSheet();
+}
+
+/**
+ * Deja `detailImg` dentro del rango de fotos de la prenda abierta.
+ * Se recorta al leer y no al escribir porque la lista puede cambiar bajo los
+ * pies: hydrateCatalog() sustituye el catálogo entero mientras el detalle
+ * está abierto.
+ * @param {object} p Prenda abierta.
+ * @returns {number} Índice válido de la foto visible.
+ */
+function galleryIndex(p){
+  const total = productImages(p).length;
+  return Math.min(Math.max(detailImg, 0), total - 1);
+}
+
+/**
+ * Galería del detalle: la foto actual, las flechas y los puntos.
+ *
+ * Con una sola foto no dibuja ningún control — no hay nada que recorrer, y unas
+ * flechas que no llevan a ninguna parte son peores que su ausencia. Solo se
+ * monta la imagen visible: precargar las demás multiplicaría el peso de la
+ * vista por el número de fotos sin que nadie las haya pedido.
+ * @param {object} p Prenda abierta.
+ * @returns {string} HTML de la galería.
+ */
+function galleryHTML(p){
+  const fotos = productImages(p);
+  const i = galleryIndex(p);
+  if(fotos.length < 2) return `<div class="detail-img">${imgPlaceholder(p, fotos[0])}</div>`;
+
+  const flecha = (dir, nombre, etiqueta) => `
+    <button class="gal-nav gal-${dir}" data-action="gal${nombre}" aria-label="${etiqueta}">
+      ${icon(dir === "prev" ? "chevronLeft" : "chevronRight", { size: 20 })}
+    </button>`;
+  const puntos = fotos.map((_, n) => `
+    <button class="gal-dot${n === i ? " on" : ""}" data-action="galDot" data-i="${n}"
+            aria-label="Foto ${n + 1} de ${fotos.length}"
+            aria-current="${n === i ? "true" : "false"}"></button>`).join("");
+
+  return `
+    <div class="detail-img gallery" data-gallery="${p.id}">
+      ${imgPlaceholder(p, fotos[i])}
+      ${flecha("prev", "Prev", "Foto anterior")}
+      ${flecha("next", "Next", "Foto siguiente")}
+      <span class="gal-count">${i + 1} / ${fotos.length}</span>
+    </div>
+    <div class="gal-dots">${puntos}</div>`;
+}
+
+/**
+ * Mueve la galería `paso` fotos y repinta. Da la vuelta en los extremos: en un
+ * carrusel corto, toparse con una flecha muerta se siente roto.
+ * @param {number} paso -1 (anterior) o +1 (siguiente).
+ */
+function moveGallery(paso){
+  const p = productById(detailId);
+  if(!p) return;
+  const total = productImages(p).length;
+  detailImg = (galleryIndex(p) + paso + total) % total;
+  renderDetail();
+}
+
+/**
+ * Salta a una foto concreta (los puntos).
+ * @param {number} i Índice de la foto.
+ */
+function showGalleryImage(i){
+  const p = productById(detailId);
+  if(!p) return;
+  detailImg = Math.min(Math.max(Number(i) || 0, 0), productImages(p).length - 1);
+  renderDetail();
 }
 
 /**
@@ -211,7 +283,7 @@ function renderDetail(){
   // El título de la pestaña apilada es fijo en el HTML: solo muestra detalle.
   if(!stackedDetail) sheetTitle.textContent = "Detalle";
   body.innerHTML = `
-    <div class="detail-img">${imgPlaceholder(p)}</div>
+    ${galleryHTML(p)}
     <div class="detail-head">
       <div>
         <div class="detail-name">${escapeHTML(p.name)}</div>

@@ -140,6 +140,9 @@ function onSheetClick(e){
     // renderDetail() sirve para ambas superficies y repinta solo el detalle,
     // que es lo único que cambia al agregar la prenda al carrito.
     case "addDetail":      addToCart(detailId); renderDetail(); break;
+    case "galPrev":        moveGallery(-1); break;
+    case "galNext":        moveGallery(1); break;
+    case "galDot":         showGalleryImage(+el.dataset.i); break;
     case "signOut":        signOut(); break;
     case "saveProfile":    saveProfile(); break;
     case "editProfile":    editProfile(); break;
@@ -172,6 +175,27 @@ function onSheetClick(e){
 }
 sheet.addEventListener("click", onSheetClick);
 sheetStack.addEventListener("click", onSheetClick);
+
+/* Deslizar la galería con el dedo. Es como se navegan las fotos en el móvil, y
+   sin esto las flechas serían el único camino en la superficie donde menos se
+   acierta a pulsarlas. Se escucha en las dos superficies (panel y pestaña
+   apilada), igual que el click. */
+let swipeX = null;
+function onGalleryTouchStart(e){
+  swipeX = e.target.closest(".gallery") ? e.changedTouches[0].clientX : null;
+}
+function onGalleryTouchEnd(e){
+  if(swipeX === null) return;
+  const dx = e.changedTouches[0].clientX - swipeX;
+  swipeX = null;
+  // 40px de umbral: por debajo suele ser un toque con temblor, no un gesto, y
+  // cambiar la foto ahí se siente como que la app hace cosas sola.
+  if(Math.abs(dx) > 40) moveGallery(dx < 0 ? 1 : -1);
+}
+for(const sup of [sheet, sheetStack]){
+  sup.addEventListener("touchstart", onGalleryTouchStart, { passive: true });
+  sup.addEventListener("touchend", onGalleryTouchEnd, { passive: true });
+}
 
 // Inputs del panel: actualizan estado sin re-render (para no perder el foco).
 sheet.addEventListener("input", e=>{
@@ -229,6 +253,17 @@ sheet.addEventListener("keydown", e=>{
     e.preventDefault();
     e.target.click();
   }
+});
+
+/* Flechas ←/→ recorren la galería del detalle. Sin esto, quien navega por
+   teclado tendría que tabular hasta los controles para ver la segunda foto. Se
+   ignora si el foco está en un campo: ahí las flechas mueven el cursor. */
+document.addEventListener("keydown", e=>{
+  if(e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  if(!document.querySelector(".gallery")) return;
+  if(e.target.closest("input, textarea, select")) return;
+  e.preventDefault();
+  moveGallery(e.key === "ArrowRight" ? 1 : -1);
 });
 
 /* ---------------- Init ---------------- */

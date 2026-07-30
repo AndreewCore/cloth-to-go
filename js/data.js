@@ -236,6 +236,11 @@ const CATS = ["Todo", "Formal", "Fiesta", "Casual", "Invierno"];
    Las imágenes se sirven localmente desde img/products/ (webp optimizado ~600×800).
    Alojarlas en el repo evita la dependencia de red de Unsplash: cargan también
    en file:// y offline. Si alguna falta (onerror), queda el placeholder de imgPlaceholder().
+   - imgs        : lista de fotos, de la portada a la última. La PRIMERA es la que
+                   sale en tarjeta, carrito y pedidos; el resto solo en el detalle.
+                   Una sola foto es válido: la galería no dibuja controles.
+                   Convención de nombres: N.webp para la portada y N-2, N-3… para
+                   las demás, de modo que añadir fotos no toca más que esta lista.
    - value       : coste de reponer la prenda en Ecuador, segunda mano (USD).
                    Es la base de TODO el precio: el alquiler sale de rentalPrice()
                    y el depósito de depositFor(). No hay precio fijo por prenda.
@@ -248,25 +253,25 @@ const CATS = ["Todo", "Formal", "Fiesta", "Casual", "Invierno"];
    - weightKg    : peso aproximado de la prenda. material + weightKg definen el
                    ahorro de agua por reutilizarla (ver garmentWater()). */
 const PRODUCTS = [
-  { id:1, name:"Blazer de lino", cat:"Formal", value:35, stars:5, size:"M",  disponibles:1, material:"lino",      weightKg:0.5, img:"img/products/1.webp",
+  { id:1, name:"Blazer de lino", cat:"Formal", value:35, stars:5, size:"M",  disponibles:1, material:"lino",      weightKg:0.5, imgs:["img/products/1.webp", "img/products/1-2.webp", "img/products/1-3.webp"],
     desc:"Blazer de lino fresco, corte recto. Ideal para eventos formales y de oficina." },
-  { id:2, name:"Vestido de gala", cat:"Fiesta", value:45, stars:4, size:"S",  disponibles:1, material:"sintetico", weightKg:0.4, img:"img/products/2.webp",
+  { id:2, name:"Vestido de gala", cat:"Fiesta", value:45, stars:4, size:"S",  disponibles:1, material:"sintetico", weightKg:0.4, imgs:["img/products/2.webp", "img/products/2-2.webp", "img/products/2-3.webp"],
     desc:"Vestido largo de gala con caída elegante. Perfecto para bodas y galas." },
-  { id:3, name:"Jeans vintage", cat:"Casual", value:15, stars:3, size:"M",  disponibles:1, material:"algodon",   weightKg:0.8, img:"img/products/3.webp",
+  { id:3, name:"Jeans vintage", cat:"Casual", value:15, stars:3, size:"M",  disponibles:1, material:"algodon",   weightKg:0.8, imgs:["img/products/3.webp"],
     desc:"Jeans de tiro alto estilo retro. Cómodos para el día a día." },
-  { id:4, name:"Abrigo de lana", cat:"Invierno", value:55, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.2, img:"img/products/4.webp",
+  { id:4, name:"Abrigo de lana", cat:"Invierno", value:55, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.2, imgs:["img/products/4.webp"],
     desc:"Abrigo de lana cálido y de gran caída. Abriga sin perder estilo." },
-  { id:5, name:"Camisa formal", cat:"Formal", value:14, stars:4, size:"M",  disponibles:1, material:"algodon",   weightKg:0.2, img:"img/products/5.webp",
+  { id:5, name:"Camisa formal", cat:"Formal", value:14, stars:4, size:"M",  disponibles:1, material:"algodon",   weightKg:0.2, imgs:["img/products/5.webp"],
     desc:"Camisa formal de algodón, fácil de combinar para reuniones." },
-  { id:6, name:"Falda plisada", cat:"Casual", value:12, stars:3, size:"S",  disponibles:1, material:"sintetico", weightKg:0.3, img:"img/products/6.webp",
+  { id:6, name:"Falda plisada", cat:"Casual", value:12, stars:3, size:"S",  disponibles:1, material:"sintetico", weightKg:0.3, imgs:["img/products/6.webp"],
     desc:"Falda plisada midi, ligera y versátil para cualquier ocasión." },
-  { id:7, name:"Esmoquin clásico", cat:"Fiesta", value:150, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.0, img:"img/products/7.webp",
+  { id:7, name:"Esmoquin clásico", cat:"Fiesta", value:150, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.0, imgs:["img/products/7.webp", "img/products/7-2.webp", "img/products/7-3.webp"],
     desc:"Esmoquin negro clásico con solapa satinada. La opción para eventos de etiqueta." },
-  { id:8, name:"Chaqueta de cuero", cat:"Casual", value:45, stars:2, size:"M",  disponibles:1, material:"cuero",     weightKg:1.3, img:"img/products/8.webp",
+  { id:8, name:"Chaqueta de cuero", cat:"Casual", value:45, stars:2, size:"M",  disponibles:1, material:"cuero",     weightKg:1.3, imgs:["img/products/8.webp"],
     desc:"Chaqueta de cuero con carácter; muestra desgaste natural que le da estilo." },
-  { id:9, name:"Sudadera bordada", cat:"Casual", value:12, stars:4, size:"L",  disponibles:1, material:"algodon",   weightKg:0.5, img:"img/products/9.webp",
+  { id:9, name:"Sudadera bordada", cat:"Casual", value:12, stars:4, size:"L",  disponibles:1, material:"algodon",   weightKg:0.5, imgs:["img/products/9.webp"],
     desc:"Sudadera de algodón con bordado, súper cómoda para el día a día." },
-  { id:10, name:"Gabardina beige", cat:"Invierno", value:40, stars:4, size:"XL", disponibles:1, material:"algodon",   weightKg:0.9, img:"img/products/10.webp",
+  { id:10, name:"Gabardina beige", cat:"Invierno", value:40, stars:4, size:"XL", disponibles:1, material:"algodon",   weightKg:0.9, imgs:["img/products/10.webp"],
     desc:"Gabardina beige atemporal, perfecta para días de lluvia y entretiempo." },
 ];
 
@@ -527,9 +532,31 @@ function monthGrid(ym){
   return cells;
 }
 
+/**
+ * Fotos de una prenda, siempre como lista y siempre con al menos un elemento.
+ *
+ * Normaliza en un solo sitio lo que puede llegar de tres sitios distintos: el
+ * catálogo embebido (`imgs`), el backend (que serializa la lista) y una entrada
+ * antigua con `img` suelto. Sin esto, cada vista tendría que repetir el mismo
+ * `?.` defensivo y una sola omisión rompería la galería.
+ * @param {object} p Prenda del catálogo.
+ * @returns {string[]} Rutas de las fotos; `[""]` si no hay ninguna (deja el
+ *   placeholder a la vista en lugar de romper el marcado).
+ */
+function productImages(p){
+  const lista = Array.isArray(p?.imgs) ? p.imgs.filter(Boolean)
+              : p?.img ? [p.img] : [];
+  return lista.length ? lista : [""];
+}
+
+/** Foto de portada: la que sale en tarjeta, carrito y pedidos. */
+function coverImage(p){ return productImages(p)[0]; }
+
 // HTML de una imagen con placeholder de respaldo.
 // Si la imagen no carga (onerror), se oculta y queda visible el placeholder.
-function imgPlaceholder(p){
+// `src` permite pintar una foto concreta de la galería; por defecto, la portada.
+function imgPlaceholder(p, src){
+  const ruta = src === undefined ? coverImage(p) : src;
   return `<span class="img-ph">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
         <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -538,6 +565,6 @@ function imgPlaceholder(p){
       </svg>
       <span class="ph-txt">${escapeHTML(p.name)}</span>
     </span>
-    <img src="${escapeHTML(p.img)}" alt="${escapeHTML(p.name)}" loading="lazy"
+    <img src="${escapeHTML(ruta)}" alt="${escapeHTML(p.name)}" loading="lazy"
          onerror="this.style.display='none'">`;
 }

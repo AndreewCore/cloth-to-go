@@ -23,6 +23,7 @@ const ICON_PATHS = {
   arrowRight: '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
   arrowLeft:  '<line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>',
   chevronRight: '<polyline points="9 18 15 12 9 6"/>',
+  chevronLeft:  '<polyline points="15 18 9 12 15 6"/>',
   chevronDown:  '<polyline points="6 9 12 15 18 9"/>',
   check:      '<polyline points="20 6 9 17 4 12"/>',
   checkCircle:'<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',

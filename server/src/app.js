@@ -86,8 +86,22 @@ export function buildApp(opts = {}) {
   app.get("/api/health", async () => ({ status: "ok" }));
 
   // Catálogo completo, ordenado por id. Solo lectura por ahora.
+  // `imgs` se guarda serializado (SQLite no tiene listas de escalares) y sale
+  // como array: el cliente no debe cargar con el formato del almacén. Si el
+  // JSON estuviera corrupto, la prenda va sin fotos antes que tumbar el
+  // catálogo entero — el frontend ya tiene placeholder para ese caso.
   app.get("/api/products", async () => {
-    return prisma.product.findMany({ orderBy: { id: "asc" } });
+    const items = await prisma.product.findMany({ orderBy: { id: "asc" } });
+    return items.map(({ imgs, ...p }) => {
+      let lista = [];
+      try {
+        const parsed = JSON.parse(imgs);
+        if (Array.isArray(parsed)) lista = parsed.filter(s => typeof s === "string");
+      } catch {
+        app.log.warn({ id: p.id }, "imgs no es JSON válido; la prenda va sin fotos");
+      }
+      return { ...p, imgs: lista };
+    });
   });
 
   // Verifica el ID token de Google en el servidor (el frontend solo lo
