@@ -27,6 +27,7 @@ globalThis.__APP__ = {
   // --- Helpers puros (data.js) ---
   escapeHTML, fmtDate, daysBetween, starStr, conditionLabel, materialLabel,
   qualityLevel, qualityMeter, qualityMeterText,
+  productImages, coverImage, imgPlaceholder,
   REWARDS, rewardById, rewardIssue,
   garmentWater, litersToGallons,
   isValidEmail, isValidPhone, isValidName, isValidAddress,
