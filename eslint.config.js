@@ -64,6 +64,7 @@ const PROJECT_GLOBALS = [
   "totalRowHTML", "dateBoxHTML", "renderCart", "removeItem", "renderCheckout",
   "couponSectionHTML",
   "checkoutValid", "renderPayment", "paymentValid", "placeOrder", "renderDone",
+  "confirmItemsHTML", "confirmDetailHTML", "confirmOrder",
   "resetCheckoutState", "finishOrder", "goToOrders",
   // profile.js
   "renderProfile", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",

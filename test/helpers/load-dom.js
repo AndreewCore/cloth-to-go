@@ -108,6 +108,15 @@ globalThis.__APP__ = {
   getPrefs, setPref, toggleTheme, effectiveTheme, applyPrefs, loadPrefs,
   shouldReduceMotion, PREFS_KEY, DEFAULT_PREFS,
   isProductionHost, PRODUCTION_HOSTS, API_OFF_REASONS,
+  // Confirmación del pedido. placeOrder sigue expuesto en window (los tests
+  // viejos lo llaman suelto); esto es el paso de resumen que lo precede.
+  confirmOrder, confirmDetailHTML, checkoutValid, paymentValid, fmtDate, redeem, closeModal,
+  subtotal, depositTotal, grandTotal, couponDiscount, rentalDays, renderSheet,
+  get modalOkLabel(){ return modalOk.textContent; },
+  get modalCancelHidden(){ return modalCancel.classList.contains("is-hidden"); },
+  get modalOpen(){ return modalOverlay.classList.contains("show"); },
+  get rentalStart(){ return rentalStart; },
+  get rentalEnd(){ return rentalEnd; },
 };
 `;
 
