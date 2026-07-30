@@ -131,6 +131,13 @@ globalThis.__APP__ = {
   get modalOkLabel(){ return modalOk.textContent; },
   get modalCancelHidden(){ return modalCancel.classList.contains("is-hidden"); },
   get modalOpen(){ return modalOverlay.classList.contains("show"); },
+  // Detalle desde imagen: pestaña apilada sobre el perfil.
+  openDetail, openSheet, closeSheet, closeStackSheet,
+  get sheetOpen(){ return sheet.classList.contains("show"); },
+  get sheetFull(){ return sheet.classList.contains("full"); },
+  get stackOpen(){ return sheetStack.classList.contains("show"); },
+  get stackedDetail(){ return stackedDetail; },
+  get detailId(){ return detailId; },
   // Calendario de tarifas.
   addDaysISO, monthOf, shiftMonth, monthLabel, monthGrid, dayMarginalCost,
   calVisibleMonth, calDayIndex, calDayCost, pickCalendarDay, shiftCalendar,

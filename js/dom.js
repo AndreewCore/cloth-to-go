@@ -26,6 +26,36 @@ const backBtn = document.getElementById("backBtn");
 function openSheet(){ overlay.classList.add("show"); sheet.classList.add("show"); }
 function closeSheet(){ overlay.classList.remove("show"); sheet.classList.remove("show"); }
 
+/* ---------------- Pestaña de detalle apilada ----------------
+   Segunda hoja, independiente del panel principal, para abrir el detalle de
+   una prenda POR ENCIMA de una vista a pantalla completa (el perfil). Al no
+   tocar el panel principal, el perfil conserva su scroll y su estado, y la
+   pestaña entra y sale con la misma animación que sobre el home. */
+const sheetStack = document.getElementById("sheetStack");
+const stackOverlay = document.getElementById("stackOverlay");
+const stackBody = document.getElementById("stackBody");
+const stackFoot = document.getElementById("stackFoot");
+
+/**
+ * Sube la pestaña apilada. Igual que openSheet(), solo muestra: quien llama
+ * ya dejó pintado el contenido. El panel de abajo pasa a `inert` porque el
+ * overlay solo detiene el ratón — sin esto el tabulador seguiría entrando en
+ * los botones del perfil, que quedan tapados pero activos.
+ */
+function openStackSheet(){
+  sheet.inert = true;
+  stackOverlay.classList.add("show");
+  sheetStack.classList.add("show");
+}
+
+/** Baja la pestaña apilada; la vista de abajo queda tal cual estaba. */
+function closeStackSheet(){
+  stackedDetail = false;
+  sheet.inert = false;
+  stackOverlay.classList.remove("show");
+  sheetStack.classList.remove("show");
+}
+
 /**
  * Desplaza el contenido del panel hasta un elemento suyo (por id).
  * No se usa scrollIntoView(): ese método desplaza TODOS los ancestros

@@ -57,6 +57,10 @@ let materialFilter = "Todos";        // filtro por material
 let sortBy = "default";              // ordenamiento del catálogo
 let view = "cart";                   // cart | checkout | done | detail | profile
 let detailId = null;
+// El detalle se está viendo en la pestaña apilada (sobre el perfil) y no en el
+// panel principal. Lo decide openDetail() y manda en dónde pinta renderDetail()
+// y a dónde vuelven sus botones. Efímero: no se persiste.
+let stackedDetail = false;
 let delivery = null;                 // 'ship' | 'pickup'  — cómo RECIBE el pedido
 let address = "";
 // Punto exacto elegido en el mapa ({lat,lng}) o null si solo hay texto.

@@ -36,7 +36,7 @@ const PROJECT_GLOBALS = [
   "MATERIAL_LABELS", "materialLabel", "MATERIAL_ORDER", "MATERIALS",
   // state.js
   "isoOffset", "cart", "orders", "profile", "activeCat", "searchQuery",
-  "qualityFilter", "sizeFilter", "materialFilter", "sortBy", "view", "detailId", "delivery", "address",
+  "qualityFilter", "sizeFilter", "materialFilter", "sortBy", "view", "detailId", "stackedDetail", "delivery", "address",
   "returnMethod", "returnAddress", "payMethod", "card", "appliedCoupon",
   "addressCoords", "returnAddressCoords",
   "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "lastWaterSaved", "lastWaterGoals", "lastOrder", "editingProfile",
@@ -60,6 +60,7 @@ const PROJECT_GLOBALS = [
   "grid", "noResults", "resultsBar", "filtersEl", "overlay", "sheet", "sheetBody",
   "sheetFoot", "sheetTitle", "searchInput", "loginEl", "greeting", "backBtn",
   "SHEET_BACK", "FULL_VIEWS", "openSheet", "closeSheet", "renderSheet", "scrollSheetTo", "updateBadge", "toastTimer", "toast",
+  "sheetStack", "stackOverlay", "stackBody", "stackFoot", "openStackSheet", "closeStackSheet",
   "modalOverlay", "modalText", "modalOk", "modalCancel", "onConfirmCb", "confirmDialog", "closeModal",
   // catalog.js
   "renderFilters", "sortProducts", "filteredProducts", "anyFilterActive", "clearFilters",
@@ -79,7 +80,7 @@ const PROJECT_GLOBALS = [
   "prefOptionsHTML", "prefToggleHTML", "renderSettings",
   "openDonate", "donateValid", "renderDonate", "submitDonation", "openWardrobe",
   // main.js
-  "enter",
+  "enter", "onSheetClick",
   // api.js
   "DEPLOYED_API", "LOCAL_API_PORT", "API_OVERRIDE_KEY", "API_OFF_REASONS",
   "PRODUCTION_HOSTS", "isProductionHost",
