@@ -27,18 +27,22 @@ document.getElementById("openProfile").onclick = ()=>{ editingOrder=null; editin
 document.getElementById("openCart").onclick = ()=>{ view="cart"; renderSheet(); openSheet(); };
 // Botón "Filtros" del header: abre el panel de calidad/talla/material.
 document.getElementById("openFilters").onclick = ()=>{ view="filters"; renderSheet(); openSheet(); };
-// Interruptor de tema. Va en el header y no dentro de ajustes porque cambiar de
-// claro a oscuro es algo que se hace a diario (al anochecer), no una vez.
-document.getElementById("toggleTheme").onclick = ()=>{
-  toggleTheme();
-  // Si los ajustes están abiertos, sus botones deben reflejar el cambio.
-  if(view === "settings") renderSheet();
-};
+// Preferencias: el engranaje del header es ahora el ÚNICO acceso al tema.
+// Antes estaba enterrado en el perfil, donde no se encontraba, y convivía con
+// un interruptor suelto de claro/oscuro aquí arriba. Se retiró ese interruptor:
+// un cuarto icono saturaba la cabecera, y el tema vive dentro de Preferencias.
+document.getElementById("openPrefs").onclick = ()=>{ view="settings"; renderSheet(); openSheet(); };
 document.getElementById("closeSheet").onclick = closeSheet;
 overlay.onclick = closeSheet;
 
-// Botón "atrás": vuelve al paso anterior del flujo (ver SHEET_BACK).
-backBtn.onclick = ()=>{ const prev = SHEET_BACK[view]; if(prev){ view = prev; renderSheet(); } };
+// Botón "atrás": vuelve al paso anterior del flujo (ver SHEET_BACK). En las
+// vistas a pantalla completa sin paso previo (el perfil) hace de salida: no
+// tendría sentido mostrar una flecha que no lleva a ningún sitio.
+backBtn.onclick = ()=>{
+  const prev = SHEET_BACK[view];
+  if(prev){ view = prev; renderSheet(); }
+  else closeSheet();
+};
 
 // Modal de confirmación in-app
 modalOk.onclick = ()=>{ const cb = onConfirmCb; closeModal(); if(cb) cb(); };
@@ -129,11 +133,12 @@ sheet.addEventListener("click", e=>{
     case "calPrev":        shiftCalendar(-1); break;
     case "calNext":        shiftCalendar(1); break;
     case "openRewards":    view="rewards"; renderSheet(); break;
+    case "waterGoalInfo":  toggleWaterGoalInfo(+el.dataset.id); break;
     case "redeem":         redeem(+el.dataset.id); break;
     case "openDonate":     openDonate(); break;
     case "openWardrobe":   openWardrobe(); break;
     case "openSettings":   view="settings"; renderSheet(); break;
-    case "setPref":        setPref(el.dataset.pref, el.dataset.value); renderSheet(); renderThemeButton(); break;
+    case "setPref":        setPref(el.dataset.pref, el.dataset.value); renderSheet(); break;
     // Los booleanos leen su estado del DOM (aria-checked) en vez de recalcularlo:
     // el botón ya es la fuente de verdad de lo que el usuario está viendo.
     case "togglePref":     setPref(el.dataset.pref, el.getAttribute("aria-checked") !== "true"); renderSheet(); break;
@@ -212,8 +217,6 @@ sheet.addEventListener("keydown", e=>{
 /* ---------------- Init ---------------- */
 // Antes de cualquier render: decide si el botón del mapa se ofrece en esta carga.
 adoptMapsKeyFromUrl();
-// El tema ya se aplicó al cargar prefs.js; falta pintar el icono del botón.
-renderThemeButton();
 // Acompaña el cambio automático de tema del sistema mientras esté en "auto".
 watchSystemTheme();
 renderFilters();

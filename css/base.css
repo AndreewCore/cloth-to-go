@@ -218,4 +218,6 @@ body {
   header { padding-top: calc(14px + env(safe-area-inset-top, 0px)); }
   /* Respeta el indicador de inicio en el pie del panel (iPhone sin botón físico). */
   .sheet-foot { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+  /* Sin muesca del mockup, la ventana completa solo necesita el área segura real. */
+  .sheet.full .sheet-head { padding-top: calc(16px + env(safe-area-inset-top, 0px)); }
 }

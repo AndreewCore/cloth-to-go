@@ -17,7 +17,7 @@ const PROJECT_GLOBALS = [
   // prefs.js
   "PREFS_KEY", "DEFAULT_PREFS", "TEXT_SCALES", "prefs", "loadPrefs", "savePrefs",
   "systemPrefersDark", "effectiveTheme", "shouldReduceMotion", "applyPrefs",
-  "getPrefs", "setPref", "toggleTheme", "renderThemeButton", "watchSystemTheme",
+  "getPrefs", "setPref", "toggleTheme", "watchSystemTheme",
   // data.js
   "LOCAL", "SHIPPING_FEE", "LATE_GRACE_DAYS", "LATE_PENALTY",
   "LAUNDRY_BY_MATERIAL", "OVERHEAD_PER_CYCLE", "CYCLES_PER_STAR", "MIN_MARGIN",
@@ -32,13 +32,14 @@ const PROJECT_GLOBALS = [
   "isValidEmail", "isValidPhone", "isValidName", "isValidAddress",
   "isValidCardNumber", "isValidExpiry", "isValidCvv",
   "WATER_PER_KG", "LITERS_PER_GALLON", "garmentWater", "litersToGallons", "fmtLiters",
+  "WATER_GOALS",
   "MATERIAL_LABELS", "materialLabel", "MATERIAL_ORDER", "MATERIALS",
   // state.js
   "isoOffset", "cart", "orders", "profile", "activeCat", "searchQuery",
   "qualityFilter", "sizeFilter", "materialFilter", "sortBy", "view", "detailId", "delivery", "address",
   "returnMethod", "returnAddress", "payMethod", "card", "appliedCoupon",
   "addressCoords", "returnAddressCoords",
-  "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "lastWaterSaved", "lastOrder", "editingProfile",
+  "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "lastWaterSaved", "lastWaterGoals", "lastOrder", "editingProfile",
   "donName", "donMethod", "donAddr", "donDate",
   "rentalStart", "rentalEnd", "calMonth", "calPendingStart",
   "subtotalForDays", "dayMarginalCost",
@@ -48,6 +49,8 @@ const PROJECT_GLOBALS = [
   "couponById", "availableCoupons", "nextCouponId", "cartRewardCtx",
   "couponDiscount", "couponIssue", "orderDiscount",
   "waterSavedForItems", "cartWaterSaved", "totalWaterSaved",
+  "reachedWaterGoals", "nextWaterGoal", "waterGoalProgress", "creditWaterGoals",
+  "toggleWaterGoalInfo", "celebrateWaterGoals",
   "orderItemsSubtotal", "orderDeposit", "orderTotal", "paymentStatusLabel", "isArchivedOrder",
   "isCancelledOrder", "isPastOrder", "canCancelOrder", "isDelivered",
   "creditDeliveredPoints", "revokeOrderPoints", "nextOrderId",
@@ -56,7 +59,7 @@ const PROJECT_GLOBALS = [
   // dom.js
   "grid", "noResults", "resultsBar", "filtersEl", "overlay", "sheet", "sheetBody",
   "sheetFoot", "sheetTitle", "searchInput", "loginEl", "greeting", "backBtn",
-  "SHEET_BACK", "openSheet", "closeSheet", "renderSheet", "scrollSheetTo", "updateBadge", "toastTimer", "toast",
+  "SHEET_BACK", "FULL_VIEWS", "openSheet", "closeSheet", "renderSheet", "scrollSheetTo", "updateBadge", "toastTimer", "toast",
   "modalOverlay", "modalText", "modalOk", "modalCancel", "onConfirmCb", "confirmDialog", "closeModal",
   // catalog.js
   "renderFilters", "sortProducts", "filteredProducts", "anyFilterActive", "clearFilters",
@@ -70,7 +73,7 @@ const PROJECT_GLOBALS = [
   "confirmItemsHTML", "confirmDetailHTML", "confirmOrder",
   "resetCheckoutState", "finishOrder", "goToOrders",
   // profile.js
-  "renderProfile", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
+  "renderProfile", "waterGoalHTML", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
   "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn", "cancelOrder",
   "renderRewards", "couponListHTML", "redeem",
   "prefOptionsHTML", "prefToggleHTML", "renderSettings",

@@ -118,28 +118,15 @@ function renderProfile(){
       <span class="pc-cta">Canjear ${icon("arrowRight", { size: 15 })}</span>
     </button>
 
-    <div class="water-stat" aria-label="Agua ahorrada">
-      <span class="ws-icon">${icon("droplet", { size: 24 })}</span>
-      <div class="ws-text">
-        <div class="ws-label">Agua ahorrada reutilizando ropa</div>
-        <div class="ws-value">~${fmtLiters(totalWaterSaved())} <span>litros</span></div>
-      </div>
-    </div>
+    ${waterGoalHTML()}
+
+    <div class="section-label">Acciones</div>
 
     <button class="donate-card" data-action="openDonate" aria-label="Donar ropa por puntos">
       <span class="dc-icon">${icon("recycle", { size: 24 })}</span>
       <div class="dc-text">
         <div class="dc-title">Dona ropa y gana puntos</div>
         <div class="dc-desc">Entrega prendas que no uses. Los puntos se asignan al recibirlas.</div>
-      </div>
-      <span class="dc-cta">${icon("arrowRight", { size: 16 })}</span>
-    </button>
-
-    <button class="donate-card settings-card" data-action="openSettings" aria-label="Ajustes de accesibilidad y tema">
-      <span class="dc-icon ico-violet">${icon("accessibility", { size: 24 })}</span>
-      <div class="dc-text">
-        <div class="dc-title">Accesibilidad y tema</div>
-        <div class="dc-desc">Tamaño del texto, contraste, animaciones y modo oscuro.</div>
       </div>
       <span class="dc-cta">${icon("arrowRight", { size: 16 })}</span>
     </button>
@@ -152,6 +139,23 @@ function renderProfile(){
       </div>
       <span class="dc-cta">${icon("arrowRight", { size: 16 })}</span>
     </button>
+
+    <div class="section-label" id="misPedidos">Mis pedidos</div>
+    ${activeOrders.length
+      ? activeOrders.map(pair => orderCardHTML(pair, false)).join("")
+      : `<div class="empty" style="padding:30px 20px"><div class="em">${icon("shirt", { size: 34 })}</div><p>No tienes pedidos activos.<br>Alquila algo del catálogo.</p></div>`}
+
+    ${archivedOrders.length ? `
+    <details class="past-orders-section">
+      <summary class="past-orders-toggle">
+        <span>Alquileres anteriores</span>
+        <span class="past-count">${archivedOrders.length}</span>
+      </summary>
+      <div class="past-orders-body">
+        ${archivedOrders.map(pair => orderCardHTML(pair, true)).join("")}
+      </div>
+    </details>
+    ` : ""}
 
     <div class="section-label">Información de contacto</div>
     ${editingProfile ? `
@@ -181,25 +185,85 @@ function renderProfile(){
       <button class="edit-info-btn" data-action="editProfile">${icon("pencil", { size: 15 })} Modificar información</button>
     </div>
     `}
-
-    <div class="section-label" id="misPedidos">Mis pedidos</div>
-    ${activeOrders.length
-      ? activeOrders.map(pair => orderCardHTML(pair, false)).join("")
-      : `<div class="empty" style="padding:30px 20px"><div class="em">${icon("shirt", { size: 34 })}</div><p>No tienes pedidos activos.<br>Alquila algo del catálogo.</p></div>`}
-
-    ${archivedOrders.length ? `
-    <details class="past-orders-section">
-      <summary class="past-orders-toggle">
-        <span>Alquileres anteriores</span>
-        <span class="past-count">${archivedOrders.length}</span>
-      </summary>
-      <div class="past-orders-body">
-        ${archivedOrders.map(pair => orderCardHTML(pair, true)).join("")}
-      </div>
-    </details>
-    ` : ""}
   `;
   sheetFoot.innerHTML = "";
+}
+
+/* ---- Indicador de ahorro de agua ----
+   Antes era una tarjeta con un número suelto: parecía pulsable sin serlo, y el
+   número no decía si estaba bien o mal. Ahora es UNA barra con todas las metas
+   como marcadores pulsables: el detalle de cada meta (nombre, litros, puntos)
+   solo aparece al tocar su marcador, para no saturar la tarjeta. Los puntos
+   los acredita creditWaterGoals() (state.js), no esta vista. */
+
+// Meta cuyo detalle está desplegado (id), o null. Estado efímero de la vista:
+// no se persiste ni sobrevive a la sesión.
+let selectedWaterGoalId = null;
+
+/** Muestra/oculta el detalle de una meta al tocar su marcador. */
+function toggleWaterGoalInfo(id){
+  selectedWaterGoalId = selectedWaterGoalId === id ? null : id;
+  renderSheet();
+}
+
+/** Barra de progreso única con marcadores de meta pulsables. */
+function waterGoalHTML(){
+  const litros = totalWaterSaved();
+  const meta = nextWaterGoal();
+  const logradas = reachedWaterGoals();
+  const n = WATER_GOALS.length;
+  /* La barra reparte las metas en tramos IGUALES (no proporcionales a litros):
+     con escala lineal la primera meta caería en el 5% y los marcadores se
+     amontonarían al inicio. El avance dentro del tramo lo da
+     waterGoalProgress(), que ya mide desde la meta anterior. */
+  const pct = meta
+    ? Math.round(((logradas.length + waterGoalProgress()) / n) * 100)
+    : 100;
+
+  const marks = WATER_GOALS.map((g, i) => {
+    const hecha = logradas.some(x => x.id === g.id);
+    const activa = selectedWaterGoalId === g.id;
+    const left = ((i + 1) / n) * 100;
+    return `<button type="button" class="wg-mark${hecha ? " done" : ""}${activa ? " active" : ""}"
+      style="left:${left}%" data-action="waterGoalInfo" data-id="${g.id}"
+      aria-expanded="${activa}"
+      aria-label="Meta ${escapeHTML(g.name)}: ${fmtLiters(g.liters)} litros, ${g.points} puntos${hecha ? ", conseguida" : ""}">
+      ${hecha ? icon("check", { size: 9 }) : ""}
+    </button>`;
+  }).join("");
+
+  const sel = WATER_GOALS.find(g => g.id === selectedWaterGoalId);
+  let info = "";
+  if(sel){
+    const hecha = logradas.some(x => x.id === sel.id);
+    const estado = hecha
+      ? `Conseguida · <b>+${sel.points} pts</b> acreditados`
+      : `Te faltan <b>${fmtLiters(sel.liters - litros)} L</b> · premia <b>+${sel.points} pts</b>`;
+    info = `<div class="wg-goal-info${hecha ? " done" : ""}">
+      <span class="wgi-ico">${icon(hecha ? "award" : "droplet", { size: 14 })}</span>
+      <span><b>${escapeHTML(sel.name)}</b> · ${fmtLiters(sel.liters)} L<br>${estado}</span>
+    </div>`;
+  }
+
+  return `
+    <div class="water-goal" aria-label="Agua ahorrada y metas">
+      <div class="wg-head">
+        <span class="wg-icon">${icon("droplet", { size: 22 })}</span>
+        <div class="wg-titles">
+          <div class="wg-label">Agua ahorrada reutilizando ropa</div>
+          <div class="wg-value">~${fmtLiters(litros)} <span>litros</span></div>
+        </div>
+        <span class="wg-next">${fmtLiters(WATER_GOALS[n - 1].liters)} L</span>
+      </div>
+      <div class="wg-track">
+        <div class="wg-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"
+             aria-label="Progreso de ahorro de agua sobre todas las metas">
+          <span class="wg-fill" style="width:${pct}%"></span>
+        </div>
+        ${marks}
+      </div>
+      ${info}
+    </div>`;
 }
 
 /* ---- Acciones del perfil (invocadas por la delegación en main.js) ---- */
