@@ -84,8 +84,16 @@ test("starStr: llenas + vacías, siempre 5 símbolos", () => {
 
 test("conditionLabel: etiqueta de desgaste por estrellas", () => {
   assert.equal(A.conditionLabel(5), "Como nuevo");
-  assert.equal(A.conditionLabel(1), "Muy usado");
+  assert.equal(A.conditionLabel(1), "Muy vivida");
   assert.equal(A.conditionLabel(9), ""); // fuera de rango → vacío
+});
+
+test("conditionLabel: la escala completa evita el vocabulario de segunda mano", () => {
+  // Las cinco etiquetas hablan del estado de la prenda, no de que venga usada.
+  for (let s = 1; s <= 5; s++) {
+    assert.doesNotMatch(A.conditionLabel(s), /usad[oa]|segunda mano/i);
+    assert.notEqual(A.conditionLabel(s), "", `${s}★ debe tener etiqueta`);
+  }
 });
 
 test("materialLabel: nombre legible, pasa el original si es desconocido", () => {

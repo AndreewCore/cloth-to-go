@@ -57,7 +57,8 @@ function renderProfile(){
 
       ${o.items.map(id => { const p = productById(id); return `
         <div class="order-item">
-          <div class="ci-thumb">${imgPlaceholder(p)}</div>
+          <div class="ci-thumb" data-action="openDetail" data-id="${p.id}"
+               role="button" tabindex="0" aria-label="Ver detalle de ${escapeHTML(p.name)}">${imgPlaceholder(p)}</div>
           <div class="oi-info">
             <div class="oi-name">${escapeHTML(p.name)}</div>
             <div class="oi-meta">Talla ${escapeHTML(p.size)} · $${rentalPrice(p, days, o.items.length).toFixed(2)}</div>
@@ -80,6 +81,8 @@ function renderProfile(){
       ${!archived ? `
         ${!o.pointsCredited ? `
           <div class="points-pending">${icon("sprout", { size: 14 })} Ganarás ${o.points} pts cuando recibas tus prendas</div>` : ""}
+        <div class="water-pending">${icon("droplet", { size: 14 })} ${o.pointsCredited ? "Ahorraste" : "Ahorrarás"}
+          <b>${fmtLiters(waterSavedForItems(o.items))} L</b> de agua${o.pointsCredited ? "" : ", que sumarán a tus metas"}</div>
         <button class="ret-edit" data-action="editReturn" data-idx="${i}">${icon("pencil", { size: 14 })} Cambiar modo de devolución</button>
         ${editingOrder === i ? returnEditorHTML(i) : ""}
         ${canCancelOrder(o) ? `
@@ -118,13 +121,9 @@ function renderProfile(){
       <span class="pc-cta">Canjear ${icon("arrowRight", { size: 15 })}</span>
     </button>
 
-    <div class="water-stat" aria-label="Agua ahorrada">
-      <span class="ws-icon">${icon("droplet", { size: 24 })}</span>
-      <div class="ws-text">
-        <div class="ws-label">Agua ahorrada reutilizando ropa</div>
-        <div class="ws-value">~${fmtLiters(totalWaterSaved())} <span>litros</span></div>
-      </div>
-    </div>
+    ${waterGoalHTML()}
+
+    <div class="section-label">Acciones</div>
 
     <button class="donate-card" data-action="openDonate" aria-label="Donar ropa por puntos">
       <span class="dc-icon">${icon("recycle", { size: 24 })}</span>
@@ -143,6 +142,23 @@ function renderProfile(){
       </div>
       <span class="dc-cta">${icon("arrowRight", { size: 16 })}</span>
     </button>
+
+    <div class="section-label" id="misPedidos">Mis pedidos</div>
+    ${activeOrders.length
+      ? activeOrders.map(pair => orderCardHTML(pair, false)).join("")
+      : `<div class="empty" style="padding:30px 20px"><div class="em">${icon("shirt", { size: 34 })}</div><p>No tienes pedidos activos.<br>Alquila algo del catálogo.</p></div>`}
+
+    ${archivedOrders.length ? `
+    <details class="past-orders-section">
+      <summary class="past-orders-toggle">
+        <span>Alquileres anteriores</span>
+        <span class="past-count">${archivedOrders.length}</span>
+      </summary>
+      <div class="past-orders-body">
+        ${archivedOrders.map(pair => orderCardHTML(pair, true)).join("")}
+      </div>
+    </details>
+    ` : ""}
 
     <div class="section-label">Información de contacto</div>
     ${editingProfile ? `
@@ -172,25 +188,85 @@ function renderProfile(){
       <button class="edit-info-btn" data-action="editProfile">${icon("pencil", { size: 15 })} Modificar información</button>
     </div>
     `}
-
-    <div class="section-label" id="misPedidos">Mis pedidos</div>
-    ${activeOrders.length
-      ? activeOrders.map(pair => orderCardHTML(pair, false)).join("")
-      : `<div class="empty" style="padding:30px 20px"><div class="em">${icon("shirt", { size: 34 })}</div><p>No tienes pedidos activos.<br>Alquila algo del catálogo.</p></div>`}
-
-    ${archivedOrders.length ? `
-    <details class="past-orders-section">
-      <summary class="past-orders-toggle">
-        <span>Alquileres anteriores</span>
-        <span class="past-count">${archivedOrders.length}</span>
-      </summary>
-      <div class="past-orders-body">
-        ${archivedOrders.map(pair => orderCardHTML(pair, true)).join("")}
-      </div>
-    </details>
-    ` : ""}
   `;
   sheetFoot.innerHTML = "";
+}
+
+/* ---- Indicador de ahorro de agua ----
+   Antes era una tarjeta con un número suelto: parecía pulsable sin serlo, y el
+   número no decía si estaba bien o mal. Ahora es UNA barra con todas las metas
+   como marcadores pulsables: el detalle de cada meta (nombre, litros, puntos)
+   solo aparece al tocar su marcador, para no saturar la tarjeta. Los puntos
+   los acredita creditWaterGoals() (state.js), no esta vista. */
+
+// Meta cuyo detalle está desplegado (id), o null. Estado efímero de la vista:
+// no se persiste ni sobrevive a la sesión.
+let selectedWaterGoalId = null;
+
+/** Muestra/oculta el detalle de una meta al tocar su marcador. */
+function toggleWaterGoalInfo(id){
+  selectedWaterGoalId = selectedWaterGoalId === id ? null : id;
+  renderSheet();
+}
+
+/** Barra de progreso única con marcadores de meta pulsables. */
+function waterGoalHTML(){
+  const litros = totalWaterSaved();
+  const meta = nextWaterGoal();
+  const logradas = reachedWaterGoals();
+  const n = WATER_GOALS.length;
+  /* La barra reparte las metas en tramos IGUALES (no proporcionales a litros):
+     con escala lineal la primera meta caería en el 5% y los marcadores se
+     amontonarían al inicio. El avance dentro del tramo lo da
+     waterGoalProgress(), que ya mide desde la meta anterior. */
+  const pct = meta
+    ? Math.round(((logradas.length + waterGoalProgress()) / n) * 100)
+    : 100;
+
+  const marks = WATER_GOALS.map((g, i) => {
+    const hecha = logradas.some(x => x.id === g.id);
+    const activa = selectedWaterGoalId === g.id;
+    const left = ((i + 1) / n) * 100;
+    return `<button type="button" class="wg-mark${hecha ? " done" : ""}${activa ? " active" : ""}"
+      style="left:${left}%" data-action="waterGoalInfo" data-id="${g.id}"
+      aria-expanded="${activa}"
+      aria-label="Meta ${escapeHTML(g.name)}: ${fmtLiters(g.liters)} litros, ${g.points} puntos${hecha ? ", conseguida" : ""}">
+      ${hecha ? icon("check", { size: 9 }) : ""}
+    </button>`;
+  }).join("");
+
+  const sel = WATER_GOALS.find(g => g.id === selectedWaterGoalId);
+  let info = "";
+  if(sel){
+    const hecha = logradas.some(x => x.id === sel.id);
+    const estado = hecha
+      ? `Conseguida · <b>+${sel.points} pts</b> acreditados`
+      : `Te faltan <b>${fmtLiters(sel.liters - litros)} L</b> · premia <b>+${sel.points} pts</b>`;
+    info = `<div class="wg-goal-info${hecha ? " done" : ""}">
+      <span class="wgi-ico">${icon(hecha ? "award" : "droplet", { size: 14 })}</span>
+      <span><b>${escapeHTML(sel.name)}</b> · ${fmtLiters(sel.liters)} L<br>${estado}</span>
+    </div>`;
+  }
+
+  return `
+    <div class="water-goal" aria-label="Agua ahorrada y metas">
+      <div class="wg-head">
+        <span class="wg-icon">${icon("droplet", { size: 22 })}</span>
+        <div class="wg-titles">
+          <div class="wg-label">Agua ahorrada reutilizando ropa</div>
+          <div class="wg-value">~${fmtLiters(litros)} <span>litros</span></div>
+        </div>
+        <span class="wg-next">${fmtLiters(WATER_GOALS[n - 1].liters)} L</span>
+      </div>
+      <div class="wg-track">
+        <div class="wg-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"
+             aria-label="Progreso de ahorro de agua sobre todas las metas">
+          <span class="wg-fill" style="width:${pct}%"></span>
+        </div>
+        ${marks}
+      </div>
+      ${info}
+    </div>`;
 }
 
 /* ---- Acciones del perfil (invocadas por la delegación en main.js) ---- */
@@ -572,4 +648,95 @@ function submitDonation(){
   donName = ""; donMethod = null; donAddr = ""; donDate = "";
   renderDonate();
   toast("Solicitud de donación enviada");
+}
+
+/* ---- Ajustes de accesibilidad y tema ----
+   Viven en su propia vista y no en el perfil porque no son datos de la cuenta:
+   son del dispositivo (ver prefs.js). Quien entra como invitado también los
+   necesita, y su sesión no guarda nada. */
+
+/**
+ * Grupo de opciones excluyentes, con la activa marcada.
+ * @param {string} pref Clave de prefs a la que pertenece el grupo.
+ * @param {string} actual Valor activo.
+ * @param {Array<[string,string]>} opciones Pares [valor, etiqueta].
+ * @returns {string} HTML.
+ */
+function prefOptionsHTML(pref, actual, opciones){
+  return `
+    <div class="pref-opts" role="group">
+      ${opciones.map(([valor, etiqueta]) => `
+        <button class="pref-opt${valor === actual ? " active" : ""}"
+                data-action="setPref" data-pref="${pref}" data-value="${valor}"
+                aria-pressed="${valor === actual}">${etiqueta}</button>`).join("")}
+    </div>`;
+}
+
+/**
+ * Interruptor de una preferencia booleana.
+ * @param {string} pref Clave de prefs.
+ * @param {boolean} activo Estado actual.
+ * @returns {string} HTML.
+ */
+function prefToggleHTML(pref, activo){
+  return `
+    <button class="pref-switch${activo ? " on" : ""}"
+            data-action="togglePref" data-pref="${pref}"
+            role="switch" aria-checked="${activo}">
+      <span class="ps-knob"></span>
+    </button>`;
+}
+
+/** Vista de ajustes: tema, tamaño de texto, animaciones y contraste. */
+function renderSettings(){
+  sheetTitle.textContent = "Ajustes";
+  const p = getPrefs();
+  sheetBody.innerHTML = `
+    <p class="settings-intro">Estos ajustes se guardan en este dispositivo y se
+    mantienen aunque cierres sesión.</p>
+
+    <div class="pref-row">
+      <div class="pref-head">
+        <span class="pref-icon ico-violet">${icon("moon", { size: 20 })}</span>
+        <div>
+          <div class="pref-name">Tema</div>
+          <div class="pref-desc">"Automático" sigue al de tu sistema.</div>
+        </div>
+      </div>
+      ${prefOptionsHTML("theme", p.theme, [["auto","Automático"],["light","Claro"],["dark","Oscuro"]])}
+    </div>
+
+    <div class="pref-row">
+      <div class="pref-head">
+        <span class="pref-icon ico-sky">${icon("textSize", { size: 20 })}</span>
+        <div>
+          <div class="pref-name">Tamaño del texto</div>
+          <div class="pref-desc">Amplía también los espacios, no solo la letra.</div>
+        </div>
+      </div>
+      ${prefOptionsHTML("textSize", p.textSize, [["normal","Normal"],["grande","Grande"],["mayor","Mayor"]])}
+    </div>
+
+    <div class="pref-row">
+      <div class="pref-head">
+        <span class="pref-icon ico-gold">${icon("motion", { size: 20 })}</span>
+        <div>
+          <div class="pref-name">Reducir animaciones</div>
+          <div class="pref-desc">Quita transiciones y desplazamientos suaves.</div>
+        </div>
+        ${prefToggleHTML("reduceMotion", p.reduceMotion)}
+      </div>
+    </div>
+
+    <div class="pref-row">
+      <div class="pref-head">
+        <span class="pref-icon ico-teal">${icon("contrast", { size: 20 })}</span>
+        <div>
+          <div class="pref-name">Contraste alto</div>
+          <div class="pref-desc">Refuerza textos secundarios y bordes.</div>
+        </div>
+        ${prefToggleHTML("highContrast", p.highContrast)}
+      </div>
+    </div>`;
+  sheetFoot.innerHTML = "";
 }

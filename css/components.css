@@ -77,7 +77,9 @@ header {
   position: absolute;
   top: -6px; right: -6px;
   background: var(--danger);
-  color: #fff;
+  /* --bg invierte bien en ambos temas: en oscuro --danger es un salmón claro
+     sobre el que el blanco no se leía. */
+  color: var(--bg);
   font-size: 11px;
   font-weight: 700;
   min-width: 20px; height: 20px;
@@ -114,7 +116,7 @@ header {
 .filter-toggle:active { transform: scale(.98); }
 .filter-count {
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 11px;
   font-weight: 800;
   min-width: 18px; height: 18px;
@@ -168,9 +170,12 @@ header {
   white-space: nowrap;
   font-weight: 600;
 }
+/* Inversión real: en claro queda oscuro con texto claro y en oscuro al revés,
+   sin necesidad de una regla por tema. Antes era #fff fijo y en oscuro
+   resultaba texto blanco sobre fondo claro. */
 .chip.active {
   background: var(--ink);
-  color: #fff;
+  color: var(--bg);
   border-color: var(--ink);
 }
 
@@ -267,7 +272,9 @@ main::-webkit-scrollbar { display: none; }
   padding: 3px 7px;
   font-size: 10px;
   font-weight: 700;
-  color: var(--ink);
+  /* Tinta fija, no var(--ink): la pastilla es blanca en ambos temas (va sobre
+     la foto), y en oscuro --ink se vuelve clara → texto invisible. */
+  color: #23301f;
 }
 .size-tag {
   position: absolute;
@@ -324,8 +331,8 @@ main::-webkit-scrollbar { display: none; }
   box-shadow: none;
 }
 .add-btn:disabled {
-  background: #e6e1d8;
-  color: var(--muted);
+  background: var(--disabled-bg);
+  color: var(--disabled-ink);
   box-shadow: none;
   cursor: not-allowed;
 }
@@ -355,6 +362,21 @@ main::-webkit-scrollbar { display: none; }
   flex-direction: column;
 }
 .sheet.show { transform: translateY(0); }
+/* Ventana completa (perfil y derivadas): ocupa todo, sin esquinas redondeadas
+   ni asa, porque ya no es un panel que asoma sino una pantalla en la que uno
+   se queda. Ver FULL_VIEWS en dom.js. */
+.sheet.full { max-height: 100%; top: 0; border-radius: 0; }
+.sheet.full .grip { display: none; }
+/* Con top:0 el encabezado quedaría debajo de la muesca del mockup (26px,
+   z-index 60): se baja el título para que no lo tape. */
+.sheet.full .sheet-head { padding-top: 36px; }
+/* Pestaña de detalle apilada: sube por encima del panel principal (50) con su
+   propio overlay, que atenúa el perfil igual que el overlay base atenúa el
+   home. Ver openStackSheet() en dom.js. Los selectores llevan la clase base
+   (.overlay/.sheet) para ganar por especificidad y no por orden en el archivo:
+   si no, mover este bloque devolvería el overlay a su z-index de siempre. */
+.overlay.stack-overlay { z-index: 52; }
+.sheet.stack { z-index: 55; }
 .sheet-head {
   padding: 16px 20px 10px;
   border-bottom: 1px solid var(--line);
@@ -365,7 +387,7 @@ main::-webkit-scrollbar { display: none; }
 .sheet-head h2 { margin: 0; font-size: 18px; }
 .grip {
   width: 40px; height: 4px;
-  background: #d7d0c5;
+  background: var(--grip);
   border-radius: 4px;
   margin: 8px auto 0;
 }
@@ -402,6 +424,10 @@ main::-webkit-scrollbar { display: none; }
 .ci-thumb { width: 50px; height: 50px; border-radius: 10px; position: relative; overflow: hidden; flex: 0 0 auto; }
 .ci-thumb .img-ph svg { width: 18px; height: 18px; }
 .ci-thumb .img-ph .ph-txt { display: none; }
+/* Miniaturas que abren el detalle de la prenda (pedidos del perfil). El propio
+   data-action las distingue de las del carrito, que solo ilustran. */
+.ci-thumb[data-action] { cursor: pointer; }
+.ci-thumb[data-action]:active { transform: scale(.96); }
 .ci-info { flex: 1; min-width: 0; }
 .ci-name { font-size: 14px; font-weight: 700; }
 .ci-meta { font-size: 11px; color: var(--muted); }
@@ -451,7 +477,7 @@ main::-webkit-scrollbar { display: none; }
 .do-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
 .do-radio {
   width: 20px; height: 20px; border-radius: 50%;
-  border: 2px solid #cfc8bd; flex: 0 0 auto; margin-top: 2px;
+  border: 2px solid var(--radio-line); flex: 0 0 auto; margin-top: 2px;
   display: grid; place-items: center;
 }
 .delivery-opt.active .do-radio { border-color: var(--accent); }
@@ -505,7 +531,7 @@ main::-webkit-scrollbar { display: none; }
   cursor: pointer;
   box-shadow: 0 6px 16px var(--cta-glow);
 }
-.pay-btn:disabled { background: #c9bfb2; box-shadow: none; cursor: not-allowed; }
+.pay-btn:disabled { background: var(--disabled-bg); color: var(--disabled-ink); box-shadow: none; cursor: not-allowed; }
 .pay-btn:active:not(:disabled) { transform: scale(.99); }
 /* Acceso directo a "Mis pedidos" desde la confirmación (acción principal). */
 .pay-btn.ver-pedidos { margin-top: 18px; }
@@ -529,7 +555,7 @@ main::-webkit-scrollbar { display: none; }
   left: 50%;
   transform: translateX(-50%) translateY(80px);
   background: var(--ink);
-  color: #fff;
+  color: var(--bg);
   padding: 11px 20px;
   border-radius: 30px;
   font-size: 13px;
@@ -576,7 +602,7 @@ main::-webkit-scrollbar { display: none; }
   line-height: 1; color: var(--accent);
   background: var(--accent-soft); border-radius: 50%;
 }
-.modal-icon.danger { background: #fbeee8; color: var(--danger); }
+.modal-icon.danger { background: var(--danger-soft); color: var(--danger); }
 .modal-icon.tone-brown { background: #f0e7de; color: var(--ico-brown); }
 .modal-title {
   margin: 0 0 6px; text-align: center;
@@ -615,6 +641,53 @@ main::-webkit-scrollbar { display: none; }
 /* Miniaturas de las prendas del pedido dentro del modal. */
 .md-thumbs { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; padding: 4px 0 10px; }
 
+/* ---- Resumen de confirmación del pedido ----
+   Va dentro de .modal-detail, así que hereda su fondo y su caja. El depósito se
+   separa de "Pagas ahora" y se repite abajo en verde: el total se lee caro
+   porque lo incluye, y este es el último punto donde el cliente puede
+   arrepentirse. */
+.order-confirm { text-align: left; }
+.oc-dates {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: 13px; color: var(--ink); padding-bottom: 8px;
+}
+.oc-days {
+  margin-left: auto; font-size: 11px; font-weight: 700;
+  background: var(--accent-soft); color: var(--accent);
+  border-radius: 999px; padding: 2px 8px;
+}
+.oc-items { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.oc-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; font-size: 12px;
+}
+.oc-item + .oc-item { border-top: 1px solid var(--line); }
+/* La miniatura reusa .img-ph de imgPlaceholder(): se le fija caja y recorte
+   aquí porque en la tarjeta del catálogo la hereda del contenedor. */
+.oc-thumb {
+  position: relative; flex: 0 0 auto; width: 34px; height: 34px;
+  border-radius: 8px; overflow: hidden; background: var(--accent-soft);
+}
+.oc-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.oc-thumb .img-ph { position: absolute; inset: 0; }
+.oc-thumb .ph-txt { display: none; }   /* no cabe en 34px: solo el icono */
+.oc-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oc-price { flex: 0 0 auto; font-weight: 700; }
+.oc-rows { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 2px; }
+.oc-row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: 12px; }
+.oc-row span:first-child { color: var(--muted); }
+.oc-row.discount span:last-child { color: var(--ok); font-weight: 700; }
+.oc-row.pay {
+  border-top: 1px solid var(--line); margin-top: 4px; padding-top: 7px;
+  font-size: 14px; font-weight: 800;
+}
+.oc-row.pay span:first-child { color: var(--ink); }
+.oc-refund {
+  display: flex; align-items: center; gap: 6px; margin-top: 10px;
+  background: var(--accent-soft); color: var(--accent);
+  border-radius: 10px; padding: 8px 10px; font-size: 11px; font-weight: 600;
+}
+
 /* Oculta partes opcionales sin usar style.display inline, que rompería el
    layout (flex/grid) que cada una define en su propia regla. */
 .is-hidden { display: none !important; }
@@ -626,7 +699,7 @@ main::-webkit-scrollbar { display: none; }
   transition: filter .15s;
 }
 .modal-btn.cancel { background: var(--accent-soft); color: var(--accent); }
-.modal-btn.ok { background: var(--accent); color: #fff; }
+.modal-btn.ok { background: var(--accent); color: var(--on-accent); }
 .modal-btn.ok.danger { background: var(--danger); }
 .modal-btn:hover { filter: brightness(1.06); }
 .modal-btn:active { transform: scale(.98); }
@@ -636,7 +709,7 @@ main::-webkit-scrollbar { display: none; }
   position: absolute;
   inset: 0;
   z-index: 80;
-  background: linear-gradient(160deg, #3f7d3a, #1f2a1c);
+  background: linear-gradient(160deg, var(--welcome-from), var(--welcome-to));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -650,10 +723,10 @@ main::-webkit-scrollbar { display: none; }
   position: absolute;
   inset: -20%;
   background:
-    radial-gradient(circle at 20% 12%, rgba(141,206,124,.30), transparent 45%),
-    radial-gradient(circle at 85% 88%, rgba(141,206,124,.20), transparent 45%),
-    repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 2px, transparent 2px 14px),
-    repeating-linear-gradient(-45deg, rgba(255,255,255,.05) 0 2px, transparent 2px 14px);
+    radial-gradient(circle at 20% 12%, var(--welcome-halo), transparent 45%),
+    radial-gradient(circle at 85% 88%, var(--welcome-halo-soft), transparent 45%),
+    repeating-linear-gradient(45deg, var(--welcome-grid) 0 2px, transparent 2px 14px),
+    repeating-linear-gradient(-45deg, var(--welcome-grid) 0 2px, transparent 2px 14px);
   pointer-events: none;
 }
 .login.hide { opacity: 0; transform: translateY(-12px); pointer-events: none; }
@@ -789,6 +862,60 @@ main::-webkit-scrollbar { display: none; }
 }
 .date-field input:focus { outline: none; border-color: var(--accent); }
 .date-total { font-size: 12px; color: var(--accent); font-weight: 700; margin-top: 8px; }
+.date-total.pending { color: var(--muted); }
+
+/* ---- Calendario de tarifas ----
+   Bajo cada día se imprime lo que ese día suma al total. Es el mismo modelo de
+   precios de data.js, solo que visible: los días que caen en el piso de coste
+   salen en verde con "+$0" y empujan a alargar el alquiler, que es lo que
+   conviene al negocio (un ciclo de lavandería rinde más días) y le da al
+   cliente margen para devolver sin recargo. */
+.cal { margin-top: 12px; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cal-month { font-size: 13px; font-weight: 700; text-transform: capitalize; }
+.cal-nav {
+  background: none; border: 1px solid var(--line); border-radius: 8px;
+  color: var(--ink); padding: 3px 7px; cursor: pointer; line-height: 0;
+}
+.cal-nav:disabled { opacity: .35; cursor: default; }
+.cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+/* Sin separación entre columnas: el rango se lee como una barra continua y no
+   como una fila de cajas sueltas. La separación entre semanas sí se mantiene. */
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px 0; }
+.cal-dow span { font-size: 10px; color: var(--muted); text-align: center; font-weight: 700; }
+.cal-day {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; min-height: 38px; padding: 3px 0;
+  background: none; border: 0; border-radius: 0;
+  color: var(--ink); font-family: inherit; cursor: pointer;
+}
+.cal-day .cd-n { font-size: 12px; font-weight: 600; line-height: 1; }
+/* La franja de coste ocupa sitio siempre, aunque vaya vacía: sin esto las filas
+   sin tarifa encogen y la cuadrícula da un salto al cambiar de rango. */
+.cal-day .cd-c { font-size: 9px; font-weight: 700; line-height: 1; min-height: 9px; }
+.cal-day.out .cd-n { color: var(--muted); opacity: .55; }
+.cal-day.past { opacity: .3; cursor: default; }
+.cal-day:hover:not(:disabled):not(.in) { background: var(--accent-soft); border-radius: 9px; }
+
+/* La barra del rango. Solo los extremos redondean, así los días de en medio
+   empalman y el tramo se ve de una pieza. */
+.cal-day.in { background: var(--accent-soft); }
+.cal-day.in.start { border-top-left-radius: 9px; border-bottom-left-radius: 9px; }
+.cal-day.in.end { border-top-right-radius: 9px; border-bottom-right-radius: 9px; }
+/* Una semana cortada a medias también cierra su extremo: si no, la barra
+   parece continuar fuera de la cuadrícula. */
+.cal-day.in:first-child { border-top-left-radius: 9px; border-bottom-left-radius: 9px; }
+.cal-day.in:last-child { border-top-right-radius: 9px; border-bottom-right-radius: 9px; }
+.cal-day.in:nth-child(7n + 1) { border-top-left-radius: 9px; border-bottom-left-radius: 9px; }
+.cal-day.in:nth-child(7n) { border-top-right-radius: 9px; border-bottom-right-radius: 9px; }
+.cal-day.in .cd-n { color: var(--accent); font-weight: 800; }
+/* Rango a medio elegir: un solo día punteado, para que se note que falta el
+   segundo clic y no se confunda con un rango ya cerrado. */
+.cal-day.pending { outline: 1px dashed var(--accent); outline-offset: -1px; border-radius: 9px; }
+
+.cd-c.free { color: var(--ok); }
+.cd-c.paid { color: var(--warn-ink); }
+.cd-c.base { color: var(--muted); }
 
 /* ---- Perfil ---- */
 .profile-head {
@@ -798,7 +925,7 @@ main::-webkit-scrollbar { display: none; }
 }
 .avatar {
   width: 56px; height: 56px; border-radius: 50%;
-  background: var(--accent); color: #fff;
+  background: var(--accent); color: var(--on-accent);
   display: grid; place-items: center;
   font-size: 24px; font-weight: 800; flex: 0 0 auto;
 }
@@ -828,7 +955,9 @@ main::-webkit-scrollbar { display: none; }
 
 .points-card {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  background: linear-gradient(135deg, var(--accent), #2f5f2b);
+  /* Mezclaba --accent con un verde fijo oscuro: en tema oscuro --accent es
+     claro y la mitad del degradado dejaba el texto blanco ilegible. */
+  background: linear-gradient(135deg, var(--cta), var(--cta-strong));
   color: #fff; border-radius: 16px; padding: 14px 16px; margin-bottom: 10px;
   width: 100%; border: none; cursor: pointer; font-family: inherit; text-align: left;
 }
@@ -847,15 +976,62 @@ main::-webkit-scrollbar { display: none; }
 .pc-emoji { display: flex; align-items: center; opacity: .9; flex: 0 0 auto; }
 
 /* ---- Agua ahorrada (perfil) ---- */
-.water-stat {
-  display: flex; align-items: center; gap: 12px;
-  background: rgba(43,140,209,.10); border: 1px solid rgba(43,140,209,.25);
+/* ---- Ahorro de agua con metas ----
+   Sustituye a la antigua .water-stat, que era una tarjeta con un número suelto:
+   parecía pulsable sin serlo y no daba escala. Aquí el número va con barra,
+   meta siguiente y los puntos que paga. NO es un botón: no lleva a ningún
+   sitio, así que no lleva cursor ni flecha. */
+.water-goal {
+  background: var(--water-soft); border: 1px solid rgba(43,140,209,.25);
   border-radius: 16px; padding: 12px 16px; margin-bottom: 10px;
 }
-.ws-icon { display: flex; align-items: center; color: #2b8cd1; flex: 0 0 auto; }
-.ws-label { font-size: 12px; color: var(--muted); font-weight: 700; }
-.ws-value { font-size: 22px; font-weight: 800; color: #2b8cd1; margin-top: 2px; }
-.ws-value span { font-size: 13px; font-weight: 600; opacity: .85; }
+.wg-head { display: flex; align-items: center; gap: 12px; }
+.wg-icon { display: flex; align-items: center; color: var(--water); flex: 0 0 auto; }
+.wg-titles { flex: 1 1 auto; min-width: 0; }
+.wg-label { font-size: 12px; color: var(--muted); font-weight: 700; }
+.wg-value { font-size: 22px; font-weight: 800; color: var(--water); margin-top: 2px; }
+.wg-value span { font-size: 13px; font-weight: 600; opacity: .85; }
+.wg-next { font-size: 11px; font-weight: 700; color: var(--muted); flex: 0 0 auto; align-self: flex-end; }
+/* El riel envuelve a la barra para que los marcadores (absolutos) puedan
+   sobresalir de ella: la barra recorta con overflow y los cortaría. */
+.wg-track { position: relative; margin: 14px 0 4px; }
+.wg-bar {
+  height: 7px; border-radius: 999px;
+  background: rgba(43,140,209,.20); overflow: hidden;
+}
+.wg-fill {
+  display: block; height: 100%; border-radius: 999px;
+  background: var(--water); transition: width .4s ease;
+}
+/* Marcador de meta sobre la barra. El último cae en left:100%: el translate
+   de -100% (en vez de centrarlo) lo mete dentro del riel para que no se
+   salga de la tarjeta. */
+.wg-mark {
+  position: absolute; top: 50%; transform: translate(-100%, -50%);
+  width: 15px; height: 15px; border-radius: 50%; padding: 0;
+  border: 2px solid var(--water); background: var(--bg);
+  color: var(--on-accent); cursor: pointer;
+  display: grid; place-items: center;
+}
+.wg-mark.done { background: var(--water); }
+.wg-mark.active { box-shadow: 0 0 0 3px rgba(43,140,209,.30); }
+/* Detalle de la meta tocada: solo existe mientras un marcador está activo. */
+.wg-goal-info {
+  display: flex; align-items: flex-start; gap: 7px;
+  margin-top: 8px; padding: 8px 10px; border-radius: 10px;
+  background: rgba(43,140,209,.12); font-size: 11px;
+  color: var(--muted); line-height: 1.45;
+}
+.wg-goal-info b { color: var(--water); }
+.wgi-ico { display: flex; align-items: center; color: var(--water); margin-top: 1px; }
+
+/* Meta conseguida, anunciada en la confirmación del pedido. */
+.goal-hit {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  background: var(--water-soft); color: var(--water);
+  border-radius: 10px; padding: 9px 12px; margin-top: 8px;
+  font-size: 12px; font-weight: 700;
+}
 
 /* ---- Información de contacto (solo lectura) ---- */
 .profile-info {
@@ -893,7 +1069,7 @@ main::-webkit-scrollbar { display: none; }
 /* El disco centra un SVG, no un glifo: place-items centraba la caja de línea
    del "→" y la flecha quedaba visiblemente alta dentro del círculo. */
 .dc-cta {
-  color: #fff; background: var(--accent);
+  color: var(--on-accent); background: var(--accent);
   width: 30px; height: 30px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
 }
@@ -1025,7 +1201,7 @@ main::-webkit-scrollbar { display: none; }
   padding: 9px 12px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
   box-shadow: 0 4px 12px var(--cta-glow);
 }
-.rw-btn:disabled { background: #c9bfb2; box-shadow: none; cursor: not-allowed; font-size: 11px; }
+.rw-btn:disabled { background: var(--disabled-bg); color: var(--disabled-ink); box-shadow: none; cursor: not-allowed; font-size: 11px; }
 .redeemed-item {
   display: flex; justify-content: space-between; gap: 10px;
   font-size: 12px; color: var(--ink); padding: 7px 2px;
@@ -1096,7 +1272,7 @@ main::-webkit-scrollbar { display: none; }
 .earned-points.pending { background: var(--bg); color: var(--muted); }
 /* Agua ahorrada (confirmación) */
 .water-saved {
-  background: rgba(43,140,209,.12); color: #2b8cd1;
+  background: var(--water-soft); color: var(--water);
   border-radius: 12px; padding: 12px; margin-top: 10px;
   font-size: 14px; font-weight: 700; text-align: center;
 }
@@ -1133,6 +1309,16 @@ main::-webkit-scrollbar { display: none; }
   background: var(--bg); border-radius: 10px;
   font-size: 12px; font-weight: 700; color: var(--muted);
 }
+/* Litros que el pedido aporta a las metas de agua. Comparte caja con los puntos
+   pendientes (se leen como una sola ficha), pero tiñe el dato en el azul del
+   agua para separar de un vistazo el impacto de la recompensa. */
+.water-pending {
+  margin: 2px 0; padding: 8px 10px;
+  background: var(--bg); border-radius: 10px;
+  font-size: 12px; font-weight: 700; color: var(--muted);
+}
+.water-pending svg { color: var(--ico-sky); vertical-align: -2px; }
+.water-pending b { color: var(--ico-sky); }
 
 /* ---- Editor in-line del modo de devolución ---- */
 .ret-editor {
@@ -1181,7 +1367,7 @@ main::-webkit-scrollbar { display: none; }
 }
 .late-info {
   display: none; font-size: 11px; line-height: 1.45; color: var(--ink);
-  background: #fbeee8; border: 1px solid #e8c7b8; border-radius: 8px;
+  background: var(--danger-soft); border: 1px solid var(--danger-line); border-radius: 8px;
   padding: 8px 10px; margin-top: 6px;
 }
 .late-info.show { display: block; }
@@ -1204,10 +1390,10 @@ main::-webkit-scrollbar { display: none; }
   padding: 4px 9px; border-radius: 20px; white-space: nowrap;
 }
 .pay-status.settled { background: var(--accent-soft); color: var(--accent); }
-.pay-status.pending { background: #f6e6cf; color: #8a4b13; }   /* ámbar AA sobre fondo claro */
+.pay-status.pending { background: var(--warn-bg); color: var(--warn-ink); }
 /* Anulado: gris neutro. NO usa el rojo de --danger porque anular es una acción
    normal del cliente, no un error ni un atraso. */
-.pay-status.cancelled { background: #e6e6e6; color: #555; }
+.pay-status.cancelled { background: var(--neutral-bg); color: var(--neutral-ink); }
 
 .order-item {
   display: flex; gap: 10px; align-items: center;
@@ -1299,7 +1485,7 @@ main::-webkit-scrollbar { display: none; }
   padding: 6px 0 0; text-decoration: underline;
   display: block;
 }
-.rent-tag.void { background: #e6e6e6; color: #555; }
+.rent-tag.void { background: var(--neutral-bg); color: var(--neutral-ink); }
 /* El pedido anulado sigue listado (historial), pero atenuado y tachado en su
    total para que no se confunda con uno vigente. */
 .order.cancelled { opacity: .75; }
@@ -1401,4 +1587,101 @@ main::-webkit-scrollbar { display: none; }
 .map-address {
   font-size: 13px; color: var(--ink); line-height: 1.4;
   margin: 6px 0 12px; min-height: 36px;
+}
+
+/* ============================================================
+   Ajustes (tema y accesibilidad)
+   ============================================================ */
+.settings-intro {
+  font-size: 12.5px; color: var(--muted); line-height: 1.5;
+  margin: 0 0 14px; text-align: center;
+}
+.settings-card .dc-title { color: var(--ink); }
+
+.pref-row {
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: 14px; padding: 14px; margin-bottom: 12px;
+}
+.pref-head { display: flex; align-items: center; gap: 12px; }
+.pref-icon {
+  width: 36px; height: 36px; border-radius: 50%; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg);
+}
+.pref-head > div:not(.pref-icon) { flex: 1; min-width: 0; }
+.pref-name { font-size: 14px; font-weight: 700; color: var(--ink); }
+.pref-desc { font-size: 11.5px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+
+/* Opciones excluyentes: se ven como un segmentado, no como botones sueltos,
+   para que se lea que eligen UNA cosa entre varias. */
+.pref-opts { display: flex; gap: 6px; margin-top: 12px; }
+.pref-opt {
+  flex: 1; padding: 9px 6px;
+  background: var(--bg); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 10px;
+  font-size: 12.5px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.pref-opt.active {
+  background: var(--accent-soft); color: var(--accent); border-color: var(--accent);
+}
+.pref-opt:active { transform: scale(.97); }
+
+/* Interruptor. El foco se marca sobre el riel completo porque el pulgar es
+   demasiado pequeño para que el anillo se vea. */
+.pref-switch {
+  flex: 0 0 auto; width: 46px; height: 27px; padding: 3px;
+  background: var(--line); border: none; border-radius: 20px;
+  cursor: pointer; transition: background .18s ease;
+  display: flex; align-items: center;
+}
+.pref-switch.on { background: var(--cta); }
+.ps-knob {
+  width: 21px; height: 21px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3);
+  transition: transform .18s ease;
+}
+.pref-switch.on .ps-knob { transform: translateX(19px); }
+.pref-switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+
+/* ============================================================
+   Campos de formulario en ambos temas
+   No fijaban `background` ni `color`: heredaban el estilo del navegador, que
+   con el tema oscuro dejaba el valor y el texto de ayuda ilegibles. Se listan
+   juntos para que ningún campo nuevo se quede fuera por olvido.
+   ============================================================ */
+.ship-detail input,
+.fld input,
+.date-field input,
+.donate-input,
+.don-date-label input,
+.pf-fld input,
+.ret-addr-input,
+.fs-fld select,
+.addr-picked {
+  background: var(--field);
+  color: var(--ink);
+}
+.ship-detail input::placeholder,
+.fld input::placeholder,
+.donate-input::placeholder,
+.pf-fld input::placeholder,
+.ret-addr-input::placeholder,
+.search input::placeholder {
+  color: var(--muted);
+  opacity: 1;              /* Firefox lo aclara por su cuenta y lo vuelve ilegible */
+}
+
+/* El logo es un PNG de trazo oscuro sobre fondo transparente: en el tema
+   oscuro se pierde contra el fondo. Se le da una base clara en vez de
+   invertirlo, que le cambiaría el color de marca. */
+:root[data-theme="dark"] .brand-logo {
+  background: var(--logo-plate);
+  border-radius: 10px;
+  padding: 3px 5px;
+}
+/* El sello de la bienvenida lleva el mismo tratamiento: es el mismo PNG y se
+   pierde igual contra el fondo oscuro. */
+:root[data-theme="dark"] .login-mark {
+  background: var(--logo-plate);
 }

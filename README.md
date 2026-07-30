@@ -4,10 +4,12 @@
 
 # CLOTH TO GO
 
-**Moda circular · alquila ropa de segunda mano por día** 🌱
+**Moda circular · alquila prendas únicas por día** 🌱
 
-Prototipo front-end de una app de alquiler de prendas, construido como demostración
+Prototipo de una app de alquiler de ropa, construido como demostración
 para la materia de **Emprendimiento e Innovación (ESPOL)**.
+
+[![CI](https://github.com/AndreewCore/cloth-to-go/actions/workflows/ci.yml/badge.svg)](https://github.com/AndreewCore/cloth-to-go/actions/workflows/ci.yml)
 
 </div>
 
@@ -16,37 +18,57 @@ para la materia de **Emprendimiento e Innovación (ESPOL)**.
 ## 📌 ¿Qué es?
 
 **CLOTH TO GO** es un prototipo navegable de una aplicación móvil de **alquiler de ropa
-de segunda mano por día**. Permite explorar un catálogo, filtrar y buscar prendas, ver
-su detalle, armar un carrito con fechas de alquiler y depósito reembolsable, simular el
-checkout (entrega, devolución y pago) y gestionar un perfil con pedidos, puntos y
-donaciones — todo con una estética de moda circular y un mensaje de impacto ambiental
-(agua ahorrada al reutilizar ropa).
+por día**. Permite explorar un catálogo, filtrar y buscar prendas, ver su detalle, armar
+un carrito con fechas de alquiler y depósito reembolsable, simular el checkout (entrega,
+devolución y pago) y gestionar un perfil con pedidos, puntos, premios y donaciones —
+todo con una estética de moda circular y un mensaje de impacto ambiental (agua ahorrada
+al reutilizar ropa en vez de fabricarla nueva).
 
-Está hecho con **HTML, CSS y JavaScript puro (vanilla)**: sin framework, sin bundler y
-**sin dependencias en tiempo de ejecución**. Se abre directamente con `index.html`.
+Cada prenda es **única**: hay una sola unidad de cada una, así que alquilarla la retira
+del catálogo hasta que vuelve.
 
-> ⚠️ **Es un prototipo de clase.** El pago, el stock y los pedidos
-> de ejemplo son **simulados**. No hay backend ni pasarela de pago real. Los datos se
-> guardan localmente en el navegador (`localStorage`).
+El frontend está hecho con **HTML, CSS y JavaScript puro (vanilla)**: sin framework, sin
+bundler y **sin dependencias en tiempo de ejecución**. Se abre directamente con
+`index.html`.
+
+### Qué es real y qué está simulado
+
+|  | Estado |
+|---|---|
+| **Catálogo** | Real. Embebido en `js/data.js`; si el backend está levantado, se sirve desde la API. |
+| **Precios y depósitos** | Reales: se **derivan** del valor de cada prenda (ver [Modelo de precios](#-modelo-de-precios)). |
+| **Inicio de sesión** | Real con **Google**, verificado en el servidor. Sin backend o por `file://`, se entra como invitado. |
+| **Mapas** | Real con Google Maps, si hay clave. Sin clave, el checkout cae al campo de dirección escrito a mano. |
+| **Pago** | **Simulado.** No hay pasarela: los datos de tarjeta no se procesan ni se guardan. |
+| **Pedidos y puntos** | **Simulados.** Viven en el `localStorage` del navegador, no en el servidor. |
+| **Estados de envío** | **Simulados.** No hay logística ni panel de administración todavía. |
 
 ---
 
 ## ✨ Características
 
-- 🛍️ **Catálogo** de prendas con condición, talla, material y calidad (estrellas).
+- 🛍️ **Catálogo** de prendas con condición, talla, material y calidad.
 - 🔎 **Búsqueda** por nombre/categoría/descripción y **filtros** por categoría, calidad,
   talla y material, además de **ordenamiento** (precio, calidad, recomendado).
-- 👕 **Detalle de prenda** con ficha (talla, material, calidad, depósito) y disponibilidad.
-- 🛒 **Carrito** con selector de **período de alquiler** y cálculo de subtotal.
-- 💰 **Depósito reembolsable con descuento por volumen**: a más prendas y días, menor
-  depósito.
-- 🚚 **Checkout simulado**: entrega (envío/retiro), método de devolución y pago
-  (efectivo / tarjeta — sin procesar datos).
-- 👤 **Perfil**: información de contacto editable, pedidos activos e historial,
-  **programa de puntos** y **donación de ropa**.
-- 💧 **Impacto ambiental**: litros de agua ahorrados al reutilizar prendas en lugar de
-  fabricarlas nuevas (moda circular).
-- 📝 Botón de **encuesta** (Google Forms) para retroalimentación.
+- 👕 **Detalle de prenda** con ficha (talla, material, calidad, depósito), tabla de
+  tarifas por duración y disponibilidad.
+- 🛒 **Carrito** con selector de **período de alquiler** y **calendario de tarifas**: cada
+  día muestra debajo cuánto suma al total, para que se vea de un vistazo qué cuesta
+  alargar el alquiler.
+- 💸 **Descuento por volumen**: 5 % menos por cada prenda adicional, hasta un 20 %.
+- 🔒 **Depósito reembolsable**: 40 % del valor de reposición, con tope por prenda y por
+  pedido. Cubre el riesgo, así que **no** baja por alquilar más días ni más prendas.
+- 🚚 **Checkout**: entrega (envío/retiro), método de devolución, pago (efectivo/tarjeta) y
+  un **resumen de confirmación** antes de registrar el pedido.
+- 👤 **Perfil**: contacto editable, pedidos activos e historial, cambio del método de
+  devolución, **cancelación de pedido** y acceso al detalle de cualquier prenda alquilada.
+- 🎁 **Puntos y premios**: se acumulan al recibir el pedido, se canjean por cupones y el
+  cupón se aplica a un alquiler en el checkout.
+- 💧 **Metas de agua**: litros ahorrados al reutilizar prendas, con metas que otorgan
+  puntos al cruzarlas.
+- 🎁 **Donación de ropa** y armario propio (próximamente, poner tus prendas en alquiler).
+- 🌗 **Tema claro/oscuro** y **preferencias de accesibilidad**: tamaño de texto, menos
+  animación y alto contraste.
 - 📱 **Responsive**: mockup de teléfono en escritorio y pantalla completa en móvil.
 - ♿ Cuidado de **accesibilidad**: contraste AA, foco visible y soporte de teclado.
 
@@ -66,6 +88,10 @@ python3 -m http.server
 # luego visita http://localhost:8000
 ```
 
+> Por `file://` se pierden solo las piezas que dependen de la red: el inicio de sesión
+> con Google, el mapa y la hidratación del catálogo desde la API. Todo lo demás funciona
+> igual.
+
 ### Herramientas de desarrollo (opcional)
 
 Solo para linting y pruebas; **no son necesarias para que la app funcione**.
@@ -73,21 +99,45 @@ Solo para linting y pruebas; **no son necesarias para que la app funcione**.
 ```bash
 pnpm install     # instala eslint y jsdom
 pnpm lint        # ESLint sobre js/
-pnpm test        # pruebas del modelo de precios, flujo y helpers (runner nativo de Node)
+pnpm test        # 357 pruebas: precios, flujo, vistas y helpers (runner nativo de Node)
 ```
+
+Las pruebas cargan los scripts clásicos en un contexto `vm` (y en `jsdom` para las
+vistas), porque los archivos no tienen `export`. El backend tiene las suyas en
+`server/` (15 pruebas). **CI** ejecuta las tres cosas —lint, tests del frontend y tests
+del servidor— en cada push y cada pull request.
 
 > No hay formateador automático: el código se alinea a mano (el catálogo de
 > `js/data.js` es una tabla legible que Prettier destruía).
 
 ---
 
+## 💵 Modelo de precios
+
+Ninguna prenda guarda un precio. Cada una lleva su **valor de reposición** (`value`) y
+todo lo demás se **deriva** de ahí, en `js/data.js`:
+
+- **Tarifa por tramos.** El primer día cuesta un porcentaje del valor según la calidad;
+  los días 2–3 pesan un 50 % de ese primer día, los 4–7 un 30 % y del 8 en adelante un
+  15 %. Alquilar dos semanas no puede costar catorce veces un día.
+- **Piso de coste.** Ninguna tarifa baja de `cycleCost()` = amortización + lavandería
+  según el material + gastos. El coste de un alquiler es **por ciclo, no por día**:
+  lavar y desinfectar cuesta lo mismo si la prenda salió un día o diez. Por eso los días
+  extra son baratos y por eso el piso existe.
+- **Descuento por volumen**, hasta un 20 %. Las prendas baratas chocan contra su piso por
+  sí solas: solo salen rentables acompañadas, y el descuento empuja en esa dirección.
+- **Depósito**: 40 % del valor, con tope de $25 por prenda y $40 por pedido. Es
+  reembolsable, así que ni el volumen ni los cupones lo tocan.
+
+---
+
 ## 🧱 Arquitectura
 
-El JavaScript se divide en **10 scripts clásicos** que comparten un **ámbito global**, y
+El JavaScript se divide en **12 scripts clásicos** que comparten un **ámbito global**, y
 se cargan en un **orden de dependencias estricto** en `index.html`:
 
 ```
-icons → data → state → dom → catalog → checkout → profile → api → auth → main
+icons → prefs → data → state → dom → catalog → checkout → profile → api → auth → maps → main
 ```
 
 Se evitan los **módulos ES** (`import`/`export`) a propósito para que la demo abra con
@@ -100,19 +150,42 @@ HTML. Los eventos usan **delegación** mediante atributos `data-action`.
 | Archivo | Rol |
 |---|---|
 | `js/icons.js` | Set de iconos SVG en línea y el helper `icon()`. Sin dependencias de red. |
-| `js/data.js` | Catálogo, constantes de negocio y helpers puros (formato, validaciones, agua). |
-| `js/maps.js` | Selector de ubicación con Google Maps (opcional). Sin clave/red cae al campo de texto. |
+| `js/prefs.js` | Tema (claro/oscuro/auto) y preferencias de accesibilidad, persistidas aparte del resto. |
+| `js/data.js` | Catálogo, constantes de negocio, **modelo de precios** y helpers puros (formato, validaciones, agua). |
 | `js/state.js` | Estado global, cálculos derivados y persistencia en `localStorage`. |
 | `js/dom.js` | Referencias al DOM, panel deslizante (sheet), toast y modal de confirmación. |
 | `js/catalog.js` | Grilla, filtros/orden, panel de filtros, detalle y agregar al carrito. |
-| `js/checkout.js` | Flujo de compra: carrito → entrega/pago → confirmación. |
-| `js/profile.js` | Perfil: contacto, pedidos, puntos, premios y donaciones. |
+| `js/checkout.js` | Flujo de compra: carrito → entrega → pago → confirmación. |
+| `js/profile.js` | Perfil: contacto, pedidos, puntos, premios, metas de agua y donaciones. |
 | `js/api.js` | Puente opcional con el backend: hidrata el catálogo desde la API si está disponible. |
+| `js/auth.js` | Inicio de sesión con Google (GSI). Sin SDK o por `file://`, la app degrada a invitado. |
+| `js/maps.js` | Selector de ubicación con Google Maps (opcional). Sin clave/red cae al campo de texto. |
 | `js/main.js` | Pantalla de bienvenida, cableado de eventos (delegación) y render inicial. **Carga al final.** |
 
-> **Backend (opcional).** En `server/` hay una API (Fastify + Prisma + SQLite) que
-> sirve el catálogo. Si está levantada, el frontend la consume; si no, la app usa los
-> datos embebidos y sigue abriéndose por `file://`. Ver [`server/README.md`](server/README.md).
+Los tres módulos que dependen de la red —`api.js`, `auth.js` y `maps.js`— siguen el mismo
+patrón: si el recurso no está, la pieza no se dibuja y la app sigue funcionando. Es lo que
+mantiene viva la demo por `file://`.
+
+---
+
+## 🖥️ Backend (opcional)
+
+En `server/` hay una API con **Fastify + Prisma + SQLite** que hoy sirve el catálogo y
+verifica el inicio de sesión:
+
+| Método | Ruta | Para qué |
+|---|---|---|
+| `GET` | `/api/health` | Comprobación de vida. |
+| `GET` | `/api/products` | Catálogo, en el mismo formato que espera el frontend. |
+| `POST` | `/api/auth/google` | Verifica el ID token de Google y registra al usuario. |
+
+SQLite en desarrollo; para producción se cambia el `provider` y la `DATABASE_URL` a
+Postgres sin tocar el código de la app. Si el servidor no está levantado, el frontend usa
+los datos embebidos y sigue abriéndose por `file://`. Ver
+[`server/README.md`](server/README.md).
+
+El dinero, los pedidos y los puntos **todavía no viven en el servidor**: están en el
+navegador.
 
 ---
 
@@ -125,27 +198,20 @@ HTML. Los eventos usan **delegación** mediante atributos `data-action`.
 │   ├── base.css            # Variables de tema, reset y marco del teléfono
 │   └── components.css      # Header, catálogo, sheet, carrito, checkout, perfil…
 ├── js/
-│   ├── icons.js  data.js  state.js  dom.js
+│   ├── icons.js  prefs.js  data.js  state.js  dom.js
 │   ├── catalog.js  checkout.js  profile.js
+│   ├── api.js  auth.js  maps.js
 │   └── main.js
 ├── img/
-│   └── Cloth To Go Logo.png
+│   ├── Cloth To Go Logo.png
+│   └── products/           # Fotos del catálogo (webp, servidas desde el repo)
+├── test/                   # Pruebas del frontend (runner nativo de Node + jsdom)
+├── server/                 # API Fastify + Prisma + SQLite
+├── .github/workflows/      # CI (lint + tests) y despliegue a GitHub Pages
 ├── package.json            # Scripts de tooling (lint/test)
 ├── eslint.config.js
 └── README.md
 ```
-
----
-
-## 🧪 Datos simulados
-
-Para que el prototipo sea autocontenido, se **simulan**:
-
-- **Autenticación**: no existe. Se entra como invitado; "Iniciar sesión" y "Crear cuenta"
-  solo avisan que llegarán con el backend.
-- **Pago**: los datos de tarjeta **no se procesan ni se guardan**; el pago es de muestra.
-- **Stock**: cada prenda es única (segunda mano), con disponibilidad fija en 1.
-- **Persistencia**: carrito, perfil y pedidos se guardan en `localStorage` del navegador.
 
 ---
 
@@ -238,10 +304,14 @@ motivo exacto (`RefererNotAllowedMapError`, `ApiNotActivatedMapError`, etc.).
 
 ## 🗺️ Próximos pasos
 
-- Backend real (autenticación, catálogo, pedidos) e integración de pasarela de pago.
-- Imágenes de prendas alojadas localmente.
-- Ampliar la cobertura de pruebas (checkout, perfil, flujo completo). El modelo
-  de precios y los helpers puros ya tienen tests: `pnpm test`.
+- **Pedidos y dinero en el servidor**: hoy viven en el navegador, así que un total
+  cobrado no queda registrado en ninguna parte.
+- **Pasarela de pago** real.
+- **Panel de administración**: confirmar cobros en efectivo, estados del pedido e
+  inventario. Confirmar que entró dinero es un acto del negocio, nunca del cliente.
+- **Canje de puntos validado en el servidor**: mientras el saldo viva en `localStorage`,
+  es editable desde la consola del navegador.
+- **Reseñas de clientes** y **galería de varias fotos** por prenda.
 
 ---
 
@@ -249,5 +319,5 @@ motivo exacto (`RefererNotAllowedMapError`, `ApiNotActivatedMapError`, etc.).
 
 **GRUPO 5 - Dress to Impress** — ESPOL · Emprendimiento e Innovación.
 
-> Proyecto académico. Las imágenes de catálogo provienen de Unsplash y, si no cargan, se
-> muestra un placeholder.
+> Proyecto académico. Las fotos del catálogo se sirven desde el propio repositorio
+> (`img/products/`); si alguna no carga, se muestra un placeholder.

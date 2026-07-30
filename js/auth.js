@@ -63,7 +63,12 @@ function activateUserSession(user){
   loadState();
   // Liquida los puntos de los pedidos que se entregaron desde la última visita:
   // no hay tareas programadas, así que la puesta al día ocurre al abrir sesión.
-  if(creditDeliveredPoints()) saveState();
+  // Las metas se liquidan junto a los puntos por pedido: dependen de los mismos
+  // pedidos y un perfil recién migrado puede traer metas ya ganadas sin cobrar.
+  const goalsHit = creditWaterGoals();
+  if(creditDeliveredPoints() || goalsHit.length) saveState();
+  // Metas cruzadas mientras la app estaba cerrada: se felicitan al entrar.
+  celebrateWaterGoals(goalsHit);
   // La identidad de Google rellena el perfil (el usuario puede editar el resto).
   if(user){
     if(user.name)    profile.name    = user.name;
@@ -109,6 +114,13 @@ async function onGoogleCredential(resp){
       toast("No se pudo verificar tu sesión. Intenta de nuevo.");
       return;
     }
+  } else if(backend.reason === "misconfigured"){
+    // Producción sin DEPLOYED_API. Caer al decode local aquí significaría dar
+    // por buena una identidad sin verificar firma, y en un sitio público eso es
+    // suplantación trivial: basta con fabricar un JWT. Se falla en voz alta.
+    console.error(API_OFF_REASONS.misconfigured);
+    toast("El inicio de sesión no está disponible en este momento.");
+    return;
   } else {
     // Modo demo: sin servidor no hay firma que comprobar (solo identifica).
     claims = decodeJwt(token);
@@ -143,5 +155,24 @@ function initGoogleAuth(){
     return;
   }
   google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: onGoogleCredential });
-  google.accounts.id.renderButton(box, { theme: "outline", size: "large", shape: "pill", text: "signin_with", width: 240 });
+  renderGoogleButton();
+}
+
+/**
+ * Pinta (o repinta) el botón de Google con el tema activo.
+ *
+ * El botón lo dibuja el SDK, no nuestro CSS, así que el tema hay que pasárselo
+ * a él: `filled_black` en oscuro, `outline` en claro. Y como el marcado ya
+ * generado no reacciona al cambio de tema, hay que volver a pedirlo — de ahí
+ * que esto sea una función aparte y no una línea dentro de initGoogleAuth().
+ */
+function renderGoogleButton(){
+  const box = document.getElementById("googleBtn");
+  if(!box || box.hidden) return;
+  if(typeof google === "undefined" || !google.accounts || !google.accounts.id) return;
+  box.innerHTML = "";
+  google.accounts.id.renderButton(box, {
+    theme: effectiveTheme() === "dark" ? "filled_black" : "outline",
+    size: "large", shape: "pill", text: "signin_with", width: 240
+  });
 }

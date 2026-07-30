@@ -27,16 +27,26 @@ document.getElementById("openProfile").onclick = ()=>{ editingOrder=null; editin
 document.getElementById("openCart").onclick = ()=>{ view="cart"; renderSheet(); openSheet(); };
 // Botón "Filtros" del header: abre el panel de calidad/talla/material.
 document.getElementById("openFilters").onclick = ()=>{ view="filters"; renderSheet(); openSheet(); };
-document.getElementById("openSurvey").onclick = ()=>{
-  confirmDialog("¿Quieres ayudarnos respondiendo una breve encuesta? Se abrirá en una pestaña nueva.", ()=>{
-    window.open("https://forms.gle/eeu4G4Md877Rp2HV9", "_blank", "noopener");
-  }, "clipboard");
-};
+// Preferencias: el engranaje del header es ahora el ÚNICO acceso al tema.
+// Antes estaba enterrado en el perfil, donde no se encontraba, y convivía con
+// un interruptor suelto de claro/oscuro aquí arriba. Se retiró ese interruptor:
+// un cuarto icono saturaba la cabecera, y el tema vive dentro de Preferencias.
+document.getElementById("openPrefs").onclick = ()=>{ view="settings"; renderSheet(); openSheet(); };
 document.getElementById("closeSheet").onclick = closeSheet;
 overlay.onclick = closeSheet;
+// Pestaña de detalle apilada (detalle abierto encima del perfil): cerrarla
+// solo la baja; el perfil sigue debajo tal cual estaba.
+document.getElementById("closeStack").onclick = closeStackSheet;
+stackOverlay.onclick = closeStackSheet;
 
-// Botón "atrás": vuelve al paso anterior del flujo (ver SHEET_BACK).
-backBtn.onclick = ()=>{ const prev = SHEET_BACK[view]; if(prev){ view = prev; renderSheet(); } };
+// Botón "atrás": vuelve al paso anterior del flujo (ver SHEET_BACK). En las
+// vistas a pantalla completa sin paso previo (el perfil) hace de salida: no
+// tendría sentido mostrar una flecha que no lleva a ningún sitio.
+backBtn.onclick = ()=>{
+  const prev = SHEET_BACK[view];
+  if(prev){ view = prev; renderSheet(); }
+  else closeSheet();
+};
 
 // Modal de confirmación in-app
 modalOk.onclick = ()=>{ const cb = onConfirmCb; closeModal(); if(cb) cb(); };
@@ -94,8 +104,10 @@ grid.addEventListener("keydown", e=>{
 /* ---- Delegación de eventos del panel deslizante ----
    Toda la interacción dentro del sheet (body + foot) se maneja aquí
    por delegación, leyendo data-action. Así las vistas solo generan
-   HTML y no re-asignan listeners en cada render. */
-sheet.addEventListener("click", e=>{
+   HTML y no re-asignan listeners en cada render.
+   La pestaña apilada comparte este despachador: muestra el mismo detalle, así
+   que sus botones deben hacer lo mismo sin una segunda lista que sincronizar. */
+function onSheetClick(e){
   const el = e.target.closest("[data-action]");
   if(!el) return;
   switch(el.dataset.action){
@@ -111,22 +123,40 @@ sheet.addEventListener("click", e=>{
     case "clearCoupon":    appliedCoupon = null; renderSheet(); break;
     case "toPayment":      view="payment"; renderSheet(); break;
     case "setPay":         payMethod = el.dataset.value; renderSheet(); break;
-    case "placeOrder":     placeOrder(); break;
+    case "confirmOrder":   confirmOrder(); break;
     case "finish":         finishOrder(); break;
     case "goToOrders":     goToOrders(); break;
-    case "goCart":         view="cart"; renderSheet(); break;
+    // closeStackSheet() es inocuo si no hay pestaña arriba, y desde ella hay
+    // que bajarla para que el carrito se vea en el panel principal.
+    case "goCart":         closeStackSheet(); view="cart"; renderSheet(); break;
+    // Miniatura de prenda dentro del panel (pedidos del perfil): abre su
+    // detalle en la pestaña apilada, por encima del perfil.
+    case "openDetail":     openDetail(+el.dataset.id); break;
     // Desde el detalle de una prenda ya alquilada: lleva a sus pedidos sin
     // tocar el checkout en curso (a diferencia de goToOrders, que lo limpia).
-    case "goProfile":      editingOrder=null; editingProfile=false; view="profile"; renderSheet(); break;
-    case "addDetail":      addToCart(detailId); renderSheet(); break;
+    // Apilado no hay a dónde navegar: el perfil ya está debajo de la pestaña.
+    case "goProfile":      if(stackedDetail){ closeStackSheet(); break; }
+                           editingOrder=null; editingProfile=false; view="profile"; renderSheet(); break;
+    // renderDetail() sirve para ambas superficies y repinta solo el detalle,
+    // que es lo único que cambia al agregar la prenda al carrito.
+    case "addDetail":      addToCart(detailId); renderDetail(); break;
     case "signOut":        signOut(); break;
     case "saveProfile":    saveProfile(); break;
     case "editProfile":    editProfile(); break;
     case "cancelProfileEdit": cancelProfileEdit(); break;
+    case "pickDay":        pickCalendarDay(el.dataset.iso); break;
+    case "calPrev":        shiftCalendar(-1); break;
+    case "calNext":        shiftCalendar(1); break;
     case "openRewards":    view="rewards"; renderSheet(); break;
+    case "waterGoalInfo":  toggleWaterGoalInfo(+el.dataset.id); break;
     case "redeem":         redeem(+el.dataset.id); break;
     case "openDonate":     openDonate(); break;
     case "openWardrobe":   openWardrobe(); break;
+    case "openSettings":   view="settings"; renderSheet(); break;
+    case "setPref":        setPref(el.dataset.pref, el.dataset.value); renderSheet(); break;
+    // Los booleanos leen su estado del DOM (aria-checked) en vez de recalcularlo:
+    // el botón ya es la fuente de verdad de lo que el usuario está viendo.
+    case "togglePref":     setPref(el.dataset.pref, el.getAttribute("aria-checked") !== "true"); renderSheet(); break;
     case "setDonateMethod": donMethod = el.dataset.value; renderSheet(); break;
     case "submitDonation": submitDonation(); break;
     case "editReturn":     openReturnEditor(+el.dataset.idx); break;
@@ -139,7 +169,9 @@ sheet.addEventListener("click", e=>{
     case "pickLocation":   openMapPicker(el.dataset.target); break;
     case "closeSheet":     closeSheet(); break;
   }
-});
+}
+sheet.addEventListener("click", onSheetClick);
+sheetStack.addEventListener("click", onSheetClick);
 
 // Inputs del panel: actualizan estado sin re-render (para no perder el foco).
 sheet.addEventListener("input", e=>{
@@ -170,9 +202,13 @@ sheet.addEventListener("change", e=>{
   if(t.id === "rentStart"){
     rentalStart = t.value;
     if(new Date(rentalEnd) <= new Date(rentalStart)) rentalEnd = rentalStart;
+    // Escribir la fecha a mano manda sobre el rango a medio elegir en el
+    // calendario: si no, quedarían dos inicios distintos compitiendo.
+    calPendingStart = null;
+    calMonth = null;
     renderSheet();
   } else if(t.id === "rentEnd"){
-    rentalEnd = t.value; renderSheet();
+    rentalEnd = t.value; calPendingStart = null; calMonth = null; renderSheet();
   } else if(t.id === "donDate"){
     donDate = t.value; renderSheet();
   }
@@ -198,6 +234,8 @@ sheet.addEventListener("keydown", e=>{
 /* ---------------- Init ---------------- */
 // Antes de cualquier render: decide si el botón del mapa se ofrece en esta carga.
 adoptMapsKeyFromUrl();
+// Acompaña el cambio automático de tema del sistema mientras esté en "auto".
+watchSystemTheme();
 renderFilters();
 renderGrid();
 updateBadge();

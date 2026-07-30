@@ -109,7 +109,8 @@ test("al abrir sesión se acreditan los puntos de lo entregado entre visitas", (
   win.saveState();
   win.activateUserSession(ANA);
 
-  assert.equal(app.profile.points, 50);
+  // 50 del pedido + lo que aporten las metas de agua que sus prendas cruzaron.
+  assert.equal(app.profile.points, 50 + app.waterPointsCredited());
   assert.ok(app.orders[0].pointsCredited);
 });
 
@@ -121,10 +122,13 @@ test("la puesta al día se guarda: no vuelve a sumar en la siguiente visita", ()
   }];
   win.saveState();
   win.activateUserSession(ANA);          // acredita y persiste
-  assert.equal(app.profile.points, 50);
+  const esperado = 50 + app.waterPointsCredited();
+  assert.equal(app.profile.points, esperado);
 
   win.activateUserSession(ANA);          // segunda visita
-  assert.equal(app.profile.points, 50, "no se duplican los puntos");
+  // Cubre las dos vías de acreditación: ni los puntos del pedido ni los de las
+  // metas de agua pueden volver a sumarse al reabrir la sesión.
+  assert.equal(app.profile.points, esperado, "no se duplican los puntos");
 });
 
 /* ---- decodeJwt ---- */
