@@ -276,6 +276,33 @@ main::-webkit-scrollbar { display: none; }
      la foto), y en oscuro --ink se vuelve clara → texto invisible. */
   color: #23301f;
 }
+/* ---- Prenda alquilada: sigue en el catálogo, pero apagada ----
+   Antes desaparecía del grid, y con ella el escaparate: nadie podía verla ni
+   volver a por ella, y el catálogo parecía más pequeño de lo que es. Ahora se
+   queda al final, en gris. El estado se DERIVA de los pedidos (isRented), como
+   siempre: al archivarse el pedido vuelve sola al frente. */
+/* Solo `filter`, nunca `opacity`: el placeholder (.img-ph, con el icono y el
+   nombre) vive DEBAJO de la foto, así que bajarle la opacidad a la imagen lo
+   deja verse a través. El apagado se consigue desaturando y oscureciendo, con
+   la foto opaca del todo. */
+.card-off .thumb img { filter: grayscale(1) brightness(.62); }
+.card-off .card-name,
+.card-off .card-meta,
+.card-off .price-row { opacity: .6; }
+/* El medidor de calidad no se desatura: es un dato de la prenda, no de su
+   disponibilidad, y en gris se confundiría con "calidad baja". */
+/* Abajo a la izquierda: las otras dos esquinas ya están ocupadas por la
+   condición (arriba izq.) y la talla (arriba der.). */
+.off-tag {
+  position: absolute;
+  bottom: 8px; left: 8px;
+  background: rgba(35,48,31,.92);
+  color: #fff;
+  border-radius: 8px;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 700;
+}
 .size-tag {
   position: absolute;
   top: 8px; right: 8px;

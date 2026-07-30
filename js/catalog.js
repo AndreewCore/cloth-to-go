@@ -26,16 +26,19 @@ function sortProducts(list){
 function filteredProducts(){
   const q = searchQuery.trim().toLowerCase();
   const list = PRODUCTS.filter(p =>
-    // Prenda única: si está alquilada en un pedido vigente sale del catálogo
-    // (no hay otra unidad que ofrecer). Vuelve cuando el pedido se archiva.
-    !isRented(p.id) &&
     (activeCat === "Todo" || p.cat === activeCat) &&
     (q === "" || p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q)) &&
     (p.stars >= qualityFilter) &&
     (sizeFilter === "Todas" || p.size === sizeFilter) &&
     (materialFilter === "Todos" || p.material === materialFilter)
   );
-  return sortProducts(list);
+  const orden = sortProducts(list);
+  // La prenda alquilada se queda en el catálogo, pero al final: desaparecer
+  // costaba el escaparate (nadie podía verla, ni volver a por ella) y hacía
+  // pensar que el catálogo era más pequeño de lo que es. Sigue sin poder
+  // alquilarse; esto es presentación, no permiso. El orden elegido por el
+  // usuario se respeta dentro de cada grupo.
+  return [...orden.filter(p => !isRented(p.id)), ...orden.filter(p => isRented(p.id))];
 }
 
 // ¿Hay algún filtro activo? (para mostrar "Limpiar filtros")
@@ -136,15 +139,19 @@ function renderGrid(){
 
   grid.innerHTML = list.map(p => {
     const avail = unitsAvailable(p);
+    // Alquilada ≠ "en tu carrito": la del carrito sigue siendo tuya y se pinta
+    // normal, solo la que está fuera se apaga.
+    const fuera = isRented(p.id);
     const btn = inCart(p.id)
       ? `<button class="add-btn in-cart" data-add="${p.id}">${icon("check", { size: 14 })} En carrito</button>`
       : avail > 0
         ? `<button class="add-btn" data-add="${p.id}">+ Alquilar</button>`
         : `<button class="add-btn" disabled>No disponible</button>`;
     return `
-    <div class="card">
+    <div class="card${fuera ? " card-off" : ""}">
       <div class="thumb" data-detail="${p.id}">
         ${imgPlaceholder(p)}
+        ${fuera ? `<span class="off-tag" style="z-index:3">No disponible</span>` : ""}
         <span class="cond-tag" style="z-index:2">${conditionLabel(p.stars)}</span>
         <span class="size-tag" style="z-index:2">Talla ${escapeHTML(p.size)}</span>
       </div>
@@ -232,7 +239,7 @@ function renderDetail(){
     <p class="detail-avail">${unitsAvailable(p) > 0
       ? `${icon("checkCircle", { size: 15 })} Disponible · ${p.disponibles} unidad${p.disponibles===1?'':'es'} (prenda única)`
       : isRented(p.id)
-        ? `${icon("ban", { size: 15 })} Alquilada ahora mismo · vuelve al catálogo cuando termine el alquiler`
+        ? `${icon("ban", { size: 15 })} No disponible por el momento`
         : `${icon("ban", { size: 15 })} Ya está en tu carrito (prenda única)`}</p>`;
 
   if(isRented(p.id)){
