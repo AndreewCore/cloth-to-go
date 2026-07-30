@@ -389,10 +389,12 @@ test("render del bloque de fechas", async (t) => {
     const { app, document } = setup([1]);
     app.view = "cart";
     app.renderSheet();
-    // Se toma un día de la propia cuadrícula: escribir un offset fijo lo saca
-    // del mes visible cuando la prueba corre a final de mes.
-    const libre = [...document.querySelectorAll(".cal-day:not([disabled])")]
-      .find(b => b.dataset.iso > app.rentalEnd);
+    // Se toma el último día pulsable de la propia cuadrícula. Un offset fijo
+    // desde hoy se sale del mes visible cuando la prueba corre a fin de mes, y
+    // exigir que caiga después de rentalEnd falla por lo mismo: el rango por
+    // defecto (hoy + 3) ya toca el borde de la rejilla los días 29-31.
+    const dias = [...document.querySelectorAll(".cal-day:not([disabled])")];
+    const libre = dias[dias.length - 1];
     app.pickCalendarDay(libre.dataset.iso);
 
     const marcados = document.querySelectorAll(".cal-day.in");
