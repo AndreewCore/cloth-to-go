@@ -26,6 +26,8 @@ globalThis.__APP__ = {
   SHIPPING_FEE, DEPOSIT_MAX, DEPOSIT_ORDER_MAX, MIN_MARGIN,
   // --- Helpers puros (data.js) ---
   escapeHTML, fmtDate, daysBetween, starStr, conditionLabel, materialLabel,
+  qualityLevel, qualityMeter, qualityMeterText,
+  REWARDS, rewardById, rewardIssue,
   garmentWater, litersToGallons,
   isValidEmail, isValidPhone, isValidName, isValidAddress,
   isValidCardNumber, isValidExpiry, isValidCvv,

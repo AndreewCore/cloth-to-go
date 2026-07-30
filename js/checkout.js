@@ -179,7 +179,7 @@ function renderCart(){
         <div class="ci-thumb">${imgPlaceholder(p)}</div>
         <div class="ci-info">
           <div class="ci-name">${escapeHTML(p.name)}</div>
-          <div class="ci-stars">${starStr(p.stars)} <span style="color:var(--muted)">${conditionLabel(p.stars)} · Talla ${escapeHTML(p.size)}</span></div>
+          <div class="ci-quality">${qualityMeter(p.stars)} <span style="color:var(--muted)">${conditionLabel(p.stars)} · Talla ${escapeHTML(p.size)}</span></div>
           <div class="ci-meta">${days} ${days===1?'día':'días'} · $${(cartItemPrice(p)/days).toFixed(2)}/día · depósito $${depositFor(p)}</div>
         </div>
         <div>
