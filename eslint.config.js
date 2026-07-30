@@ -34,7 +34,7 @@ const PROJECT_GLOBALS = [
   "isValidEmail", "isValidPhone", "isValidName", "isValidAddress",
   "isValidCardNumber", "isValidExpiry", "isValidCvv",
   "WATER_PER_KG", "LITERS_PER_GALLON", "garmentWater", "litersToGallons", "fmtLiters",
-  "WATER_GOALS",
+  "WATER_GOALS", "DEMO_REVIEWS",
   "MATERIAL_LABELS", "materialLabel", "MATERIAL_ORDER", "MATERIALS",
   // state.js
   "isoOffset", "cart", "orders", "profile", "activeCat", "searchQuery",
@@ -55,6 +55,9 @@ const PROJECT_GLOBALS = [
   "toggleWaterGoalInfo", "celebrateWaterGoals",
   "orderItemsSubtotal", "orderDeposit", "orderTotal", "paymentStatusLabel", "isArchivedOrder",
   "isCancelledOrder", "isPastOrder", "canCancelOrder", "isDelivered",
+  "reviews", "reviewOrderId", "reviewProductId", "reviewRating", "reviewText", "reviewPhoto",
+  "productReviews", "productRating", "reviewFor", "reviewableItems", "hasPendingReview",
+  "saveReview", "deleteReview",
   "countsForRewards", "creditDeliveredPoints", "revokeOrderPoints", "nextOrderId",
   "STORAGE_PREFIX", "activeStorageKey", "defaultProfile", "storageKeyFor",
   "resetStateToDefaults", "saveState", "loadState",
@@ -67,7 +70,7 @@ const PROJECT_GLOBALS = [
   // catalog.js
   "renderFilters", "sortProducts", "filteredProducts", "anyFilterActive", "clearFilters",
   "activeFilterCount", "updateFilterBar", "renderFilterSheet",
-  "renderGrid", "addToCart", "openDetail", "renderDetail",
+  "renderGrid", "addToCart", "openDetail", "renderDetail", "reviewsHTML",
   "galleryIndex", "galleryHTML", "moveGallery", "showGalleryImage",
   // checkout.js
   "totalRowHTML", "calVisibleMonth", "calDayIndex", "calDayCost", "calGridHTML",
@@ -82,6 +85,8 @@ const PROJECT_GLOBALS = [
   "renderRewards", "couponListHTML", "redeem",
   "prefOptionsHTML", "prefToggleHTML", "renderSettings",
   "openDonate", "donateValid", "renderDonate", "submitDonation", "openWardrobe",
+  "REVIEW_PHOTO_MAX_PX", "REVIEW_PHOTO_QUALITY", "REVIEW_PHOTO_MAX_BYTES",
+  "openReview", "reviewValid", "renderReview", "compressPhoto", "pickReviewPhoto", "submitReview",
   // main.js
   "enter", "onSheetClick",
   // api.js

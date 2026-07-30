@@ -1804,3 +1804,71 @@ main::-webkit-scrollbar { display: none; }
 :root[data-theme="dark"] .login-mark {
   background: var(--logo-plate);
 }
+
+/* ---- Reseñas de clientes ----
+   Aquí SÍ van estrellas: son la valoración de la gente, que es lo que una
+   estrella significa para cualquiera. La calidad de la prenda usa su medidor
+   propio (.qmeter) precisamente para que estas dos no se confundan. */
+.reviews { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+.rev-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.rev-head h3 { margin: 0; font-size: 15px; }
+.rev-avg { color: var(--star); font-size: 13px; letter-spacing: 1px; }
+.rev-avg b { color: var(--ink); margin-left: 4px; letter-spacing: 0; }
+.rev-avg small { color: var(--muted); letter-spacing: 0; }
+.rev-empty { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+.review { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.review:last-child { border-bottom: none; padding-bottom: 0; }
+.rev-top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.rev-author { font-weight: 700; }
+.rev-date { color: var(--muted); }
+.rev-stars { color: var(--star); font-size: 12px; letter-spacing: 1px; margin-top: 2px; }
+.rev-text { margin: 6px 0 0; font-size: 13px; line-height: 1.45; }
+.rev-photo { margin-top: 8px; max-width: 160px; width: 100%; border-radius: 10px; display: block; }
+
+/* ---- Formulario de reseña ---- */
+.rev-add-btn {
+  width: 100%; margin-top: 8px; padding: 9px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: none; color: var(--ink);
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.rev-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+.rev-section { margin-bottom: 16px; }
+.rev-label { font-size: 12px; font-weight: 700; margin-bottom: 7px; }
+.rev-opt { color: var(--muted); font-weight: 400; }
+.rev-picks { display: flex; flex-direction: column; gap: 8px; }
+.rev-pick {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+}
+.rev-pick.on { border-color: var(--accent); background: var(--accent-soft, transparent); }
+.rev-pick .ci-thumb { width: 44px; height: 56px; flex: none; }
+/* Las estrellas del formulario son botones grandes: puntuar es la única acción
+   obligatoria de la pantalla y con el pulgar hay que acertarlas a la primera. */
+.rev-stars-input { display: flex; gap: 4px; }
+.rev-star {
+  border: none; background: none; cursor: pointer;
+  font-size: 30px; line-height: 1; padding: 2px 4px;
+  color: var(--line);
+}
+.rev-star.on { color: var(--star); }
+.rev-textarea {
+  width: 100%; resize: vertical;
+  padding: 10px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--card); color: var(--ink);
+  font: inherit; font-size: 13px;
+}
+.rev-photo-pick {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 12px; border: 1px dashed var(--line); border-radius: 12px;
+  color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.rev-photo-pick:hover { border-color: var(--accent); color: var(--accent); }
+.rev-photo-wrap { display: flex; align-items: flex-start; gap: 10px; }
+.rev-photo-del {
+  display: flex; align-items: center; gap: 5px;
+  border: none; background: none; cursor: pointer;
+  color: var(--muted); font-size: 12px; font-weight: 700;
+}
+.rev-photo-del:hover { color: var(--danger, #b3261e); }

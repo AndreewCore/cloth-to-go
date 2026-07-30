@@ -79,14 +79,14 @@ function scrollSheetTo(id, margin = 8){
 // Vista → paso anterior (define cuándo se muestra el botón "atrás"). `settings` ya no figura:
 // se abre desde el engranaje del header, no desde el perfil, así que volver al
 // perfil sería llevar al usuario a una pantalla en la que nunca estuvo.
-const SHEET_BACK = { checkout: "cart", payment: "checkout", rewards: "profile", donate: "profile" };
+const SHEET_BACK = { checkout: "cart", payment: "checkout", rewards: "profile", donate: "profile", review: "profile" };
 
 /* Vistas que ocupan la pantalla entera en lugar de asomar como panel.
    El perfil y sus derivadas son destinos donde uno se queda un rato (revisar
    pedidos, canjear, configurar), no un paso rápido del checkout. Como panel al
    88% obligaban a hacer scroll dentro de un scroll y dejaban el catálogo
    asomando por arriba, que distrae y no lleva a ninguna parte. */
-const FULL_VIEWS = new Set(["profile", "rewards", "donate", "settings"]);
+const FULL_VIEWS = new Set(["profile", "rewards", "donate", "settings", "review"]);
 
 // Despacha el render del panel según la vista activa.
 function renderSheet(){
@@ -105,6 +105,7 @@ function renderSheet(){
   else if(view==="donate") renderDonate();
   else if(view==="filters") renderFilterSheet();
   else if(view==="settings") renderSettings();
+  else if(view==="review") renderReview();
 }
 
 /* ---------------- Badge del carrito ---------------- */
