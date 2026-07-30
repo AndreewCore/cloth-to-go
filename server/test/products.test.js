@@ -38,10 +38,26 @@ test("cada prenda trae los campos que el frontend espera", async () => {
   const [first] = res.json();
   for (const field of [
     "id", "name", "cat", "value", "stars",
-    "size", "disponibles", "material", "weightKg", "img", "desc",
+    "size", "disponibles", "material", "weightKg", "imgs", "desc",
   ]) {
     assert.ok(field in first, `falta el campo "${field}"`);
   }
+});
+
+test("imgs llega como array, no como el JSON que guarda SQLite", async () => {
+  // El formato del almacén no debe filtrarse al cliente: si esto se rompe, el
+  // frontend recibe una cadena y la galería la recorre carácter a carácter.
+  const res = await app.inject({ method: "GET", url: "/api/products" });
+  for (const p of res.json()) {
+    assert.ok(Array.isArray(p.imgs), `la prenda ${p.id} debe traer imgs como array`);
+    assert.ok(p.imgs.length >= 1, `la prenda ${p.id} debe traer al menos una foto`);
+    assert.ok(p.imgs.every(s => typeof s === "string"));
+  }
+});
+
+test("alguna prenda trae varias fotos (la galería tiene qué mostrar)", async () => {
+  const res = await app.inject({ method: "GET", url: "/api/products" });
+  assert.ok(res.json().some(p => p.imgs.length > 1));
 });
 
 test("el catálogo viene ordenado por id ascendente", async () => {
