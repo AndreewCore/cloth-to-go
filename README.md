@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="img/Cloth%20To%20Go%20Logo.png" alt="CLOTH TO GO" height="96" />
+<img src="img/logo.webp" alt="CLOTH TO GO" height="96" />
 
 # CLOTH TO GO
 
@@ -203,7 +203,7 @@ navegador.
 │   ├── api.js  auth.js  maps.js
 │   └── main.js
 ├── img/
-│   ├── Cloth To Go Logo.png
+│   ├── logo.webp
 │   └── products/           # Fotos del catálogo (webp, servidas desde el repo)
 ├── test/                   # Pruebas del frontend (runner nativo de Node + jsdom)
 ├── server/                 # API Fastify + Prisma + SQLite
