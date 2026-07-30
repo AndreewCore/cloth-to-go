@@ -294,8 +294,31 @@ main::-webkit-scrollbar { display: none; }
 }
 .card-meta .cm-dot { opacity: .6; }
 .card-meta .cm-mat { color: var(--accent); font-weight: 700; }
+/* Estrellas: reservadas para las reseñas de clientes (feature futura). */
 .stars { font-size: 12px; letter-spacing: 1px; color: var(--star); }
 .stars small { color: var(--muted); margin-left: 3px; letter-spacing: 0; }
+
+/* ---- Medidor de calidad ----
+   Cinco pastillas en vez de estrellas: la calidad la fija el negocio al
+   catalogar la prenda, no los clientes, y con las reseñas en camino dibujar
+   ambas cosas igual sería decir que son lo mismo. Un medidor lee como "nivel",
+   que es exactamente lo que es. */
+.qmeter { display: inline-flex; gap: 2px; vertical-align: middle; }
+.qm-seg {
+  width: 9px; height: 5px; border-radius: 2px;
+  background: var(--line);
+  /* La pastilla vacía necesita cuerpo propio: sin esto, en alto contraste
+     desaparece y el medidor miente sobre el nivel. */
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.qm-seg.on { background: var(--star); box-shadow: none; }
+.quality, .detail-quality, .ci-quality { display: flex; align-items: center; gap: 6px; }
+.quality { font-size: 12px; }
+.quality small, .detail-quality small { color: var(--muted); letter-spacing: 0; }
+.ci-quality { font-size: 11px; }
+/* En el chip del detalle el medidor acompaña a "5/5", así que va algo mayor. */
+.qm-fact { display: flex; align-items: center; gap: 6px; }
+.qm-fact .qm-seg { width: 7px; height: 6px; }
 /* El precio ya no es lineal por día, así que la tarjeta ancla en el primer día
    y deja el coste del día extra debajo, en vez de en la misma línea. */
 .price-row {
@@ -431,7 +454,7 @@ main::-webkit-scrollbar { display: none; }
 .ci-info { flex: 1; min-width: 0; }
 .ci-name { font-size: 14px; font-weight: 700; }
 .ci-meta { font-size: 11px; color: var(--muted); }
-.ci-stars { font-size: 11px; color: var(--star); }
+/* .ci-quality vive junto al resto del medidor, más arriba. */
 .days-ctrl {
   display: flex;
   align-items: center;
@@ -830,8 +853,10 @@ main::-webkit-scrollbar { display: none; }
 .detail-cat { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .detail-price { font-size: 22px; font-weight: 800; color: var(--accent); white-space: nowrap; }
 .detail-price span { font-size: 12px; color: var(--muted); font-weight: 500; }
-.detail-stars { font-size: 16px; color: var(--star); letter-spacing: 2px; margin: 12px 0 4px; }
-.detail-stars small { color: var(--muted); font-size: 12px; letter-spacing: 0; margin-left: 6px; }
+.detail-quality { margin: 12px 0 4px; }
+.detail-quality small { font-size: 12px; }
+/* En el detalle el medidor es la pieza principal de la ficha: algo más grande. */
+.detail-quality .qm-seg { width: 13px; height: 6px; }
 .detail-desc { font-size: 14px; line-height: 1.55; color: var(--ink); margin: 10px 0; }
 .detail-avail { font-size: 13px; font-weight: 700; color: var(--ok); margin: 12px 0 0; }
 .detail-facts { display: flex; gap: 10px; margin: 14px 0 4px; }
