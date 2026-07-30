@@ -113,7 +113,7 @@ globalThis.__APP__ = {
   // confundir "el pedido no ha acreditado" con "el saldo es cero".
   WATER_GOALS, totalWaterSaved, waterSavedForItems, reachedWaterGoals, nextWaterGoal,
   waterGoalProgress, creditWaterGoals, waterGoalHTML, toggleWaterGoalInfo,
-  renderProfile, renderSheet,
+  renderProfile, renderSheet, fmtLiters, countsForRewards,
   waterPointsCredited(){
     return (profile.waterGoals || []).reduce(
       (s, id) => s + (WATER_GOALS.find(g => g.id === id)?.points || 0), 0);

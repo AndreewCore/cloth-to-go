@@ -1298,6 +1298,16 @@ main::-webkit-scrollbar { display: none; }
   background: var(--bg); border-radius: 10px;
   font-size: 12px; font-weight: 700; color: var(--muted);
 }
+/* Litros que el pedido aporta a las metas de agua. Comparte caja con los puntos
+   pendientes (se leen como una sola ficha), pero tiñe el dato en el azul del
+   agua para separar de un vistazo el impacto de la recompensa. */
+.water-pending {
+  margin: 2px 0; padding: 8px 10px;
+  background: var(--bg); border-radius: 10px;
+  font-size: 12px; font-weight: 700; color: var(--muted);
+}
+.water-pending svg { color: var(--ico-sky); vertical-align: -2px; }
+.water-pending b { color: var(--ico-sky); }
 
 /* ---- Editor in-line del modo de devolución ---- */
 .ret-editor {

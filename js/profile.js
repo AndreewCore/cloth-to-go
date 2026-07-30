@@ -80,6 +80,8 @@ function renderProfile(){
       ${!archived ? `
         ${!o.pointsCredited ? `
           <div class="points-pending">${icon("sprout", { size: 14 })} Ganarás ${o.points} pts cuando recibas tus prendas</div>` : ""}
+        <div class="water-pending">${icon("droplet", { size: 14 })} ${o.pointsCredited ? "Ahorraste" : "Ahorrarás"}
+          <b>${fmtLiters(waterSavedForItems(o.items))} L</b> de agua${o.pointsCredited ? "" : ", que sumarán a tus metas"}</div>
         <button class="ret-edit" data-action="editReturn" data-idx="${i}">${icon("pencil", { size: 14 })} Cambiar modo de devolución</button>
         ${editingOrder === i ? returnEditorHTML(i) : ""}
         ${canCancelOrder(o) ? `
