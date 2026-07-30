@@ -155,3 +155,17 @@ function closeModal(){
 
 // El ahorro de agua ya no se muestra en un pop-up aparte: se integró en la
 // pantalla de confirmación del pedido (renderDone en checkout.js).
+
+/**
+ * Pop-up de felicitación al cruzar una o más metas de agua.
+ * Recibe las metas recién acreditadas por creditWaterGoals(); con lista vacía
+ * no hace nada, así los llamadores no tienen que comprobarlo.
+ */
+function celebrateWaterGoals(goals){
+  if(!goals || !goals.length) return;
+  const detail = goals.map(g =>
+    `<div class="goal-hit">${icon("droplet", { size: 16 })} “${escapeHTML(g.name)}” · ${fmtLiters(g.liters)} L · <b>+${g.points} pts</b></div>`
+  ).join("");
+  confirmDialog("Alcanzaste una meta de ahorro de agua. Los puntos ya son tuyos.",
+    null, "award", { title: "¡Felicidades!", detailHTML: detail, okLabel: "Genial", infoOnly: true });
+}

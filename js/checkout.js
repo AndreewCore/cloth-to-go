@@ -561,6 +561,8 @@ function placeOrder(){
   // renderGrid: las prendas del pedido pasan a estar alquiladas y salen del
   // catálogo ya mismo, sin esperar a que se cierre la confirmación.
   view = "done"; renderSheet(); updateBadge(); renderGrid();
+  // El pop-up va sobre la confirmación ya pintada: celebra sin taparle el acuse.
+  celebrateWaterGoals(lastWaterGoals);
 }
 
 /* ---- Confirmación ----

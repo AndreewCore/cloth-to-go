@@ -272,7 +272,9 @@ main::-webkit-scrollbar { display: none; }
   padding: 3px 7px;
   font-size: 10px;
   font-weight: 700;
-  color: var(--ink);
+  /* Tinta fija, no var(--ink): la pastilla es blanca en ambos temas (va sobre
+     la foto), y en oscuro --ink se vuelve clara → texto invisible. */
+  color: #23301f;
 }
 .size-tag {
   position: absolute;
@@ -365,6 +367,9 @@ main::-webkit-scrollbar { display: none; }
    se queda. Ver FULL_VIEWS en dom.js. */
 .sheet.full { max-height: 100%; top: 0; border-radius: 0; }
 .sheet.full .grip { display: none; }
+/* Con top:0 el encabezado quedaría debajo de la muesca del mockup (26px,
+   z-index 60): se baja el título para que no lo tape. */
+.sheet.full .sheet-head { padding-top: 36px; }
 .sheet-head {
   padding: 16px 20px 10px;
   border-bottom: 1px solid var(--line);
@@ -976,28 +981,38 @@ main::-webkit-scrollbar { display: none; }
 .wg-value { font-size: 22px; font-weight: 800; color: var(--water); margin-top: 2px; }
 .wg-value span { font-size: 13px; font-weight: 600; opacity: .85; }
 .wg-next { font-size: 11px; font-weight: 700; color: var(--muted); flex: 0 0 auto; align-self: flex-end; }
+/* El riel envuelve a la barra para que los marcadores (absolutos) puedan
+   sobresalir de ella: la barra recorta con overflow y los cortaría. */
+.wg-track { position: relative; margin: 14px 0 4px; }
 .wg-bar {
-  height: 7px; border-radius: 999px; margin: 10px 0 6px;
+  height: 7px; border-radius: 999px;
   background: rgba(43,140,209,.20); overflow: hidden;
 }
 .wg-fill {
   display: block; height: 100%; border-radius: 999px;
   background: var(--water); transition: width .4s ease;
 }
-.wg-foot { font-size: 11px; color: var(--muted); line-height: 1.4; }
-.wg-foot b { color: var(--water); }
-.wg-badges {
-  list-style: none; margin: 10px 0 0; padding: 0;
-  display: flex; flex-wrap: wrap; gap: 5px;
+/* Marcador de meta sobre la barra. El último cae en left:100%: el translate
+   de -100% (en vez de centrarlo) lo mete dentro del riel para que no se
+   salga de la tarjeta. */
+.wg-mark {
+  position: absolute; top: 50%; transform: translate(-100%, -50%);
+  width: 15px; height: 15px; border-radius: 50%; padding: 0;
+  border: 2px solid var(--water); background: var(--bg);
+  color: var(--on-accent); cursor: pointer;
+  display: grid; place-items: center;
 }
-.wg-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  border: 1px solid var(--line); border-radius: 999px;
-  padding: 3px 8px; font-size: 10px; font-weight: 700;
-  color: var(--muted); background: var(--card); opacity: .6;
+.wg-mark.done { background: var(--water); }
+.wg-mark.active { box-shadow: 0 0 0 3px rgba(43,140,209,.30); }
+/* Detalle de la meta tocada: solo existe mientras un marcador está activo. */
+.wg-goal-info {
+  display: flex; align-items: flex-start; gap: 7px;
+  margin-top: 8px; padding: 8px 10px; border-radius: 10px;
+  background: rgba(43,140,209,.12); font-size: 11px;
+  color: var(--muted); line-height: 1.45;
 }
-.wg-badge.done { opacity: 1; color: var(--water); border-color: rgba(43,140,209,.45); }
-.wgb-ico { display: flex; align-items: center; }
+.wg-goal-info b { color: var(--water); }
+.wgi-ico { display: flex; align-items: center; color: var(--water); margin-top: 1px; }
 
 /* Meta conseguida, anunciada en la confirmación del pedido. */
 .goal-hit {

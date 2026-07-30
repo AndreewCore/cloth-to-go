@@ -50,6 +50,7 @@ const PROJECT_GLOBALS = [
   "couponDiscount", "couponIssue", "orderDiscount",
   "waterSavedForItems", "cartWaterSaved", "totalWaterSaved",
   "reachedWaterGoals", "nextWaterGoal", "waterGoalProgress", "creditWaterGoals",
+  "toggleWaterGoalInfo", "celebrateWaterGoals",
   "orderItemsSubtotal", "orderDeposit", "orderTotal", "paymentStatusLabel", "isArchivedOrder",
   "isCancelledOrder", "isPastOrder", "canCancelOrder", "isDelivered",
   "creditDeliveredPoints", "revokeOrderPoints", "nextOrderId",
