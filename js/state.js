@@ -39,6 +39,7 @@ let orders = [];
 let profile = { name:"", email:"", phone:"", points: 0, redeemed: [], donations: [] };
 let lastEarnedPoints = 0;            // puntos del último pedido (para la confirmación)
 let lastWaterSaved = 0;              // litros de agua ahorrados en el último pedido (para la confirmación/pop-up)
+let lastWaterGoals = [];             // metas de agua cruzadas por el último pedido (para la confirmación)
 let lastOrder = null;                // último pedido confirmado: la pantalla de
                                      // confirmación se pinta desde aquí, no del
                                      // carrito (que ya se vació en placeOrder).
@@ -207,6 +208,56 @@ function totalWaterSaved(){
   return orders.reduce((s, o) => s + (isCancelledOrder(o) ? 0 : waterSavedForItems(o.items)), 0);
 }
 
+/* ---- Metas de agua ----
+   Las metas se derivan de totalWaterSaved(), que a su vez sale de los pedidos:
+   no se guarda ningún contador aparte que pudiera desincronizarse. Lo único
+   que se persiste es QUÉ metas ya pagaron sus puntos (profile.waterGoals),
+   porque eso sí es un hecho irreversible y no se puede recalcular. */
+
+/** Metas ya alcanzadas con los litros ahorrados hasta ahora. */
+function reachedWaterGoals(){
+  const litros = totalWaterSaved();
+  return WATER_GOALS.filter(g => litros >= g.liters);
+}
+
+/** Siguiente meta por alcanzar, o null si ya están todas. */
+function nextWaterGoal(){
+  const litros = totalWaterSaved();
+  return WATER_GOALS.find(g => litros < g.liters) || null;
+}
+
+/**
+ * Progreso hacia la siguiente meta, como fracción entre 0 y 1.
+ * Con todas las metas cumplidas devuelve 1: la barra queda llena, no vacía.
+ * El tramo se mide desde la meta anterior, no desde cero, o la barra se
+ * quedaría casi llena para siempre a partir de la segunda meta.
+ */
+function waterGoalProgress(){
+  const g = nextWaterGoal();
+  if(!g) return 1;
+  const previa = WATER_GOALS.filter(x => x.liters < g.liters).pop();
+  const desde = previa ? previa.liters : 0;
+  return Math.min(1, Math.max(0, (totalWaterSaved() - desde) / (g.liters - desde)));
+}
+
+/**
+ * Acredita los puntos de las metas de agua recién alcanzadas.
+ *
+ * Idempotente: cada meta cobrada queda anotada en profile.waterGoals, así que
+ * recargar la app no vuelve a pagarla. Se llama en los mismos sitios que
+ * creditDeliveredPoints() — los litros solo cambian cuando cambian los pedidos.
+ * @returns {Array<object>} Metas cobradas en esta llamada (vacío si ninguna).
+ */
+function creditWaterGoals(){
+  if(!Array.isArray(profile.waterGoals)) profile.waterGoals = [];
+  const nuevas = reachedWaterGoals().filter(g => !profile.waterGoals.includes(g.id));
+  for(const g of nuevas){
+    profile.points += g.points;
+    profile.waterGoals.push(g.id);
+  }
+  return nuevas;
+}
+
 // Puntos que otorga el pedido actual: según el monto pagado (no reembolsable),
 // los días de alquiler y la cantidad de prendas.
 // Lo cubierto por un premio no vuelve a puntuar: si lo hiciera, canjear
@@ -357,7 +408,10 @@ const STORAGE_PREFIX = "clothToGo:v4:user:";
 let activeStorageKey = null;          // null = invitado (sin persistencia)
 
 // Perfil recién inicializado (evita compartir referencia entre sesiones).
-function defaultProfile(){ return { name:"", email:"", phone:"", picture:"", points:0, redeemed:[], donations:[] }; }
+// waterGoals: ids de las metas de agua que YA pagaron sus puntos. Object.assign
+// en loadState da la migración gratis: un perfil viejo entra con la lista vacía
+// y cobra de una vez las metas que ya tenía ganadas.
+function defaultProfile(){ return { name:"", email:"", phone:"", picture:"", points:0, redeemed:[], donations:[], waterGoals:[] }; }
 
 // Clave de almacenamiento de un usuario, o null para el invitado (efímero).
 function storageKeyFor(user){ return user && user.sub ? STORAGE_PREFIX + user.sub : null; }

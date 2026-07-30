@@ -47,7 +47,7 @@ test("placeOrder con tarjeta: pedido settled, puntos reservados y carrito vacío
   // cierto los puntos quedan reservados y no entran al saldo gastable.
   assert.ok(win.canCancelOrder(o));
   assert.ok(!o.pointsCredited);
-  assert.equal(app.profile.points, 0);
+  assert.equal(app.profile.points, app.waterPointsCredited());
   assert.equal(app.cart.length, 0);              // carrito vaciado en placeOrder
   assert.equal(app.view, "done");
   // La confirmación se pinta desde el pedido (no del carrito, ya vacío).
@@ -64,7 +64,7 @@ test("efectivo ya firme: acredita puntos aunque el cobro siga pendiente", () => 
   const o = app.orders[0];
   assert.equal(o.status, "pending");        // el cobro sigue pendiente…
   assert.ok(o.pointsCredited);              // …pero el alquiler ya es firme
-  assert.equal(app.profile.points, o.points);
+  assert.equal(app.profile.points, o.points + app.waterPointsCredited());
   assert.match(doc.getElementById("sheetBody").innerHTML, /Ganaste/);
 });
 
@@ -77,7 +77,7 @@ test("pedido que empieza más adelante: los puntos quedan reservados", () => {
   assert.equal(o.status, "settled");
   assert.ok(!o.pointsCredited);             // pagar no acredita: entregar sí
   assert.ok(o.points > 0);
-  assert.equal(app.profile.points, 0);
+  assert.equal(app.profile.points, app.waterPointsCredited());
   assert.match(doc.getElementById("sheetBody").innerHTML, /Ganarás/);
 });
 
@@ -86,18 +86,18 @@ test("los puntos reservados se acreditan cuando el pedido deja de ser anulable",
   app.setCheckout({ rentalStart: app.isoOffset(2), rentalEnd: app.isoOffset(5) });
   win.placeOrder();
   const o = app.orders[0];
-  assert.equal(app.profile.points, 0);
+  assert.equal(app.profile.points, app.waterPointsCredited());
 
   // Llegó el día de inicio: entregado, pero aún anulable → siguen reservados.
   o.start = app.isoOffset(0);
   assert.ok(win.isDelivered(o) && win.canCancelOrder(o));
   assert.equal(win.creditDeliveredPoints(), 0);
-  assert.equal(app.profile.points, 0);
+  assert.equal(app.profile.points, app.waterPointsCredited());
 
   // Pasado el día de inicio ya no hay vuelta atrás: ahí sí se acreditan.
   o.start = app.isoOffset(-1);
   assert.equal(win.creditDeliveredPoints(), o.points);
-  assert.equal(app.profile.points, o.points);
+  assert.equal(app.profile.points, o.points + app.waterPointsCredited());
   assert.equal(win.creditDeliveredPoints(), 0);   // no vuelve a acreditar
 });
 
@@ -354,12 +354,12 @@ test("un pedido anulable nunca tiene puntos acreditados que revertir", () => {
   // La invariante que cierra el agujero: acreditado ⟹ ya no anulable. Mientras
   // se pueda anular, esos puntos no existen en el saldo y no hay nada que canjear.
   assert.ok(!o.pointsCredited);
-  assert.equal(app.profile.points, 0);
+  assert.equal(app.profile.points, app.waterPointsCredited());
 
   win.cancelOrder(0);
   app.confirmModalOk();
 
-  assert.equal(app.profile.points, 0);
+  assert.equal(app.profile.points, app.waterPointsCredited());
   assert.ok(!app.orders[0].pointsCredited);
 });
 

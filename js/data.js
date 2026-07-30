@@ -212,6 +212,23 @@ function litersToGallons(liters){ return Math.round(liters / LITERS_PER_GALLON);
 // Formatea litros con separador de miles (es-EC): 8000 → "8.000".
 function fmtLiters(liters){ return Math.round(liters).toLocaleString("es-EC"); }
 
+/* ---- Metas de ahorro de agua ----
+   El contador de litros no decía nada por sí solo: un número grande sin escala
+   no deja saber si está bien o mal. Las metas le ponen un techo visible y
+   premian llegar, que es lo que convierte el dato ambiental en un motivo para
+   volver a alquilar.
+
+   Los umbrales se calibran sobre el catálogo real: una prenda ahorra ~7.200 L
+   de media, así que la primera meta cae con el primer alquiler y la última
+   exige constancia. Los puntos se miden contra REWARDS (60–300 pts): una meta
+   rinde, pero no regala el catálogo de premios. */
+const WATER_GOALS = [
+  { id: 1, liters:   5000, points:  50, name: "Primer ahorro" },
+  { id: 2, liters:  20000, points: 150, name: "Ahorro constante" },
+  { id: 3, liters:  50000, points: 400, name: "Impacto real" },
+  { id: 4, liters: 100000, points: 900, name: "Leyenda circular" },
+];
+
 /* ---- Categorías para los filtros ---- */
 const CATS = ["Todo", "Formal", "Fiesta", "Casual", "Invierno"];
 

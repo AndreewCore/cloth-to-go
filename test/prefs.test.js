@@ -107,13 +107,17 @@ test("toggleTheme alterna de ida y vuelta", () => {
   assert.equal(env.app.effectiveTheme(), inicial);
 });
 
-test("el botón de tema anuncia el destino, no el estado actual", () => {
+test("toggleTheme sigue siendo el atajo de un paso, ya sin botón en el header", () => {
+  // El interruptor suelto de claro/oscuro se retiró de la cabecera (su sitio lo
+  // ocupa el engranaje de Preferencias), pero la función se conserva: es la que
+  // usa cualquier acceso rápido y no depende de que exista un botón que pintar.
   const env = loadDom({ storage: { "clothToGo:prefs": JSON.stringify({ theme: "light" }) } });
-  env.window.renderThemeButton();
-  const btn = env.document.getElementById("toggleTheme");
-  assert.match(btn.getAttribute("aria-label"), /oscuro/i);
+  assert.equal(env.document.getElementById("toggleTheme"), null);
+  assert.equal(env.window.effectiveTheme(), "light");
   env.window.toggleTheme();
-  assert.match(btn.getAttribute("aria-label"), /claro/i);
+  assert.equal(env.window.effectiveTheme(), "dark");
+  env.window.toggleTheme();
+  assert.equal(env.window.effectiveTheme(), "light");
 });
 
 /* ---- Accesibilidad ---- */
@@ -143,7 +147,15 @@ test("cada tamaño de texto fija su escala como variable CSS", () => {
 test("ya no existe el botón de encuesta en el header", () => {
   const env = loadDom();
   assert.equal(env.document.getElementById("openSurvey"), null);
-  assert.ok(env.document.getElementById("toggleTheme"), "su lugar lo ocupa el tema");
+  assert.ok(env.document.getElementById("openPrefs"), "su lugar lo ocupa Preferencias");
+});
+
+test("el header no acumula botones: Preferencias sustituye al interruptor de tema", () => {
+  const env = loadDom();
+  assert.equal(env.document.getElementById("toggleTheme"), null,
+    "el interruptor suelto se retiró para no dejar cuatro iconos arriba");
+  const acciones = env.document.querySelectorAll(".brand-actions > button");
+  assert.equal(acciones.length, 3, "Preferencias, perfil y carrito");
 });
 
 /* ---- La vista de ajustes ---- */
@@ -174,9 +186,21 @@ test("los interruptores exponen su estado con role=switch", () => {
   assert.equal(sw.getAttribute("aria-checked"), "true");
 });
 
-test("desde ajustes, el botón atrás vuelve al perfil", () => {
+test("ajustes ya no vuelve al perfil: se abre desde el header", () => {
+  // Preferencias salió del perfil al engranaje de la cabecera. Mandar "atrás"
+  // al perfil llevaría al usuario a una pantalla en la que nunca estuvo.
   const env = loadDom();
-  assert.equal(env.app.SHEET_BACK.settings, "profile");
+  assert.equal(env.app.SHEET_BACK.settings, undefined);
+});
+
+test("el tema solo se alcanza desde Preferencias", () => {
+  // Al quitar el interruptor del header, Preferencias es la ÚNICA puerta al
+  // modo oscuro: si esta vista dejara de ofrecerlo, quedaría inalcanzable.
+  const env = loadDom();
+  env.app.view = "settings";
+  env.window.renderSettings();
+  const html = env.document.getElementById("sheetBody").innerHTML;
+  assert.match(html, /data-pref="theme"/, "los ajustes deben ofrecer el tema");
 });
 
 /* ---- Contrato del tema en CSS ----
