@@ -108,6 +108,14 @@ globalThis.__APP__ = {
   getPrefs, setPref, toggleTheme, effectiveTheme, applyPrefs, loadPrefs,
   shouldReduceMotion, PREFS_KEY, DEFAULT_PREFS,
   isProductionHost, PRODUCTION_HOSTS, API_OFF_REASONS,
+  // Calendario de tarifas. Las fechas y el rango a medio elegir son variables
+  // let del scope compartido: solo se llegan por estos accesores.
+  addDaysISO, monthOf, shiftMonth, monthLabel, monthGrid,
+  subtotalForDays, dayMarginalCost, rentalDays, grandTotal, renderSheet,
+  calVisibleMonth, calDayIndex, calDayCost, pickCalendarDay, shiftCalendar,
+  get rentalStart(){ return rentalStart; },
+  get rentalEnd(){ return rentalEnd; },
+  get calPendingStart(){ return calPendingStart; },
 };
 `;
 

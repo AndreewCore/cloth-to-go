@@ -403,6 +403,70 @@ function daysBetween(startISO, endISO){
   return Math.max(1, Math.round(ms / 86400000));
 }
 
+/* ---- Aritmética de calendario ----
+   Todo se hace partiendo el ISO a mano en vez de con Date: `new Date("2026-08-01")`
+   se interpreta en UTC y en Guayaquil (UTC−5) retrocede al día anterior. Es el
+   mismo motivo por el que existe isoOffset() en lugar de toISOString(). */
+
+const MESES_LARGOS = ["enero","febrero","marzo","abril","mayo","junio",
+                      "julio","agosto","septiembre","octubre","noviembre","diciembre"];
+
+/**
+ * Suma días a una fecha ISO y devuelve otra ISO, sin pasar por husos horarios.
+ * @param {string} iso Fecha "YYYY-MM-DD".
+ * @param {number} n Días a sumar (puede ser negativo).
+ * @returns {string} Fecha ISO resultante.
+ */
+function addDaysISO(iso, n){
+  const [y,m,d] = iso.split("-").map(Number);
+  const dt = new Date(y, m-1, d + n);   // constructor local, no UTC
+  const p = v => String(v).padStart(2, "0");
+  return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}`;
+}
+
+/** Mes "YYYY-MM" al que pertenece una fecha ISO. */
+function monthOf(iso){ return iso.slice(0, 7); }
+
+/**
+ * Desplaza un mes "YYYY-MM" en `n` meses.
+ * @returns {string} Mes resultante en el mismo formato.
+ */
+function shiftMonth(ym, n){
+  const [y,m] = ym.split("-").map(Number);
+  const dt = new Date(y, m-1 + n, 1);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}`;
+}
+
+/** Etiqueta legible de un mes "YYYY-MM" (ej: "agosto 2026"). */
+function monthLabel(ym){
+  const [y,m] = ym.split("-").map(Number);
+  return `${MESES_LARGOS[m-1]} ${y}`;
+}
+
+/**
+ * Celdas de la cuadrícula mensual, de lunes a domingo y en semanas completas.
+ * Los huecos del principio y del final se rellenan con los días del mes vecino
+ * (marcados `out`) en vez de con blancos: así el rango de alquiler se ve
+ * continuo cuando cruza el cambio de mes.
+ * @param {string} ym Mes "YYYY-MM".
+ * @returns {Array<{iso:string, day:number, out:boolean}>} Múltiplo de 7 celdas.
+ */
+function monthGrid(ym){
+  const [y,m] = ym.split("-").map(Number);
+  const first = new Date(y, m-1, 1);
+  // getDay() es 0=domingo; la semana local empieza en lunes.
+  const lead = (first.getDay() + 6) % 7;
+  const start = addDaysISO(`${ym}-01`, -lead);
+  const cells = [];
+  for(let i = 0; i < 42; i++){
+    const iso = addDaysISO(start, i);
+    cells.push({ iso, day: Number(iso.slice(8)), out: monthOf(iso) !== ym });
+    // Se corta en semana completa: 5 filas bastan salvo en meses que desbordan.
+    if(cells.length % 7 === 0 && cells.length >= 28 && monthOf(iso) > ym) break;
+  }
+  return cells;
+}
+
 // HTML de una imagen con placeholder de respaldo.
 // Si la imagen no carga (onerror), se oculta y queda visible el placeholder.
 function imgPlaceholder(p){

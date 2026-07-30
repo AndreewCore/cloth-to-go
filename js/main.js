@@ -125,6 +125,9 @@ sheet.addEventListener("click", e=>{
     case "saveProfile":    saveProfile(); break;
     case "editProfile":    editProfile(); break;
     case "cancelProfileEdit": cancelProfileEdit(); break;
+    case "pickDay":        pickCalendarDay(el.dataset.iso); break;
+    case "calPrev":        shiftCalendar(-1); break;
+    case "calNext":        shiftCalendar(1); break;
     case "openRewards":    view="rewards"; renderSheet(); break;
     case "redeem":         redeem(+el.dataset.id); break;
     case "openDonate":     openDonate(); break;
@@ -177,9 +180,13 @@ sheet.addEventListener("change", e=>{
   if(t.id === "rentStart"){
     rentalStart = t.value;
     if(new Date(rentalEnd) <= new Date(rentalStart)) rentalEnd = rentalStart;
+    // Escribir la fecha a mano manda sobre el rango a medio elegir en el
+    // calendario: si no, quedarían dos inicios distintos compitiendo.
+    calPendingStart = null;
+    calMonth = null;
     renderSheet();
   } else if(t.id === "rentEnd"){
-    rentalEnd = t.value; renderSheet();
+    rentalEnd = t.value; calPendingStart = null; calMonth = null; renderSheet();
   } else if(t.id === "donDate"){
     donDate = t.value; renderSheet();
   }
