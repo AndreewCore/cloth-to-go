@@ -113,6 +113,19 @@
     <div class="sheet-foot" id="sheetFoot"></div>
   </div>
 
+  <!-- Pestaña de detalle apilada: sube por encima de una vista a pantalla
+       completa (el perfil) sin tocar el panel principal. Ver dom.js. -->
+  <div class="overlay stack-overlay" id="stackOverlay"></div>
+  <div class="sheet stack" id="sheetStack">
+    <div class="grip"></div>
+    <div class="sheet-head">
+      <h2>Detalle</h2>
+      <button class="close-x" id="closeStack" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="sheet-body" id="stackBody"></div>
+    <div class="sheet-foot" id="stackFoot"></div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
 <!-- Modal de confirmación in-app (reemplaza confirm() nativo) -->
