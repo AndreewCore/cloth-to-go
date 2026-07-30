@@ -184,7 +184,10 @@ async function verifyGoogleCredential(credential) {
     const { user } = await res.json();
     return user ?? null;
   } catch (err) {
-    console.info("No se pudo verificar el login con el backend; se usa el modo demo.", err.message);
+    // El mensaje decía "se usa el modo demo", que es justo lo que NO pasa:
+    // devolver null aquí aborta el login. Dejarlo así mandaba a buscar el fallo
+    // al sitio equivocado.
+    console.warn("No se pudo verificar el login con el backend; no se inicia sesión.", err.message);
     return null;
   }
 }
