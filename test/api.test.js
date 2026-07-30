@@ -42,9 +42,13 @@ test("localhost apunta al backend local en el puerto de desarrollo", () => {
   assert.equal(a.backend.base, "http://localhost:3000");
 });
 
-test("en producción (https) no hay backend publicado todavía", () => {
+test("en producción (https) sin backend publicado se marca como mal configurado", () => {
+  // Antes daba "undeployed", igual que un host cualquiera. Se separó (#17)
+  // porque en el origen público ese estado no es una espera legítima sino un
+  // despliegue incompleto, y auth.js se apoya en la distinción para negarse a
+  // autenticar sin verificar la firma.
   const { app: a } = at("https://andreewcore.github.io/cloth-to-go/");
-  assert.deepEqual({ ...a.backend }, { enabled: false, reason: "undeployed" });
+  assert.deepEqual({ ...a.backend }, { enabled: false, reason: "misconfigured" });
 });
 
 test("una página https nunca habla con un backend http (mixed content)", () => {
@@ -188,4 +192,47 @@ test("con backend, un token válido devuelve la identidad verificada", async () 
   const user = await w.verifyGoogleCredential("token-bueno");
   assert.equal(user.sub, "111");
   assert.equal(user.name, "Ana Ruiz");
+});
+
+/* ---- Guarda de despliegue (issue #17) ----
+   Sin DEPLOYED_API en un origen público, la app caía al decode local *en
+   silencio*: producción validaba identidades sin comprobar la firma, que es
+   suplantación trivial (basta con fabricar un JWT). */
+
+test("en un host de producción sin DEPLOYED_API el backend queda 'misconfigured'", () => {
+  const env = loadDom({ url: "https://andreewcore.github.io/cloth-to-go/" });
+  assert.equal(env.app.isProductionHost(), true);
+  assert.equal(env.app.backend.enabled, false);
+  assert.equal(env.app.backend.reason, "misconfigured",
+    "no debe confundirse con 'undeployed', que sí es legítimo");
+});
+
+test("un host cualquiera sin backend sigue siendo 'undeployed', no un fallo", () => {
+  const env = loadDom({ url: "https://ejemplo.test/" });
+  assert.equal(env.app.isProductionHost(), false);
+  assert.equal(env.app.backend.reason, "undeployed");
+});
+
+test("el motivo 'misconfigured' se explica, no se calla", () => {
+  const env = loadDom({ url: "https://andreewcore.github.io/cloth-to-go/" });
+  assert.match(env.app.API_OFF_REASONS.misconfigured, /DEPLOYED_API/);
+});
+
+test("con el backend habilitado nunca se decodifica el token en local", async () => {
+  // Smoke test del criterio de cierre: backend.enabled === true implica que la
+  // identidad sale de verifyGoogleCredential, jamás de decodeJwt.
+  const env = loadDom({
+    url: "https://cloth.test/",
+    storage: { "clothToGo:apiBase": "https://api.cloth.test" }
+  });
+  assert.equal(env.app.backend.enabled, true);
+
+  let decodeLlamado = false;
+  env.window.decodeJwt = () => { decodeLlamado = true; return { sub: "colado" }; };
+  env.window.verifyGoogleCredential = async () => null;   // el backend rechaza
+
+  await env.window.onGoogleCredential({ credential: "token.falso.aqui" });
+
+  assert.equal(decodeLlamado, false, "con backend, un rechazo no habilita el modo demo");
+  assert.equal(env.app.currentUser, null, "nadie debe quedar autenticado");
 });

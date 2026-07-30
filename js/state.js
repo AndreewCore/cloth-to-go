@@ -39,6 +39,7 @@ let orders = [];
 let profile = { name:"", email:"", phone:"", points: 0, redeemed: [], donations: [] };
 let lastEarnedPoints = 0;            // puntos del último pedido (para la confirmación)
 let lastWaterSaved = 0;              // litros de agua ahorrados en el último pedido (para la confirmación/pop-up)
+let lastWaterGoals = [];             // metas de agua cruzadas por el último pedido (para la confirmación)
 let lastOrder = null;                // último pedido confirmado: la pantalla de
                                      // confirmación se pinta desde aquí, no del
                                      // carrito (que ya se vació en placeOrder).
@@ -56,6 +57,10 @@ let materialFilter = "Todos";        // filtro por material
 let sortBy = "default";              // ordenamiento del catálogo
 let view = "cart";                   // cart | checkout | done | detail | profile
 let detailId = null;
+// El detalle se está viendo en la pestaña apilada (sobre el perfil) y no en el
+// panel principal. Lo decide openDetail() y manda en dónde pinta renderDetail()
+// y a dónde vuelven sus botones. Efímero: no se persiste.
+let stackedDetail = false;
 let delivery = null;                 // 'ship' | 'pickup'  — cómo RECIBE el pedido
 let address = "";
 // Punto exacto elegido en el mapa ({lat,lng}) o null si solo hay texto.
@@ -74,6 +79,13 @@ let editRet = null;                  // 'store' | 'home' (selección temporal)
 let editRetAddr = "";                // dirección de retiro temporal
 let rentalStart = isoOffset(0);      // hoy
 let rentalEnd = isoOffset(3);        // hoy + 3 días
+// Mes visible en el calendario de tarifas (YYYY-MM). null = el mes de rentalStart:
+// así, al elegir fechas nuevas, el calendario vuelve solo a lo que se acaba de
+// tocar en vez de quedarse donde el cliente navegó hace tres pantallas.
+let calMonth = null;
+// Primer clic de un rango a medio elegir (ISO), o null si no hay ninguno en
+// curso. Efímero: no se guarda ni viaja al pedido.
+let calPendingStart = null;
 
 /* ---------------- Cálculos ---------------- */
 function rentalDays(){ return daysBetween(rentalStart, rentalEnd); }
@@ -104,6 +116,31 @@ function cartItemPrice(p){ return rentalPrice(p, rentalDays(), cart.length); }
 function subtotal(){
   return cart.reduce((s,c) => s + cents(cartItemPrice(productById(c.id))), 0) / 100;
 }
+/**
+ * Subtotal del carrito si el alquiler durase exactamente `days` días, sin tocar
+ * las fechas elegidas. Base de las tarifas por día del calendario.
+ * @param {number} days Días de alquiler (mínimo 1).
+ * @returns {number} USD.
+ */
+function subtotalForDays(days){
+  const d = Math.max(1, days);
+  return cart.reduce((s,c) => s + cents(rentalPrice(productById(c.id), d, cart.length)), 0) / 100;
+}
+
+/**
+ * Cuánto añade al total el día n-ésimo del alquiler (el día 1 es la base, no un
+ * incremento). Sale de restar dos subtotales, así que respeta por construcción
+ * los tramos, el descuento por volumen y el piso de coste: en las prendas
+ * ancladas a su piso los días extra devuelven 0, que es justo lo que el
+ * calendario quiere hacer visible.
+ * @param {number} n Índice del día dentro del alquiler (1 = primero).
+ * @returns {number} USD que suma ese día.
+ */
+function dayMarginalCost(n){
+  if(n <= 1) return subtotalForDays(1);
+  return (cents(subtotalForDays(n)) - cents(subtotalForDays(n - 1))) / 100;
+}
+
 // Precio del carrito SIN el descuento por volumen, para poder mostrar cuánto
 // se ahorra el cliente por llevar varias prendas.
 function subtotalBeforeVolume(){
@@ -169,10 +206,62 @@ function waterSavedForItems(ids){
 }
 // Litros de agua ahorrados con el carrito actual (para la confirmación del pedido).
 function cartWaterSaved(){ return waterSavedForItems(cart.map(c => c.id)); }
-// Litros de agua ahorrados en total por los pedidos que llegaron a existir.
-// Un pedido anulado no reutilizó nada: sus litros salen de la cuenta.
+// Litros de agua ahorrados por los alquileres ya CUMPLIDOS (ver countsForRewards).
+// Contar un pedido todavía anulable era explotable: sus litros cruzaban una meta,
+// la meta pagaba sus puntos, y anular el pedido devolvía los puntos del pedido
+// pero no los de la meta — profile.waterGoals la da por cobrada para siempre.
 function totalWaterSaved(){
-  return orders.reduce((s, o) => s + (isCancelledOrder(o) ? 0 : waterSavedForItems(o.items)), 0);
+  return orders.reduce((s, o) => s + (countsForRewards(o) ? waterSavedForItems(o.items) : 0), 0);
+}
+
+/* ---- Metas de agua ----
+   Las metas se derivan de totalWaterSaved(), que a su vez sale de los pedidos:
+   no se guarda ningún contador aparte que pudiera desincronizarse. Lo único
+   que se persiste es QUÉ metas ya pagaron sus puntos (profile.waterGoals),
+   porque eso sí es un hecho irreversible y no se puede recalcular. */
+
+/** Metas ya alcanzadas con los litros ahorrados hasta ahora. */
+function reachedWaterGoals(){
+  const litros = totalWaterSaved();
+  return WATER_GOALS.filter(g => litros >= g.liters);
+}
+
+/** Siguiente meta por alcanzar, o null si ya están todas. */
+function nextWaterGoal(){
+  const litros = totalWaterSaved();
+  return WATER_GOALS.find(g => litros < g.liters) || null;
+}
+
+/**
+ * Progreso hacia la siguiente meta, como fracción entre 0 y 1.
+ * Con todas las metas cumplidas devuelve 1: la barra queda llena, no vacía.
+ * El tramo se mide desde la meta anterior, no desde cero, o la barra se
+ * quedaría casi llena para siempre a partir de la segunda meta.
+ */
+function waterGoalProgress(){
+  const g = nextWaterGoal();
+  if(!g) return 1;
+  const previa = WATER_GOALS.filter(x => x.liters < g.liters).pop();
+  const desde = previa ? previa.liters : 0;
+  return Math.min(1, Math.max(0, (totalWaterSaved() - desde) / (g.liters - desde)));
+}
+
+/**
+ * Acredita los puntos de las metas de agua recién alcanzadas.
+ *
+ * Idempotente: cada meta cobrada queda anotada en profile.waterGoals, así que
+ * recargar la app no vuelve a pagarla. Se llama en los mismos sitios que
+ * creditDeliveredPoints() — los litros solo cambian cuando cambian los pedidos.
+ * @returns {Array<object>} Metas cobradas en esta llamada (vacío si ninguna).
+ */
+function creditWaterGoals(){
+  if(!Array.isArray(profile.waterGoals)) profile.waterGoals = [];
+  const nuevas = reachedWaterGoals().filter(g => !profile.waterGoals.includes(g.id));
+  for(const g of nuevas){
+    profile.points += g.points;
+    profile.waterGoals.push(g.id);
+  }
+  return nuevas;
 }
 
 // Puntos que otorga el pedido actual: según el monto pagado (no reembolsable),
@@ -249,6 +338,16 @@ function canCancelOrder(o){ return !isPastOrder(o) && isoOffset(0) <= o.start; }
  */
 function isDelivered(o){ return !isCancelledOrder(o) && o.start <= isoOffset(0); }
 /**
+ * ¿El pedido ya ganó sus recompensas: entregado y fuera de la ventana de anulación?
+ *
+ * Único umbral para TODO lo que premia un alquiler (puntos del pedido y litros
+ * que alimentan las metas de agua). Mientras el pedido se pueda anular nada de
+ * eso está ganado, y premiarlo antes es explotable: ver creditDeliveredPoints()
+ * para el detalle del solapamiento entre `isDelivered` y `canCancelOrder`.
+ * @param {object} o Pedido.
+ */
+function countsForRewards(o){ return isDelivered(o) && !canCancelOrder(o); }
+/**
  * Acredita los puntos de los pedidos ya entregados y FIRMES (no anulables).
  *
  * Los puntos premian el alquiler cumplido, no el cobro: por eso el disparador
@@ -268,7 +367,7 @@ function isDelivered(o){ return !isCancelledOrder(o) && o.start <= isoOffset(0);
 function creditDeliveredPoints(){
   let sum = 0;
   orders.forEach(o => {
-    if(o.pointsCredited || !isDelivered(o) || canCancelOrder(o)) return;
+    if(o.pointsCredited || !countsForRewards(o)) return;
     profile.points += o.points;
     o.pointsCredited = true;
     sum += o.points;
@@ -325,7 +424,10 @@ const STORAGE_PREFIX = "clothToGo:v4:user:";
 let activeStorageKey = null;          // null = invitado (sin persistencia)
 
 // Perfil recién inicializado (evita compartir referencia entre sesiones).
-function defaultProfile(){ return { name:"", email:"", phone:"", picture:"", points:0, redeemed:[], donations:[] }; }
+// waterGoals: ids de las metas de agua que YA pagaron sus puntos. Object.assign
+// en loadState da la migración gratis: un perfil viejo entra con la lista vacía
+// y cobra de una vez las metas que ya tenía ganadas.
+function defaultProfile(){ return { name:"", email:"", phone:"", picture:"", points:0, redeemed:[], donations:[], waterGoals:[] }; }
 
 // Clave de almacenamiento de un usuario, o null para el invitado (efímero).
 function storageKeyFor(user){ return user && user.sub ? STORAGE_PREFIX + user.sub : null; }
