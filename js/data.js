@@ -400,7 +400,10 @@ const isValidExpiry  = v => /^(0[1-9]|1[0-2])\/\d{2}$/.test(String(v).trim());  
 const isValidCvv     = v => /^[0-9]{3,4}$/.test(String(v).trim());
 
 // Etiqueta de desgaste/calidad según las estrellas.
-const conditionLabel = s => ({5:"Como nuevo",4:"Excelente",3:"Buen estado",2:"Usado",1:"Muy usado"}[s] || "");
+// Describe la prenda, no su procedencia: "Usado"/"Muy usado" contaba de dónde
+// viene en vez de cómo está, y en alquiler el desgaste es normal, no un defecto
+// que confesar. La escala sigue siendo honesta — 2 y 1 no disimulan el uso.
+const conditionLabel = s => ({5:"Como nuevo",4:"Excelente",3:"Buen estado",2:"Con carácter",1:"Muy vivida"}[s] || "");
 
 // Estrellas llenas/vacías como texto.
 function starStr(n){ return "★".repeat(n) + "☆".repeat(5-n); }
