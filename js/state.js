@@ -206,10 +206,12 @@ function waterSavedForItems(ids){
 }
 // Litros de agua ahorrados con el carrito actual (para la confirmación del pedido).
 function cartWaterSaved(){ return waterSavedForItems(cart.map(c => c.id)); }
-// Litros de agua ahorrados en total por los pedidos que llegaron a existir.
-// Un pedido anulado no reutilizó nada: sus litros salen de la cuenta.
+// Litros de agua ahorrados por los alquileres ya CUMPLIDOS (ver countsForRewards).
+// Contar un pedido todavía anulable era explotable: sus litros cruzaban una meta,
+// la meta pagaba sus puntos, y anular el pedido devolvía los puntos del pedido
+// pero no los de la meta — profile.waterGoals la da por cobrada para siempre.
 function totalWaterSaved(){
-  return orders.reduce((s, o) => s + (isCancelledOrder(o) ? 0 : waterSavedForItems(o.items)), 0);
+  return orders.reduce((s, o) => s + (countsForRewards(o) ? waterSavedForItems(o.items) : 0), 0);
 }
 
 /* ---- Metas de agua ----
@@ -336,6 +338,16 @@ function canCancelOrder(o){ return !isPastOrder(o) && isoOffset(0) <= o.start; }
  */
 function isDelivered(o){ return !isCancelledOrder(o) && o.start <= isoOffset(0); }
 /**
+ * ¿El pedido ya ganó sus recompensas: entregado y fuera de la ventana de anulación?
+ *
+ * Único umbral para TODO lo que premia un alquiler (puntos del pedido y litros
+ * que alimentan las metas de agua). Mientras el pedido se pueda anular nada de
+ * eso está ganado, y premiarlo antes es explotable: ver creditDeliveredPoints()
+ * para el detalle del solapamiento entre `isDelivered` y `canCancelOrder`.
+ * @param {object} o Pedido.
+ */
+function countsForRewards(o){ return isDelivered(o) && !canCancelOrder(o); }
+/**
  * Acredita los puntos de los pedidos ya entregados y FIRMES (no anulables).
  *
  * Los puntos premian el alquiler cumplido, no el cobro: por eso el disparador
@@ -355,7 +367,7 @@ function isDelivered(o){ return !isCancelledOrder(o) && o.start <= isoOffset(0);
 function creditDeliveredPoints(){
   let sum = 0;
   orders.forEach(o => {
-    if(o.pointsCredited || !isDelivered(o) || canCancelOrder(o)) return;
+    if(o.pointsCredited || !countsForRewards(o)) return;
     profile.points += o.points;
     o.pointsCredited = true;
     sum += o.points;
