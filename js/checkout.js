@@ -28,7 +28,96 @@ function totalRowHTML(label, total){
 }
 
 /* ---- Bloque reutilizable: selector de fechas ---- */
+
+/** Mes que muestra el calendario: el que el cliente navegó, o el del inicio. */
+function calVisibleMonth(){ return calMonth || monthOf(rentalStart); }
+
+/**
+ * Índice de un día dentro del alquiler contando desde el inicio elegido.
+ * El día de inicio es el 1; el día de devolución cae fuera del rango cobrado
+ * (se entrega esa mañana, no se cobra), de ahí que un alquiler de N días ocupe
+ * las celdas [inicio, devolución).
+ * @param {string} iso Día del calendario.
+ * @returns {number} Índice ≥ 1 (puede exceder rentalDays() al previsualizar
+ *   una extensión del alquiler).
+ */
+function calDayIndex(iso){
+  return Math.round((new Date(iso) - new Date(rentalStart)) / 86400000) + 1;
+}
+
+/**
+ * Etiqueta de coste bajo un día del calendario: solo la cifra.
+ *
+ * El importe se explica solo — un "+$0.00" ya dice que ese día no encarece
+ * nada, y rotularlo además con palabras suena a que el negocio se justifica.
+ * El color hace el resto del trabajo. Los días posteriores al fin del rango
+ * también se etiquetan: son la previsualización de lo que costaría alargar.
+ * @param {string} iso Día del calendario.
+ * @returns {{cls:string, txt:string}|null} null si el día no lleva cifra.
+ */
+function calDayCost(iso){
+  if(cart.length === 0) return null;
+  if(iso < rentalStart) return null;
+  const add = dayMarginalCost(calDayIndex(iso));
+  // El primer día es la base del alquiler, no un incremento: va sin el "+".
+  if(calDayIndex(iso) === 1) return { cls: "base", txt: `$${add.toFixed(2)}` };
+  return { cls: add === 0 ? "free" : "paid", txt: `+$${add.toFixed(2)}` };
+}
+
+/** Cuadrícula del mes visible con el rango marcado y la tarifa de cada día. */
+function calGridHTML(){
+  const hoy = isoOffset(0);
+  const ym = calVisibleMonth();
+  const dows = ["L","M","X","J","V","S","D"];
+  const cells = monthGrid(ym).map(c => {
+    const past = c.iso < hoy;
+    const cost = past ? null : calDayCost(c.iso);
+    // Con un rango a medio elegir solo se resalta ese día: marcar el rango
+    // viejo mientras se elige el nuevo confunde sobre qué está seleccionado.
+    const sel = calPendingStart
+      ? c.iso === calPendingStart
+      : c.iso >= rentalStart && c.iso <= rentalEnd;
+    // El rango se pinta como una barra continua, así que cada extremo necesita
+    // saber que lo es: solo ahí se redondea la esquina. Un día suelto (rango
+    // pendiente o de un solo día) es start y end a la vez y queda redondeado
+    // por los dos lados.
+    const esInicio = calPendingStart ? c.iso === calPendingStart : c.iso === rentalStart;
+    const esFin    = calPendingStart ? c.iso === calPendingStart : c.iso === rentalEnd;
+    const cls = [
+      "cal-day",
+      c.out ? "out" : "",
+      past ? "past" : "",
+      sel ? "in" : "",
+      sel && esInicio ? "start" : "",
+      sel && esFin ? "end" : "",
+      c.iso === calPendingStart ? "pending" : "",
+    ].filter(Boolean).join(" ");
+    return `<button type="button" class="${cls}" data-action="pickDay" data-iso="${c.iso}" ${past?"disabled":""}
+              aria-label="${fmtDate(c.iso)}${cost ? ` · ${cost.txt}` : ""}">
+        <span class="cd-n">${c.day}</span>
+        <span class="cd-c ${cost ? cost.cls : ""}">${cost ? cost.txt : ""}</span>
+      </button>`;
+  }).join("");
+
+  // No se retrocede antes del mes en curso: no se alquila hacia el pasado.
+  const atFloor = ym <= monthOf(hoy);
+  return `
+    <div class="cal">
+      <div class="cal-head">
+        <button type="button" class="cal-nav" data-action="calPrev" ${atFloor?"disabled":""} aria-label="Mes anterior">${icon("arrowLeft", { size: 15 })}</button>
+        <span class="cal-month">${monthLabel(ym)}</span>
+        <button type="button" class="cal-nav" data-action="calNext" aria-label="Mes siguiente">${icon("arrowRight", { size: 15 })}</button>
+      </div>
+      <div class="cal-dow">${dows.map(d=>`<span>${d}</span>`).join("")}</div>
+      <div class="cal-grid">${cells}</div>
+    </div>`;
+}
+
 function dateBoxHTML(){
+  const dias = rentalDays();
+  const resumen = calPendingStart
+    ? `${icon("calendar", { size: 13 })} Inicio ${fmtDate(calPendingStart)} · elige hasta cuándo`
+    : `${dias} ${dias===1?'día':'días'} de alquiler · ${fmtDate(rentalStart)} → ${fmtDate(rentalEnd)}`;
   return `
     <div class="date-box">
       <div class="dl">${icon("calendar", { size: 15 })} Período de alquiler</div>
@@ -42,8 +131,37 @@ function dateBoxHTML(){
           <input type="date" id="rentEnd" value="${rentalEnd}" min="${rentalStart}" />
         </div>
       </div>
-      <div class="date-total">${rentalDays()} ${rentalDays()===1?'día':'días'} de alquiler · ${fmtDate(rentalStart)} → ${fmtDate(rentalEnd)}</div>
+      ${calGridHTML()}
+      <div class="date-total ${calPendingStart ? "pending" : ""}">${resumen}</div>
     </div>`;
+}
+
+/**
+ * Clic en un día del calendario: primer clic fija el inicio, segundo cierra el
+ * rango. Un clic anterior o igual al inicio pendiente reinicia la selección en
+ * vez de rechazarla — es lo que hace el cliente cuando se equivoca de mes.
+ * @param {string} iso Día pulsado.
+ */
+function pickCalendarDay(iso){
+  if(!iso || iso < isoOffset(0)) return;         // no se alquila hacia atrás
+  if(calPendingStart === null){
+    calPendingStart = iso;
+  } else if(iso > calPendingStart){
+    rentalStart = calPendingStart;
+    rentalEnd = iso;
+    calPendingStart = null;
+  } else {
+    calPendingStart = iso;
+  }
+  renderSheet();
+}
+
+/** Navega el calendario `n` meses, sin bajar del mes en curso. */
+function shiftCalendar(n){
+  const next = shiftMonth(calVisibleMonth(), n);
+  if(next < monthOf(isoOffset(0))) return;
+  calMonth = next;
+  renderSheet();
 }
 /* ---- Carrito ---- */
 function renderCart(){
@@ -307,7 +425,73 @@ function renderPayment(){
   if(!payMethod)            label = 'Elige un método de pago';
   else if(isCard && !valid) label = 'Completa los datos de la tarjeta';
 
-  sheetFoot.innerHTML = `<button class="pay-btn" data-action="placeOrder" ${valid?'':'disabled'}>${label}</button>`;
+  sheetFoot.innerHTML = `<button class="pay-btn" data-action="confirmOrder" ${valid?'':'disabled'}>${label}</button>`;
+}
+
+/* ---- Resumen previo a confirmar ----
+   Último punto donde el cliente puede echarse atrás sin coste. Repite las
+   fechas, las prendas, lo que se cobra y lo que vuelve, porque el pago es el
+   paso donde más se abandona: el total incluye el depósito y, sin desglosarlo
+   otra vez aquí, se lee como si el alquiler costase mucho más de lo que cuesta. */
+
+/**
+ * Miniaturas y nombres de las prendas del carrito para el diálogo.
+ * @returns {string} HTML con los valores ya escapados.
+ */
+function confirmItemsHTML(){
+  return cart.map(c => {
+    const p = productById(c.id);
+    return `
+      <li class="oc-item">
+        <span class="oc-thumb">${imgPlaceholder(p)}</span>
+        <span class="oc-name">${escapeHTML(p.name)}</span>
+        <span class="oc-price">$${cartItemPrice(p).toFixed(2)}</span>
+      </li>`;
+  }).join("");
+}
+
+/**
+ * Cuerpo del diálogo de confirmación: período, prendas, cobro y reembolso.
+ * @returns {string} HTML (todo lo variable pasa por escapeHTML()).
+ */
+function confirmDetailHTML(){
+  const dias = rentalDays();
+  const dep = depositTotal();
+  const desc = couponDiscount();
+  const aPagar = grandTotal();
+  const envio = shippingFee() + returnFee();
+  return `
+    <div class="order-confirm">
+      <div class="oc-dates">
+        ${icon("calendar", { size: 14 })}
+        <b>${escapeHTML(fmtDate(rentalStart))} → ${escapeHTML(fmtDate(rentalEnd))}</b>
+        <span class="oc-days">${dias} ${dias === 1 ? "día" : "días"}</span>
+      </div>
+      <ul class="oc-items">${confirmItemsHTML()}</ul>
+      <div class="oc-rows">
+        <div class="oc-row"><span>Alquiler</span><span>$${subtotal().toFixed(2)}</span></div>
+        ${envio > 0 ? `<div class="oc-row"><span>Envío y retiro</span><span>$${envio.toFixed(2)}</span></div>` : ""}
+        ${desc > 0 ? `<div class="oc-row discount"><span>Premio canjeado</span><span>−$${desc.toFixed(2)}</span></div>` : ""}
+        ${dep > 0 ? `<div class="oc-row"><span>Depósito</span><span>$${dep.toFixed(2)}</span></div>` : ""}
+        <div class="oc-row pay"><span>Pagas ahora</span><span>$${aPagar.toFixed(2)}</span></div>
+      </div>
+      ${dep > 0 ? `<div class="oc-refund">${icon("undo", { size: 14 })}
+        Se te devuelven <b>$${dep.toFixed(2)}</b> al regresar las prendas en buen estado.</div>` : ""}
+    </div>`;
+}
+
+/**
+ * Abre el resumen final y solo registra el pedido si el cliente lo acepta.
+ * Es lo que dispara el botón de pago; placeOrder() sigue siendo la operación
+ * de verdad y se puede llamar suelta (los tests lo hacen).
+ */
+function confirmOrder(){
+  if(!checkoutValid() || !paymentValid()) return;
+  confirmDialog("", placeOrder, "check", {
+    title: "¿Confirmas tu alquiler?",
+    detailHTML: confirmDetailHTML(),
+    okLabel: `Confirmar y pagar $${grandTotal().toFixed(2)}`,
+  });
 }
 
 // ¿El método de pago está completo? (efectivo siempre; tarjeta exige datos válidos)
@@ -362,6 +546,10 @@ function placeOrder(){
   // hoy, entran ya; si empieza más adelante, quedan reservados hasta que
   // creditDeliveredPoints() los liquide al abrir la app ese día.
   creditDeliveredPoints();
+  // El pedido añade litros, que pueden cruzar una meta de agua. Se guarda para
+  // avisarlo en la confirmación: enterarse tres pantallas después no se conecta
+  // con lo que se acaba de hacer.
+  lastWaterGoals = creditWaterGoals();
   lastEarnedPoints = order.points;
   // Litros de agua ahorrados con este alquiler (el carrito aún está intacto).
   lastWaterSaved = cartWaterSaved();
@@ -373,6 +561,8 @@ function placeOrder(){
   // renderGrid: las prendas del pedido pasan a estar alquiladas y salen del
   // catálogo ya mismo, sin esperar a que se cierre la confirmación.
   view = "done"; renderSheet(); updateBadge(); renderGrid();
+  // El pop-up va sobre la confirmación ya pintada: celebra sin taparle el acuse.
+  celebrateWaterGoals(lastWaterGoals);
 }
 
 /* ---- Confirmación ----
@@ -394,6 +584,8 @@ function renderDone(){
         : `<div class="earned-points pending">${icon("sprout", { size: 16 })} Ganarás <b>${o.points}</b> puntos cuando recibas tus prendas</div>`}
       ${o.couponId ? `<div class="coupon-used">${icon("ticket", { size: 16 })} Premio aplicado: <b>−$${orderDiscount(o).toFixed(2)}</b></div>` : ``}
       ${lastWaterSaved > 0 ? `<div class="water-saved">${icon("droplet", { size: 16 })} Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
+      ${lastWaterGoals.length ? lastWaterGoals.map(g =>
+        `<div class="goal-hit">${icon("award", { size: 16 })} Meta “${escapeHTML(g.name)}” conseguida · <b>+${g.points} pts</b></div>`).join("") : ``}
       <button class="pay-btn ver-pedidos" data-action="goToOrders">Ver mis pedidos ${icon("arrowRight", { size: 16 })}</button>
     </div>`;
   sheetFoot.innerHTML = `<button class="pay-btn ghost" data-action="finish">Volver al catálogo</button>`;
@@ -406,7 +598,7 @@ function resetCheckoutState(){
   addressCoords = null; returnAddressCoords = null;
   payMethod = null; card = { number:"", name:"", expiry:"", cvv:"" };
   appliedCoupon = null;
-  lastEarnedPoints = 0; lastWaterSaved = 0; lastOrder = null;
+  lastEarnedPoints = 0; lastWaterSaved = 0; lastWaterGoals = []; lastOrder = null;
 }
 
 // "Volver al catálogo": cierra el flujo y vuelve a la grilla.

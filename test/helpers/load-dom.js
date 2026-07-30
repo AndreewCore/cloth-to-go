@@ -22,7 +22,7 @@ const JS_DIR = path.join(ROOT, "js");
 
 // Orden estricto de index.html, sin main.js.
 const FILES = [
-  "icons.js", "data.js", "state.js", "dom.js", "catalog.js",
+  "icons.js", "prefs.js", "data.js", "state.js", "dom.js", "catalog.js",
   "checkout.js", "profile.js", "api.js", "auth.js", "maps.js"
 ];
 
@@ -104,6 +104,44 @@ globalThis.__APP__ = {
   // Puros, para aserciones sin recalcular a mano.
   orderPoints, orderTotal, orderDeposit, isoOffset, productById,
   storageKeyFor, decodeJwt, resolveApiBase, backendForHost, isMixedContent,
+  SHEET_BACK,
+  getPrefs, setPref, toggleTheme, effectiveTheme, applyPrefs, loadPrefs,
+  shouldReduceMotion, PREFS_KEY, DEFAULT_PREFS,
+  isProductionHost, PRODUCTION_HOSTS, API_OFF_REASONS,
+  // Metas de ahorro de agua. waterPointsCredited() es el saldo que las metas
+  // aportan por su cuenta: los tests de puntos por pedido lo restan para no
+  // confundir "el pedido no ha acreditado" con "el saldo es cero".
+  WATER_GOALS, totalWaterSaved, waterSavedForItems, reachedWaterGoals, nextWaterGoal,
+  waterGoalProgress, creditWaterGoals, waterGoalHTML, toggleWaterGoalInfo,
+  renderProfile, renderSheet, fmtLiters, countsForRewards,
+  waterPointsCredited(){
+    return (profile.waterGoals || []).reduce(
+      (s, id) => s + (WATER_GOALS.find(g => g.id === id)?.points || 0), 0);
+  },
+  get lastWaterGoals(){ return lastWaterGoals; },
+  // Compartido por el checkout y el calendario: fechas y derivados de precio.
+  // Son variables let del scope común, invisibles desde fuera.
+  subtotal, subtotalForDays, depositTotal, couponDiscount, grandTotal,
+  rentalDays, renderSheet, fmtDate,
+  get rentalStart(){ return rentalStart; },
+  get rentalEnd(){ return rentalEnd; },
+  // Confirmación del pedido. placeOrder sigue expuesto en window (los tests
+  // viejos lo llaman suelto); esto es el paso de resumen que lo precede.
+  confirmOrder, confirmDetailHTML, checkoutValid, paymentValid, redeem, closeModal,
+  get modalOkLabel(){ return modalOk.textContent; },
+  get modalCancelHidden(){ return modalCancel.classList.contains("is-hidden"); },
+  get modalOpen(){ return modalOverlay.classList.contains("show"); },
+  // Detalle desde imagen: pestaña apilada sobre el perfil.
+  openDetail, openSheet, closeSheet, closeStackSheet,
+  get sheetOpen(){ return sheet.classList.contains("show"); },
+  get sheetFull(){ return sheet.classList.contains("full"); },
+  get stackOpen(){ return sheetStack.classList.contains("show"); },
+  get stackedDetail(){ return stackedDetail; },
+  get detailId(){ return detailId; },
+  // Calendario de tarifas.
+  addDaysISO, monthOf, shiftMonth, monthLabel, monthGrid, dayMarginalCost,
+  calVisibleMonth, calDayIndex, calDayCost, pickCalendarDay, shiftCalendar,
+  get calPendingStart(){ return calPendingStart; },
 };
 `;
 

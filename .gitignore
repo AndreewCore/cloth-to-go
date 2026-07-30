@@ -1,4 +1,7 @@
-node_modules/
+# Sin barra final: con `node_modules/` git solo ignora directorios, y un
+# symlink con ese nombre (los crean los worktrees para no reinstalar) se cuela
+# en el commit. Ya pasó: rompió CI en los runs #106–#109.
+node_modules
 package-lock.json
 *.log
 .DS_Store

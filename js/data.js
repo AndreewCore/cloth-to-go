@@ -212,6 +212,23 @@ function litersToGallons(liters){ return Math.round(liters / LITERS_PER_GALLON);
 // Formatea litros con separador de miles (es-EC): 8000 → "8.000".
 function fmtLiters(liters){ return Math.round(liters).toLocaleString("es-EC"); }
 
+/* ---- Metas de ahorro de agua ----
+   El contador de litros no decía nada por sí solo: un número grande sin escala
+   no deja saber si está bien o mal. Las metas le ponen un techo visible y
+   premian llegar, que es lo que convierte el dato ambiental en un motivo para
+   volver a alquilar.
+
+   Los umbrales se calibran sobre el catálogo real: una prenda ahorra ~7.200 L
+   de media, así que la primera meta cae con el primer alquiler y la última
+   exige constancia. Los puntos se miden contra REWARDS (60–300 pts): una meta
+   rinde, pero no regala el catálogo de premios. */
+const WATER_GOALS = [
+  { id: 1, liters:   5000, points:  50, name: "Primer ahorro" },
+  { id: 2, liters:  20000, points: 150, name: "Ahorro constante" },
+  { id: 3, liters:  50000, points: 400, name: "Impacto real" },
+  { id: 4, liters: 100000, points: 900, name: "Leyenda circular" },
+];
+
 /* ---- Categorías para los filtros ---- */
 const CATS = ["Todo", "Formal", "Fiesta", "Casual", "Invierno"];
 
@@ -383,7 +400,10 @@ const isValidExpiry  = v => /^(0[1-9]|1[0-2])\/\d{2}$/.test(String(v).trim());  
 const isValidCvv     = v => /^[0-9]{3,4}$/.test(String(v).trim());
 
 // Etiqueta de desgaste/calidad según las estrellas.
-const conditionLabel = s => ({5:"Como nuevo",4:"Excelente",3:"Buen estado",2:"Usado",1:"Muy usado"}[s] || "");
+// Describe la prenda, no su procedencia: "Usado"/"Muy usado" contaba de dónde
+// viene en vez de cómo está, y en alquiler el desgaste es normal, no un defecto
+// que confesar. La escala sigue siendo honesta — 2 y 1 no disimulan el uso.
+const conditionLabel = s => ({5:"Como nuevo",4:"Excelente",3:"Buen estado",2:"Con carácter",1:"Muy vivida"}[s] || "");
 
 // Estrellas llenas/vacías como texto.
 function starStr(n){ return "★".repeat(n) + "☆".repeat(5-n); }
@@ -401,6 +421,70 @@ function daysBetween(startISO, endISO){
   if(!startISO || !endISO) return 1;
   const ms = new Date(endISO) - new Date(startISO);
   return Math.max(1, Math.round(ms / 86400000));
+}
+
+/* ---- Aritmética de calendario ----
+   Todo se hace partiendo el ISO a mano en vez de con Date: `new Date("2026-08-01")`
+   se interpreta en UTC y en Guayaquil (UTC−5) retrocede al día anterior. Es el
+   mismo motivo por el que existe isoOffset() en lugar de toISOString(). */
+
+const MESES_LARGOS = ["enero","febrero","marzo","abril","mayo","junio",
+                      "julio","agosto","septiembre","octubre","noviembre","diciembre"];
+
+/**
+ * Suma días a una fecha ISO y devuelve otra ISO, sin pasar por husos horarios.
+ * @param {string} iso Fecha "YYYY-MM-DD".
+ * @param {number} n Días a sumar (puede ser negativo).
+ * @returns {string} Fecha ISO resultante.
+ */
+function addDaysISO(iso, n){
+  const [y,m,d] = iso.split("-").map(Number);
+  const dt = new Date(y, m-1, d + n);   // constructor local, no UTC
+  const p = v => String(v).padStart(2, "0");
+  return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}`;
+}
+
+/** Mes "YYYY-MM" al que pertenece una fecha ISO. */
+function monthOf(iso){ return iso.slice(0, 7); }
+
+/**
+ * Desplaza un mes "YYYY-MM" en `n` meses.
+ * @returns {string} Mes resultante en el mismo formato.
+ */
+function shiftMonth(ym, n){
+  const [y,m] = ym.split("-").map(Number);
+  const dt = new Date(y, m-1 + n, 1);
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}`;
+}
+
+/** Etiqueta legible de un mes "YYYY-MM" (ej: "agosto 2026"). */
+function monthLabel(ym){
+  const [y,m] = ym.split("-").map(Number);
+  return `${MESES_LARGOS[m-1]} ${y}`;
+}
+
+/**
+ * Celdas de la cuadrícula mensual, de lunes a domingo y en semanas completas.
+ * Los huecos del principio y del final se rellenan con los días del mes vecino
+ * (marcados `out`) en vez de con blancos: así el rango de alquiler se ve
+ * continuo cuando cruza el cambio de mes.
+ * @param {string} ym Mes "YYYY-MM".
+ * @returns {Array<{iso:string, day:number, out:boolean}>} Múltiplo de 7 celdas.
+ */
+function monthGrid(ym){
+  const [y,m] = ym.split("-").map(Number);
+  const first = new Date(y, m-1, 1);
+  // getDay() es 0=domingo; la semana local empieza en lunes.
+  const lead = (first.getDay() + 6) % 7;
+  const start = addDaysISO(`${ym}-01`, -lead);
+  const cells = [];
+  for(let i = 0; i < 42; i++){
+    const iso = addDaysISO(start, i);
+    cells.push({ iso, day: Number(iso.slice(8)), out: monthOf(iso) !== ym });
+    // Se corta en semana completa: 5 filas bastan salvo en meses que desbordan.
+    if(cells.length % 7 === 0 && cells.length >= 28 && monthOf(iso) > ym) break;
+  }
+  return cells;
 }
 
 // HTML de una imagen con placeholder de respaldo.
