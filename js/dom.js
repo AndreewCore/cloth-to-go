@@ -145,6 +145,12 @@ function confirmDialog(message, onConfirm, iconName, opts = {}){
   // única salida posible es enterarse y cerrar.
   modalCancel.classList.toggle("is-hidden", !!opts.infoOnly);
   onConfirmCb = onConfirm;
+  // Un diálogo encadenado a otro (confirmar el alquiler abre el pop-up de meta
+  // de agua) se abre en el mismo tick en que closeModal() quitó `show`: el
+  // navegador nunca llega a pintar el estado cerrado, la transición se queda
+  // sin fotograma inicial y el modal aparece de golpe. Releer el layout fuerza
+  // ese "antes" para que la animación de entrada arranque siempre.
+  void modalOverlay.offsetHeight;
   modalOverlay.classList.add("show");
   modalOk.focus();
 }
