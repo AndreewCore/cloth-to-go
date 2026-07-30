@@ -546,6 +546,10 @@ function placeOrder(){
   // hoy, entran ya; si empieza más adelante, quedan reservados hasta que
   // creditDeliveredPoints() los liquide al abrir la app ese día.
   creditDeliveredPoints();
+  // El pedido añade litros, que pueden cruzar una meta de agua. Se guarda para
+  // avisarlo en la confirmación: enterarse tres pantallas después no se conecta
+  // con lo que se acaba de hacer.
+  lastWaterGoals = creditWaterGoals();
   lastEarnedPoints = order.points;
   // Litros de agua ahorrados con este alquiler (el carrito aún está intacto).
   lastWaterSaved = cartWaterSaved();
@@ -578,6 +582,8 @@ function renderDone(){
         : `<div class="earned-points pending">${icon("sprout", { size: 16 })} Ganarás <b>${o.points}</b> puntos cuando recibas tus prendas</div>`}
       ${o.couponId ? `<div class="coupon-used">${icon("ticket", { size: 16 })} Premio aplicado: <b>−$${orderDiscount(o).toFixed(2)}</b></div>` : ``}
       ${lastWaterSaved > 0 ? `<div class="water-saved">${icon("droplet", { size: 16 })} Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
+      ${lastWaterGoals.length ? lastWaterGoals.map(g =>
+        `<div class="goal-hit">${icon("award", { size: 16 })} Meta “${escapeHTML(g.name)}” conseguida · <b>+${g.points} pts</b></div>`).join("") : ``}
       <button class="pay-btn ver-pedidos" data-action="goToOrders">Ver mis pedidos ${icon("arrowRight", { size: 16 })}</button>
     </div>`;
   sheetFoot.innerHTML = `<button class="pay-btn ghost" data-action="finish">Volver al catálogo</button>`;
@@ -590,7 +596,7 @@ function resetCheckoutState(){
   addressCoords = null; returnAddressCoords = null;
   payMethod = null; card = { number:"", name:"", expiry:"", cvv:"" };
   appliedCoupon = null;
-  lastEarnedPoints = 0; lastWaterSaved = 0; lastOrder = null;
+  lastEarnedPoints = 0; lastWaterSaved = 0; lastWaterGoals = []; lastOrder = null;
 }
 
 // "Volver al catálogo": cierra el flujo y vuelve a la grilla.

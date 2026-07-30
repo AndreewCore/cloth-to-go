@@ -118,28 +118,15 @@ function renderProfile(){
       <span class="pc-cta">Canjear ${icon("arrowRight", { size: 15 })}</span>
     </button>
 
-    <div class="water-stat" aria-label="Agua ahorrada">
-      <span class="ws-icon">${icon("droplet", { size: 24 })}</span>
-      <div class="ws-text">
-        <div class="ws-label">Agua ahorrada reutilizando ropa</div>
-        <div class="ws-value">~${fmtLiters(totalWaterSaved())} <span>litros</span></div>
-      </div>
-    </div>
+    ${waterGoalHTML()}
+
+    <div class="section-label">Acciones</div>
 
     <button class="donate-card" data-action="openDonate" aria-label="Donar ropa por puntos">
       <span class="dc-icon">${icon("recycle", { size: 24 })}</span>
       <div class="dc-text">
         <div class="dc-title">Dona ropa y gana puntos</div>
         <div class="dc-desc">Entrega prendas que no uses. Los puntos se asignan al recibirlas.</div>
-      </div>
-      <span class="dc-cta">${icon("arrowRight", { size: 16 })}</span>
-    </button>
-
-    <button class="donate-card settings-card" data-action="openSettings" aria-label="Ajustes de accesibilidad y tema">
-      <span class="dc-icon ico-violet">${icon("accessibility", { size: 24 })}</span>
-      <div class="dc-text">
-        <div class="dc-title">Accesibilidad y tema</div>
-        <div class="dc-desc">Tamaño del texto, contraste, animaciones y modo oscuro.</div>
       </div>
       <span class="dc-cta">${icon("arrowRight", { size: 16 })}</span>
     </button>
@@ -152,6 +139,23 @@ function renderProfile(){
       </div>
       <span class="dc-cta">${icon("arrowRight", { size: 16 })}</span>
     </button>
+
+    <div class="section-label" id="misPedidos">Mis pedidos</div>
+    ${activeOrders.length
+      ? activeOrders.map(pair => orderCardHTML(pair, false)).join("")
+      : `<div class="empty" style="padding:30px 20px"><div class="em">${icon("shirt", { size: 34 })}</div><p>No tienes pedidos activos.<br>Alquila algo del catálogo.</p></div>`}
+
+    ${archivedOrders.length ? `
+    <details class="past-orders-section">
+      <summary class="past-orders-toggle">
+        <span>Alquileres anteriores</span>
+        <span class="past-count">${archivedOrders.length}</span>
+      </summary>
+      <div class="past-orders-body">
+        ${archivedOrders.map(pair => orderCardHTML(pair, true)).join("")}
+      </div>
+    </details>
+    ` : ""}
 
     <div class="section-label">Información de contacto</div>
     ${editingProfile ? `
@@ -181,25 +185,52 @@ function renderProfile(){
       <button class="edit-info-btn" data-action="editProfile">${icon("pencil", { size: 15 })} Modificar información</button>
     </div>
     `}
-
-    <div class="section-label" id="misPedidos">Mis pedidos</div>
-    ${activeOrders.length
-      ? activeOrders.map(pair => orderCardHTML(pair, false)).join("")
-      : `<div class="empty" style="padding:30px 20px"><div class="em">${icon("shirt", { size: 34 })}</div><p>No tienes pedidos activos.<br>Alquila algo del catálogo.</p></div>`}
-
-    ${archivedOrders.length ? `
-    <details class="past-orders-section">
-      <summary class="past-orders-toggle">
-        <span>Alquileres anteriores</span>
-        <span class="past-count">${archivedOrders.length}</span>
-      </summary>
-      <div class="past-orders-body">
-        ${archivedOrders.map(pair => orderCardHTML(pair, true)).join("")}
-      </div>
-    </details>
-    ` : ""}
   `;
   sheetFoot.innerHTML = "";
+}
+
+/* ---- Indicador de ahorro de agua ----
+   Antes era una tarjeta con un número suelto: parecía pulsable sin serlo, y el
+   número no decía si estaba bien o mal. Ahora es una barra con la siguiente
+   meta y los puntos que paga, más las metas ya conseguidas. Los puntos los
+   acredita creditWaterGoals() (state.js), no esta vista. */
+
+/** Barra de progreso, meta siguiente e hitos ya logrados. */
+function waterGoalHTML(){
+  const litros = totalWaterSaved();
+  const meta = nextWaterGoal();
+  const pct = Math.round(waterGoalProgress() * 100);
+  const logradas = reachedWaterGoals();
+
+  const pie = meta
+    ? `Te faltan <b>${fmtLiters(meta.liters - litros)} L</b> para “${escapeHTML(meta.name)}” · <b>+${meta.points} pts</b>`
+    : `Todas las metas conseguidas. Eres una leyenda circular.`;
+
+  return `
+    <div class="water-goal" aria-label="Agua ahorrada y metas">
+      <div class="wg-head">
+        <span class="wg-icon">${icon("droplet", { size: 22 })}</span>
+        <div class="wg-titles">
+          <div class="wg-label">Agua ahorrada reutilizando ropa</div>
+          <div class="wg-value">~${fmtLiters(litros)} <span>litros</span></div>
+        </div>
+        ${meta ? `<span class="wg-next">${fmtLiters(meta.liters)} L</span>` : ""}
+      </div>
+      <div class="wg-bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"
+           aria-label="Progreso hacia la siguiente meta de ahorro de agua">
+        <span class="wg-fill" style="width:${pct}%"></span>
+      </div>
+      <div class="wg-foot">${pie}</div>
+      <ul class="wg-badges">
+        ${WATER_GOALS.map(g => {
+          const hecha = logradas.some(x => x.id === g.id);
+          return `<li class="wg-badge${hecha ? " done" : ""}" title="${escapeHTML(g.name)} · ${fmtLiters(g.liters)} L">
+            <span class="wgb-ico">${icon(hecha ? "check" : "droplet", { size: 12 })}</span>
+            <span class="wgb-name">${escapeHTML(g.name)}</span>
+          </li>`;
+        }).join("")}
+      </ul>
+    </div>`;
 }
 
 /* ---- Acciones del perfil (invocadas por la delegación en main.js) ---- */

@@ -46,12 +46,25 @@ function scrollSheetTo(id, margin = 8){
   else sheetBody.scrollTop = top;
 }
 
-// Vista → paso anterior (define cuándo se muestra el botón "atrás").
-const SHEET_BACK = { checkout: "cart", payment: "checkout", rewards: "profile", donate: "profile", settings: "profile" };
+// Vista → paso anterior (define cuándo se muestra el botón "atrás"). `settings` ya no figura:
+// se abre desde el engranaje del header, no desde el perfil, así que volver al
+// perfil sería llevar al usuario a una pantalla en la que nunca estuvo.
+const SHEET_BACK = { checkout: "cart", payment: "checkout", rewards: "profile", donate: "profile" };
+
+/* Vistas que ocupan la pantalla entera en lugar de asomar como panel.
+   El perfil y sus derivadas son destinos donde uno se queda un rato (revisar
+   pedidos, canjear, configurar), no un paso rápido del checkout. Como panel al
+   88% obligaban a hacer scroll dentro de un scroll y dejaban el catálogo
+   asomando por arriba, que distrae y no lleva a ninguna parte. */
+const FULL_VIEWS = new Set(["profile", "rewards", "donate", "settings"]);
 
 // Despacha el render del panel según la vista activa.
 function renderSheet(){
-  backBtn.style.display = SHEET_BACK[view] ? "grid" : "none";
+  sheet.classList.toggle("full", FULL_VIEWS.has(view));
+  // A pantalla completa siempre hay flecha: con paso previo vuelve a él, y sin
+  // él (el perfil) hace de salida. Una ventana que tapa todo sin salida
+  // evidente deja al usuario buscando por dónde se sale.
+  backBtn.style.display = (SHEET_BACK[view] || FULL_VIEWS.has(view)) ? "grid" : "none";
   if(view==="cart") renderCart();
   else if(view==="checkout") renderCheckout();
   else if(view==="payment") renderPayment();

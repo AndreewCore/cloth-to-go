@@ -108,6 +108,16 @@ globalThis.__APP__ = {
   getPrefs, setPref, toggleTheme, effectiveTheme, applyPrefs, loadPrefs,
   shouldReduceMotion, PREFS_KEY, DEFAULT_PREFS,
   isProductionHost, PRODUCTION_HOSTS, API_OFF_REASONS,
+  // Metas de ahorro de agua. waterPointsCredited() es el saldo que las metas
+  // aportan por su cuenta: los tests de puntos por pedido lo restan para no
+  // confundir "el pedido no ha acreditado" con "el saldo es cero".
+  WATER_GOALS, totalWaterSaved, waterSavedForItems, reachedWaterGoals, nextWaterGoal,
+  waterGoalProgress, creditWaterGoals, waterGoalHTML, renderProfile, renderSheet,
+  waterPointsCredited(){
+    return (profile.waterGoals || []).reduce(
+      (s, id) => s + (WATER_GOALS.find(g => g.id === id)?.points || 0), 0);
+  },
+  get lastWaterGoals(){ return lastWaterGoals; },
   // Compartido por el checkout y el calendario: fechas y derivados de precio.
   // Son variables let del scope común, invisibles desde fuera.
   subtotal, subtotalForDays, depositTotal, couponDiscount, grandTotal,

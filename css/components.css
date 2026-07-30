@@ -360,6 +360,11 @@ main::-webkit-scrollbar { display: none; }
   flex-direction: column;
 }
 .sheet.show { transform: translateY(0); }
+/* Ventana completa (perfil y derivadas): ocupa todo, sin esquinas redondeadas
+   ni asa, porque ya no es un panel que asoma sino una pantalla en la que uno
+   se queda. Ver FULL_VIEWS en dom.js. */
+.sheet.full { max-height: 100%; top: 0; border-radius: 0; }
+.sheet.full .grip { display: none; }
 .sheet-head {
   padding: 16px 20px 10px;
   border-bottom: 1px solid var(--line);
@@ -955,15 +960,52 @@ main::-webkit-scrollbar { display: none; }
 .pc-emoji { display: flex; align-items: center; opacity: .9; flex: 0 0 auto; }
 
 /* ---- Agua ahorrada (perfil) ---- */
-.water-stat {
-  display: flex; align-items: center; gap: 12px;
-  background: rgba(43,140,209,.10); border: 1px solid rgba(43,140,209,.25);
+/* ---- Ahorro de agua con metas ----
+   Sustituye a la antigua .water-stat, que era una tarjeta con un número suelto:
+   parecía pulsable sin serlo y no daba escala. Aquí el número va con barra,
+   meta siguiente y los puntos que paga. NO es un botón: no lleva a ningún
+   sitio, así que no lleva cursor ni flecha. */
+.water-goal {
+  background: var(--water-soft); border: 1px solid rgba(43,140,209,.25);
   border-radius: 16px; padding: 12px 16px; margin-bottom: 10px;
 }
-.ws-icon { display: flex; align-items: center; color: var(--water); flex: 0 0 auto; }
-.ws-label { font-size: 12px; color: var(--muted); font-weight: 700; }
-.ws-value { font-size: 22px; font-weight: 800; color: var(--water); margin-top: 2px; }
-.ws-value span { font-size: 13px; font-weight: 600; opacity: .85; }
+.wg-head { display: flex; align-items: center; gap: 12px; }
+.wg-icon { display: flex; align-items: center; color: var(--water); flex: 0 0 auto; }
+.wg-titles { flex: 1 1 auto; min-width: 0; }
+.wg-label { font-size: 12px; color: var(--muted); font-weight: 700; }
+.wg-value { font-size: 22px; font-weight: 800; color: var(--water); margin-top: 2px; }
+.wg-value span { font-size: 13px; font-weight: 600; opacity: .85; }
+.wg-next { font-size: 11px; font-weight: 700; color: var(--muted); flex: 0 0 auto; align-self: flex-end; }
+.wg-bar {
+  height: 7px; border-radius: 999px; margin: 10px 0 6px;
+  background: rgba(43,140,209,.20); overflow: hidden;
+}
+.wg-fill {
+  display: block; height: 100%; border-radius: 999px;
+  background: var(--water); transition: width .4s ease;
+}
+.wg-foot { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.wg-foot b { color: var(--water); }
+.wg-badges {
+  list-style: none; margin: 10px 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 5px;
+}
+.wg-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 3px 8px; font-size: 10px; font-weight: 700;
+  color: var(--muted); background: var(--card); opacity: .6;
+}
+.wg-badge.done { opacity: 1; color: var(--water); border-color: rgba(43,140,209,.45); }
+.wgb-ico { display: flex; align-items: center; }
+
+/* Meta conseguida, anunciada en la confirmación del pedido. */
+.goal-hit {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  background: var(--water-soft); color: var(--water);
+  border-radius: 10px; padding: 9px 12px; margin-top: 8px;
+  font-size: 12px; font-weight: 700;
+}
 
 /* ---- Información de contacto (solo lectura) ---- */
 .profile-info {
