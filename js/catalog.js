@@ -170,12 +170,32 @@ function addToCart(id){
 }
 
 /* ---------------- Detalle de prenda ---------------- */
-function openDetail(id){ detailId = id; view = "detail"; renderSheet(); openSheet(); }
+/**
+ * Abre el detalle de una prenda. Si encima hay una vista a pantalla completa
+ * (el perfil), sube en la pestaña APILADA sin tocar el panel de abajo, que
+ * conserva su scroll; desde el catálogo usa el panel principal de siempre.
+ * La clase `show` es el único registro de si el panel está arriba: `view`
+ * conserva su último valor aunque el usuario haya cerrado el panel.
+ */
+function openDetail(id){
+  detailId = id;
+  stackedDetail = FULL_VIEWS.has(view) && sheet.classList.contains("show");
+  if(stackedDetail){ renderDetail(); openStackSheet(); return; }
+  view = "detail";
+  renderSheet();
+  openSheet();
+}
 
+/**
+ * Pinta el detalle de la prenda en la superficie que toque: la pestaña
+ * apilada (sobre el perfil) o el panel principal, según `stackedDetail`.
+ */
 function renderDetail(){
   const p = productById(detailId);
-  sheetTitle.textContent = "Detalle";
-  sheetBody.innerHTML = `
+  const [body, foot] = stackedDetail ? [stackBody, stackFoot] : [sheetBody, sheetFoot];
+  // El título de la pestaña apilada es fijo en el HTML: solo muestra detalle.
+  if(!stackedDetail) sheetTitle.textContent = "Detalle";
+  body.innerHTML = `
     <div class="detail-img">${imgPlaceholder(p)}</div>
     <div class="detail-head">
       <div>
@@ -208,10 +228,14 @@ function renderDetail(){
         : `${icon("ban", { size: 15 })} Ya está en tu carrito (prenda única)`}</p>`;
 
   if(isRented(p.id)){
-    sheetFoot.innerHTML = `<button class="pay-btn" data-action="goProfile">Ver mis pedidos ${icon("arrowRight", { size: 16 })}</button>`;
+    // Misma acción en ambas superficies: apilado el perfil ya está debajo y
+    // basta bajar la pestaña, de ahí que el texto diga "volver" y no "ver".
+    foot.innerHTML = `<button class="pay-btn" data-action="goProfile">${stackedDetail
+      ? "Volver a mis pedidos"
+      : `Ver mis pedidos ${icon("arrowRight", { size: 16 })}`}</button>`;
   } else if(inCart(p.id)){
-    sheetFoot.innerHTML = `<button class="pay-btn" data-action="goCart">Ver carrito ${icon("arrowRight", { size: 16 })}</button>`;
+    foot.innerHTML = `<button class="pay-btn" data-action="goCart">Ver carrito ${icon("arrowRight", { size: 16 })}</button>`;
   } else {
-    sheetFoot.innerHTML = `<button class="pay-btn" data-action="addDetail">Agregar al carrito · desde $${rentalPrice(p, 1).toFixed(2)}</button>`;
+    foot.innerHTML = `<button class="pay-btn" data-action="addDetail">Agregar al carrito · desde $${rentalPrice(p, 1).toFixed(2)}</button>`;
   }
 }
