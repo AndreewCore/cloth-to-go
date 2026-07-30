@@ -113,7 +113,7 @@ sheet.addEventListener("click", e=>{
     case "clearCoupon":    appliedCoupon = null; renderSheet(); break;
     case "toPayment":      view="payment"; renderSheet(); break;
     case "setPay":         payMethod = el.dataset.value; renderSheet(); break;
-    case "placeOrder":     placeOrder(); break;
+    case "confirmOrder":   confirmOrder(); break;
     case "finish":         finishOrder(); break;
     case "goToOrders":     goToOrders(); break;
     case "goCart":         view="cart"; renderSheet(); break;

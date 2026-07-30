@@ -179,13 +179,13 @@ test("botón de pago: deshabilitado sin datos de tarjeta, habilitado al completa
   let btn = doc.querySelector("#sheetFoot .pay-btn");
   // Robusto: chequeamos el estado (disabled) y la acción, no el texto exacto.
   assert.ok(btn.hasAttribute("disabled"));
-  assert.equal(btn.dataset.action, "placeOrder");
+  assert.equal(btn.dataset.action, "confirmOrder");
 
   app.setCheckout({ card: { number: "4111111111111111", name: "Ana", expiry: "12/30", cvv: "123" } });
   win.renderPayment();
   btn = doc.querySelector("#sheetFoot .pay-btn");
   assert.ok(!btn.hasAttribute("disabled")); // datos completos → habilitado
-  assert.equal(btn.dataset.action, "placeOrder");
+  assert.equal(btn.dataset.action, "confirmOrder");
 });
 
 test("botón de entrega: deshabilitado sin elegir método de recepción", () => {
