@@ -222,7 +222,7 @@ function renderDetail(){
       <p class="dt-note">Mientras más días, más barato sale cada uno. Alquilando varias prendas a la vez ahorras hasta un ${Math.round(VOLUME_DISCOUNT_MAX * 100)}% adicional.</p>
     </div>
     <p class="detail-avail">${unitsAvailable(p) > 0
-      ? `${icon("checkCircle", { size: 15 })} Disponible · ${p.disponibles} unidad${p.disponibles===1?'':'es'} (prenda única de segunda mano)`
+      ? `${icon("checkCircle", { size: 15 })} Disponible · ${p.disponibles} unidad${p.disponibles===1?'':'es'} (prenda única)`
       : isRented(p.id)
         ? `${icon("ban", { size: 15 })} Alquilada ahora mismo · vuelve al catálogo cuando termine el alquiler`
         : `${icon("ban", { size: 15 })} Ya está en tu carrito (prenda única)`}</p>`;
