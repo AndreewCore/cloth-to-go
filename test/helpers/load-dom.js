@@ -108,15 +108,22 @@ globalThis.__APP__ = {
   getPrefs, setPref, toggleTheme, effectiveTheme, applyPrefs, loadPrefs,
   shouldReduceMotion, PREFS_KEY, DEFAULT_PREFS,
   isProductionHost, PRODUCTION_HOSTS, API_OFF_REASONS,
+  // Compartido por el checkout y el calendario: fechas y derivados de precio.
+  // Son variables let del scope común, invisibles desde fuera.
+  subtotal, subtotalForDays, depositTotal, couponDiscount, grandTotal,
+  rentalDays, renderSheet, fmtDate,
+  get rentalStart(){ return rentalStart; },
+  get rentalEnd(){ return rentalEnd; },
   // Confirmación del pedido. placeOrder sigue expuesto en window (los tests
   // viejos lo llaman suelto); esto es el paso de resumen que lo precede.
-  confirmOrder, confirmDetailHTML, checkoutValid, paymentValid, fmtDate, redeem, closeModal,
-  subtotal, depositTotal, grandTotal, couponDiscount, rentalDays, renderSheet,
+  confirmOrder, confirmDetailHTML, checkoutValid, paymentValid, redeem, closeModal,
   get modalOkLabel(){ return modalOk.textContent; },
   get modalCancelHidden(){ return modalCancel.classList.contains("is-hidden"); },
   get modalOpen(){ return modalOverlay.classList.contains("show"); },
-  get rentalStart(){ return rentalStart; },
-  get rentalEnd(){ return rentalEnd; },
+  // Calendario de tarifas.
+  addDaysISO, monthOf, shiftMonth, monthLabel, monthGrid, dayMarginalCost,
+  calVisibleMonth, calDayIndex, calDayCost, pickCalendarDay, shiftCalendar,
+  get calPendingStart(){ return calPendingStart; },
 };
 `;
 

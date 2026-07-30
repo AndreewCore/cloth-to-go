@@ -841,6 +841,60 @@ main::-webkit-scrollbar { display: none; }
 }
 .date-field input:focus { outline: none; border-color: var(--accent); }
 .date-total { font-size: 12px; color: var(--accent); font-weight: 700; margin-top: 8px; }
+.date-total.pending { color: var(--muted); }
+
+/* ---- Calendario de tarifas ----
+   Bajo cada día se imprime lo que ese día suma al total. Es el mismo modelo de
+   precios de data.js, solo que visible: los días que caen en el piso de coste
+   salen en verde con "+$0" y empujan a alargar el alquiler, que es lo que
+   conviene al negocio (un ciclo de lavandería rinde más días) y le da al
+   cliente margen para devolver sin recargo. */
+.cal { margin-top: 12px; }
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cal-month { font-size: 13px; font-weight: 700; text-transform: capitalize; }
+.cal-nav {
+  background: none; border: 1px solid var(--line); border-radius: 8px;
+  color: var(--ink); padding: 3px 7px; cursor: pointer; line-height: 0;
+}
+.cal-nav:disabled { opacity: .35; cursor: default; }
+.cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+/* Sin separación entre columnas: el rango se lee como una barra continua y no
+   como una fila de cajas sueltas. La separación entre semanas sí se mantiene. */
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px 0; }
+.cal-dow span { font-size: 10px; color: var(--muted); text-align: center; font-weight: 700; }
+.cal-day {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px; min-height: 38px; padding: 3px 0;
+  background: none; border: 0; border-radius: 0;
+  color: var(--ink); font-family: inherit; cursor: pointer;
+}
+.cal-day .cd-n { font-size: 12px; font-weight: 600; line-height: 1; }
+/* La franja de coste ocupa sitio siempre, aunque vaya vacía: sin esto las filas
+   sin tarifa encogen y la cuadrícula da un salto al cambiar de rango. */
+.cal-day .cd-c { font-size: 9px; font-weight: 700; line-height: 1; min-height: 9px; }
+.cal-day.out .cd-n { color: var(--muted); opacity: .55; }
+.cal-day.past { opacity: .3; cursor: default; }
+.cal-day:hover:not(:disabled):not(.in) { background: var(--accent-soft); border-radius: 9px; }
+
+/* La barra del rango. Solo los extremos redondean, así los días de en medio
+   empalman y el tramo se ve de una pieza. */
+.cal-day.in { background: var(--accent-soft); }
+.cal-day.in.start { border-top-left-radius: 9px; border-bottom-left-radius: 9px; }
+.cal-day.in.end { border-top-right-radius: 9px; border-bottom-right-radius: 9px; }
+/* Una semana cortada a medias también cierra su extremo: si no, la barra
+   parece continuar fuera de la cuadrícula. */
+.cal-day.in:first-child { border-top-left-radius: 9px; border-bottom-left-radius: 9px; }
+.cal-day.in:last-child { border-top-right-radius: 9px; border-bottom-right-radius: 9px; }
+.cal-day.in:nth-child(7n + 1) { border-top-left-radius: 9px; border-bottom-left-radius: 9px; }
+.cal-day.in:nth-child(7n) { border-top-right-radius: 9px; border-bottom-right-radius: 9px; }
+.cal-day.in .cd-n { color: var(--accent); font-weight: 800; }
+/* Rango a medio elegir: un solo día punteado, para que se note que falta el
+   segundo clic y no se confunda con un rango ya cerrado. */
+.cal-day.pending { outline: 1px dashed var(--accent); outline-offset: -1px; border-radius: 9px; }
+
+.cd-c.free { color: var(--ok); }
+.cd-c.paid { color: var(--warn-ink); }
+.cd-c.base { color: var(--muted); }
 
 /* ---- Perfil ---- */
 .profile-head {
