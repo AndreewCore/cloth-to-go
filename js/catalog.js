@@ -83,7 +83,15 @@ function clearFilters(){
 /* ---------------- Panel de filtros (sheet) ---------------- */
 function renderFilterSheet(){
   sheetTitle.textContent = "Filtros";
-  const qOpts = [[0,"Todas"],[5,"★★★★★ (5)"],[4,"4★ o más"],[3,"3★ o más"],[2,"2★ o más"]];
+  // Las pastillas van en TEXTO porque un <option> no admite elementos dentro, y
+  // siempre con la etiqueta en palabras: si la fuente no trae los glifos, el
+  // filtro se sigue entendiendo.
+  const qOpts = [
+    [0, "Todas"],
+    ...[5, 4, 3, 2].map(n => [
+      n, `${qualityMeterText(n)}  ${conditionLabel(n)}${n === 5 ? "" : " o más"}`,
+    ]),
+  ];
   sheetBody.innerHTML = `
     <div class="filter-sheet">
       <label class="fs-fld">
@@ -143,7 +151,7 @@ function renderGrid(){
       <div class="card-body">
         <div class="card-name" data-detail="${p.id}" role="button" tabindex="0" aria-label="Ver detalle de ${escapeHTML(p.name)}">${escapeHTML(p.name)}</div>
         <div class="card-meta"><span>${escapeHTML(p.cat)}</span><span class="cm-dot">·</span><span class="cm-mat">${icon("layers", { size: 12 })} ${escapeHTML(materialLabel(p.material))}</span></div>
-        <div class="stars">${starStr(p.stars)}<small>calidad</small></div>
+        <div class="quality">${qualityMeter(p.stars)}<small>${conditionLabel(p.stars)}</small></div>
         <div class="price-row">
           <div class="price"><span class="price-amt">$${rentalPrice(p, 1).toFixed(2)}</span><span class="price-per">1er día</span></div>
           <div class="price-extra">${nextDayPrice(p) > 0
@@ -204,12 +212,12 @@ function renderDetail(){
       </div>
       <div class="detail-price">$${rentalPrice(p, 1).toFixed(2)}<span>1er día</span></div>
     </div>
-    <div class="detail-stars">${starStr(p.stars)}<small>${conditionLabel(p.stars)}</small></div>
+    <div class="detail-quality">${qualityMeter(p.stars)}<small>${conditionLabel(p.stars)}</small></div>
     <p class="detail-desc">${escapeHTML(p.desc)}</p>
     <div class="detail-facts">
       <div class="fact"><div class="k">Talla</div><div class="v">${escapeHTML(p.size)}</div></div>
       <div class="fact"><div class="k">Material</div><div class="v">${escapeHTML(materialLabel(p.material))}</div></div>
-      <div class="fact"><div class="k">Calidad</div><div class="v">${p.stars}/5 ★</div></div>
+      <div class="fact"><div class="k">Calidad</div><div class="v qm-fact">${qualityMeter(p.stars)} ${p.stars}/5</div></div>
       <div class="fact"><div class="k">Depósito</div><div class="v">$${depositFor(p)}</div></div>
     </div>
     <div class="detail-tarifa">

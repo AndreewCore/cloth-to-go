@@ -372,7 +372,9 @@ function rewardIssue(rw, ctx){
   if(rw.type === "freeDay" && days < 2)
     return "Necesitas un alquiler de 2 días o más para regalar uno.";
   if(rw.type === "premiumDays" && !premiumItem(items, days, rw.minStars))
-    return `Ninguna prenda del carrito es destacada (${rw.minStars}★).`;
+    // En palabras y no con el medidor: este texto va en un toast y en avisos,
+    // donde no hay HTML que pintar.
+    return `Ninguna prenda del carrito es destacada (calidad ${rw.minStars}/5 o más).`;
   return null;
 }
 
@@ -406,7 +408,45 @@ const isValidCvv     = v => /^[0-9]{3,4}$/.test(String(v).trim());
 const conditionLabel = s => ({5:"Como nuevo",4:"Excelente",3:"Buen estado",2:"Con carácter",1:"Muy vivida"}[s] || "");
 
 // Estrellas llenas/vacías como texto.
+// Reservadas para las RESEÑAS de clientes (feature futura). La calidad de la
+// prenda ya no las usa: ver qualityMeter().
 function starStr(n){ return "★".repeat(n) + "☆".repeat(5-n); }
+
+// Recorta la calidad al rango válido; un `stars` fuera de 1–5 (o ausente) no
+// debe pintar un medidor roto.
+const qualityLevel = n => Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
+
+/**
+ * Medidor de calidad: cinco pastillas, llenas hasta el nivel de la prenda.
+ *
+ * Sustituye a las ★ porque una estrella significa "valoración de usuarios" para
+ * cualquiera que haya comprado algo por internet, y esto es lo contrario: lo
+ * fija el negocio al catalogar la prenda, y de ello depende la tarifa del
+ * primer día. Con las reseñas en camino, tener las dos cosas dibujadas igual
+ * pasaba de confuso a incorrecto.
+ * @param {number} n Calidad de la prenda (`stars`, 1–5).
+ * @returns {string} HTML del medidor, con etiqueta accesible.
+ */
+function qualityMeter(n){
+  const nivel = qualityLevel(n);
+  const seg = i => `<i class="qm-seg${i < nivel ? " on" : ""}"></i>`;
+  return `<span class="qmeter" role="img" aria-label="Calidad ${nivel} de 5">`
+       + [0,1,2,3,4].map(seg).join("") + "</span>";
+}
+
+/**
+ * El mismo medidor en texto plano, para donde no cabe HTML.
+ *
+ * Existe por los `<option>` del filtro, que no admiten elementos dentro. Va
+ * siempre acompañado de la etiqueta en palabras: si la fuente no trae estos
+ * glifos, el texto sigue diciendo lo mismo.
+ * @param {number} n Calidad de la prenda (`stars`, 1–5).
+ * @returns {string} Cinco pastillas, p. ej. "▰▰▰▱▱".
+ */
+function qualityMeterText(n){
+  const nivel = qualityLevel(n);
+  return "▰".repeat(nivel) + "▱".repeat(5 - nivel);
+}
 
 // Formatea una fecha "YYYY-MM-DD" a algo legible (ej: "16 jun").
 function fmtDate(iso){

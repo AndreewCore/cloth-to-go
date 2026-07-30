@@ -28,6 +28,7 @@ const PROJECT_GLOBALS = [
   "IMG", "CATS", "PRODUCTS", "PRODUCT_BY_ID", "productById", "SIZE_ORDER", "SIZES",
   "REWARDS", "REWARD_BY_ID", "rewardById", "premiumItem", "rewardDiscount", "rewardIssue",
   "escapeHTML", "conditionLabel", "starStr", "fmtDate", "daysBetween", "imgPlaceholder",
+  "qualityLevel", "qualityMeter", "qualityMeterText",
   "MESES_LARGOS", "addDaysISO", "monthOf", "shiftMonth", "monthLabel", "monthGrid",
   "isValidEmail", "isValidPhone", "isValidName", "isValidAddress",
   "isValidCardNumber", "isValidExpiry", "isValidCvv",
