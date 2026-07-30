@@ -12,6 +12,8 @@
  */
 const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const { loadDom } = require("./helpers/load-dom.js");
 
 let win, doc, app;
@@ -119,6 +121,20 @@ test("addToCart la sigue rechazando aunque ahora se vea", () => {
 
   win.addToCart(p.id);
   assert.equal(app.cart.length, 0);
+});
+
+test("el apagado no transparenta la foto (el placeholder está debajo)", () => {
+  // Con `opacity` sobre la imagen se veía el placeholder —icono y nombre en
+  // mayúsculas— a través de la foto de la prenda. El apagado tiene que salir
+  // de `filter`, con la imagen opaca. Se comprueba sobre el CSS porque jsdom
+  // no baja las hojas externas.
+  const css = fs.readFileSync(
+    path.join(__dirname, "..", "css", "components.css"), "utf8");
+  const regla = /\.card-off \.thumb img\s*\{([^}]*)\}/.exec(css);
+
+  assert.ok(regla, "debe existir la regla de la foto apagada");
+  assert.match(regla[1], /filter:/, "el apagado sale de filter");
+  assert.doesNotMatch(regla[1], /opacity:/, "opacity dejaría ver el placeholder");
 });
 
 test("al archivarse el pedido vuelve al frente, sin apagar", () => {
