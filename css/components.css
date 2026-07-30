@@ -560,7 +560,11 @@ main::-webkit-scrollbar { display: none; }
   border-radius: 30px;
   font-size: 13px;
   font-weight: 600;
-  z-index: 70;
+  /* Por encima de la bienvenida (80). Estaba en 70 y quedaba DETRÁS de ella:
+     un fallo de login en la pantalla de entrada no se veía en absoluto, que es
+     el único sitio donde el toast es la última línea de defensa. Solo el modal
+     (90) y el visor a pantalla completa (120) van por encima. */
+  z-index: 85;
   opacity: 0;
   transition: all .3s;
   white-space: nowrap;
@@ -770,6 +774,19 @@ main::-webkit-scrollbar { display: none; }
 /* Botón de Google (lo inyecta GSI). Centrado; oculto por file:// vía [hidden]. */
 .login-google { display: flex; justify-content: center; min-height: 40px; }
 .login-google[hidden] { display: none; }
+/* En oscuro, la variante personalizada del botón ("Iniciar sesión como …") la
+   pinta el SDK dentro de su iframe y no respeta del todo el `filled_black` que
+   le pasamos en renderGoogleButton(): deja un marco claro que en la tarjeta
+   oscura se ve como un recuadro blanco pegado. No podemos tocar el contenido
+   del iframe, así que se recorta desde fuera: el radio y el color de fondo son
+   nuestros, y el marco del SDK queda dentro de ellos.
+   Solo en oscuro — en claro el botón ya encaja tal cual viene. */
+:root[data-theme="dark"] .login-google > div,
+:root[data-theme="dark"] .login-google iframe {
+  border-radius: 30px;
+  background: transparent;
+  color-scheme: dark;
+}
 /* Separador "o" entre el acceso de invitado y el login con Google. */
 .login-sep {
   display: flex; align-items: center; gap: 10px;
