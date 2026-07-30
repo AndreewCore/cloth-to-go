@@ -27,10 +27,12 @@ document.getElementById("openProfile").onclick = ()=>{ editingOrder=null; editin
 document.getElementById("openCart").onclick = ()=>{ view="cart"; renderSheet(); openSheet(); };
 // Botón "Filtros" del header: abre el panel de calidad/talla/material.
 document.getElementById("openFilters").onclick = ()=>{ view="filters"; renderSheet(); openSheet(); };
-document.getElementById("openSurvey").onclick = ()=>{
-  confirmDialog("¿Quieres ayudarnos respondiendo una breve encuesta? Se abrirá en una pestaña nueva.", ()=>{
-    window.open("https://forms.gle/eeu4G4Md877Rp2HV9", "_blank", "noopener");
-  }, "clipboard");
+// Interruptor de tema. Va en el header y no dentro de ajustes porque cambiar de
+// claro a oscuro es algo que se hace a diario (al anochecer), no una vez.
+document.getElementById("toggleTheme").onclick = ()=>{
+  toggleTheme();
+  // Si los ajustes están abiertos, sus botones deben reflejar el cambio.
+  if(view === "settings") renderSheet();
 };
 document.getElementById("closeSheet").onclick = closeSheet;
 overlay.onclick = closeSheet;
@@ -127,6 +129,11 @@ sheet.addEventListener("click", e=>{
     case "redeem":         redeem(+el.dataset.id); break;
     case "openDonate":     openDonate(); break;
     case "openWardrobe":   openWardrobe(); break;
+    case "openSettings":   view="settings"; renderSheet(); break;
+    case "setPref":        setPref(el.dataset.pref, el.dataset.value); renderSheet(); renderThemeButton(); break;
+    // Los booleanos leen su estado del DOM (aria-checked) en vez de recalcularlo:
+    // el botón ya es la fuente de verdad de lo que el usuario está viendo.
+    case "togglePref":     setPref(el.dataset.pref, el.getAttribute("aria-checked") !== "true"); renderSheet(); break;
     case "setDonateMethod": donMethod = el.dataset.value; renderSheet(); break;
     case "submitDonation": submitDonation(); break;
     case "editReturn":     openReturnEditor(+el.dataset.idx); break;
@@ -198,6 +205,10 @@ sheet.addEventListener("keydown", e=>{
 /* ---------------- Init ---------------- */
 // Antes de cualquier render: decide si el botón del mapa se ofrece en esta carga.
 adoptMapsKeyFromUrl();
+// El tema ya se aplicó al cargar prefs.js; falta pintar el icono del botón.
+renderThemeButton();
+// Acompaña el cambio automático de tema del sistema mientras esté en "auto".
+watchSystemTheme();
 renderFilters();
 renderGrid();
 updateBadge();
