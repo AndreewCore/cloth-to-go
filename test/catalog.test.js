@@ -175,13 +175,47 @@ test("'Limpiar filtros' solo aparece en la barra si hay algo que limpiar", () =>
 });
 
 /* ---- Panel de filtros (sheet) ---- */
-test("el panel refleja los filtros vigentes en sus selects", () => {
+test("el panel marca los filtros vigentes y los anuncia en el cabezal", () => {
   app.setFilters({ qualityFilter: 4, sizeFilter: "M" });
   win.renderFilterSheet();
 
-  assert.equal(doc.getElementById("fQuality").value, "4");
-  assert.equal(doc.getElementById("fSize").value, "M");
-  assert.equal(doc.getElementById("fMaterial").value, "Todos");
+  const puesto = g => doc.querySelector(`[data-filter="${g}"][aria-pressed="true"]`).dataset.value;
+  assert.equal(puesto("quality"), "4");
+  assert.equal(puesto("size"), "M");
+  assert.equal(puesto("material"), "Todos");
+
+  // El grupo plegado tiene que decir qué filtra sin abrirlo.
+  const cabezal = g => doc.querySelector(`.fs-group[data-group="${g}"] .fs-head-v`).textContent;
+  assert.equal(cabezal("quality"), "Excelente");
+  assert.equal(cabezal("size"), "M");
+  assert.equal(cabezal("material"), "Todos");
+});
+
+test("solo un grupo queda desplegado a la vez", () => {
+  // Con dos abiertos el botón 'Ver N prendas' se va de la pantalla.
+  win.renderFilterSheet();
+  const abierto = () => [...doc.querySelectorAll(".fs-group.open")].map(el => el.dataset.group);
+  assert.deepEqual(abierto(), []);
+
+  win.toggleFilterGroup("quality");
+  assert.deepEqual(abierto(), ["quality"]);
+  assert.equal(doc.querySelector('[data-group="quality"] .fs-head').getAttribute("aria-expanded"), "true");
+
+  win.toggleFilterGroup("material");
+  assert.deepEqual(abierto(), ["material"]);
+
+  win.toggleFilterGroup("material");
+  assert.deepEqual(abierto(), []);
+});
+
+test("el grupo abierto sobrevive a elegir una opción", () => {
+  // Cada opción repinta el panel para actualizar conteos: si el repintado
+  // plegara el grupo, elegir dos filtros seguidos obligaría a reabrirlo.
+  win.renderFilterSheet();
+  win.toggleFilterGroup("size");
+  win.setFilterValue("size", "M");
+
+  assert.ok(doc.querySelector('.fs-group[data-group="size"]').classList.contains("open"));
 });
 
 test("el botón del panel anuncia cuántas prendas se verán", () => {
