@@ -26,16 +26,19 @@ function sortProducts(list){
 function filteredProducts(){
   const q = searchQuery.trim().toLowerCase();
   const list = PRODUCTS.filter(p =>
-    // Prenda única: si está alquilada en un pedido vigente sale del catálogo
-    // (no hay otra unidad que ofrecer). Vuelve cuando el pedido se archiva.
-    !isRented(p.id) &&
     (activeCat === "Todo" || p.cat === activeCat) &&
     (q === "" || p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q)) &&
     (p.stars >= qualityFilter) &&
     (sizeFilter === "Todas" || p.size === sizeFilter) &&
     (materialFilter === "Todos" || p.material === materialFilter)
   );
-  return sortProducts(list);
+  const orden = sortProducts(list);
+  // La prenda alquilada se queda en el catálogo, pero al final: desaparecer
+  // costaba el escaparate (nadie podía verla, ni volver a por ella) y hacía
+  // pensar que el catálogo era más pequeño de lo que es. Sigue sin poder
+  // alquilarse; esto es presentación, no permiso. El orden elegido por el
+  // usuario se respeta dentro de cada grupo.
+  return [...orden.filter(p => !isRented(p.id)), ...orden.filter(p => isRented(p.id))];
 }
 
 // ¿Hay algún filtro activo? (para mostrar "Limpiar filtros")
@@ -83,7 +86,15 @@ function clearFilters(){
 /* ---------------- Panel de filtros (sheet) ---------------- */
 function renderFilterSheet(){
   sheetTitle.textContent = "Filtros";
-  const qOpts = [[0,"Todas"],[5,"★★★★★ (5)"],[4,"4★ o más"],[3,"3★ o más"],[2,"2★ o más"]];
+  // Las pastillas van en TEXTO porque un <option> no admite elementos dentro, y
+  // siempre con la etiqueta en palabras: si la fuente no trae los glifos, el
+  // filtro se sigue entendiendo.
+  const qOpts = [
+    [0, "Todas"],
+    ...[5, 4, 3, 2].map(n => [
+      n, `${qualityMeterText(n)}  ${conditionLabel(n)}${n === 5 ? "" : " o más"}`,
+    ]),
+  ];
   sheetBody.innerHTML = `
     <div class="filter-sheet">
       <label class="fs-fld">
@@ -128,22 +139,26 @@ function renderGrid(){
 
   grid.innerHTML = list.map(p => {
     const avail = unitsAvailable(p);
+    // Alquilada ≠ "en tu carrito": la del carrito sigue siendo tuya y se pinta
+    // normal, solo la que está fuera se apaga.
+    const fuera = isRented(p.id);
     const btn = inCart(p.id)
       ? `<button class="add-btn in-cart" data-add="${p.id}">${icon("check", { size: 14 })} En carrito</button>`
       : avail > 0
         ? `<button class="add-btn" data-add="${p.id}">+ Alquilar</button>`
         : `<button class="add-btn" disabled>No disponible</button>`;
     return `
-    <div class="card">
+    <div class="card${fuera ? " card-off" : ""}">
       <div class="thumb" data-detail="${p.id}">
         ${imgPlaceholder(p)}
+        ${fuera ? `<span class="off-tag" style="z-index:3">No disponible</span>` : ""}
         <span class="cond-tag" style="z-index:2">${conditionLabel(p.stars)}</span>
         <span class="size-tag" style="z-index:2">Talla ${escapeHTML(p.size)}</span>
       </div>
       <div class="card-body">
         <div class="card-name" data-detail="${p.id}" role="button" tabindex="0" aria-label="Ver detalle de ${escapeHTML(p.name)}">${escapeHTML(p.name)}</div>
         <div class="card-meta"><span>${escapeHTML(p.cat)}</span><span class="cm-dot">·</span><span class="cm-mat">${icon("layers", { size: 12 })} ${escapeHTML(materialLabel(p.material))}</span></div>
-        <div class="stars">${starStr(p.stars)}<small>calidad</small></div>
+        <div class="quality">${qualityMeter(p.stars)}<small>${conditionLabel(p.stars)}</small></div>
         <div class="price-row">
           <div class="price"><span class="price-amt">$${rentalPrice(p, 1).toFixed(2)}</span><span class="price-per">1er día</span></div>
           <div class="price-extra">${nextDayPrice(p) > 0
@@ -179,11 +194,122 @@ function addToCart(id){
  */
 function openDetail(id){
   detailId = id;
+  detailImg = 0;                     // cada prenda se abre por su portada
   stackedDetail = FULL_VIEWS.has(view) && sheet.classList.contains("show");
   if(stackedDetail){ renderDetail(); openStackSheet(); return; }
   view = "detail";
   renderSheet();
   openSheet();
+}
+
+/**
+ * Deja `detailImg` dentro del rango de fotos de la prenda abierta.
+ * Se recorta al leer y no al escribir porque la lista puede cambiar bajo los
+ * pies: hydrateCatalog() sustituye el catálogo entero mientras el detalle
+ * está abierto.
+ * @param {object} p Prenda abierta.
+ * @returns {number} Índice válido de la foto visible.
+ */
+function galleryIndex(p){
+  const total = productImages(p).length;
+  return Math.min(Math.max(detailImg, 0), total - 1);
+}
+
+/**
+ * Galería del detalle: la foto actual, las flechas y los puntos.
+ *
+ * Con una sola foto no dibuja ningún control — no hay nada que recorrer, y unas
+ * flechas que no llevan a ninguna parte son peores que su ausencia. Solo se
+ * monta la imagen visible: precargar las demás multiplicaría el peso de la
+ * vista por el número de fotos sin que nadie las haya pedido.
+ * @param {object} p Prenda abierta.
+ * @returns {string} HTML de la galería.
+ */
+function galleryHTML(p){
+  const fotos = productImages(p);
+  const i = galleryIndex(p);
+  if(fotos.length < 2) return `<div class="detail-img">${imgPlaceholder(p, fotos[0])}</div>`;
+
+  const flecha = (dir, nombre, etiqueta) => `
+    <button class="gal-nav gal-${dir}" data-action="gal${nombre}" aria-label="${etiqueta}">
+      ${icon(dir === "prev" ? "chevronLeft" : "chevronRight", { size: 20 })}
+    </button>`;
+  const puntos = fotos.map((_, n) => `
+    <button class="gal-dot${n === i ? " on" : ""}" data-action="galDot" data-i="${n}"
+            aria-label="Foto ${n + 1} de ${fotos.length}"
+            aria-current="${n === i ? "true" : "false"}"></button>`).join("");
+
+  return `
+    <div class="detail-img gallery" data-gallery="${p.id}">
+      ${imgPlaceholder(p, fotos[i])}
+      ${flecha("prev", "Prev", "Foto anterior")}
+      ${flecha("next", "Next", "Foto siguiente")}
+      <span class="gal-count">${i + 1} / ${fotos.length}</span>
+    </div>
+    <div class="gal-dots">${puntos}</div>`;
+}
+
+/**
+ * Mueve la galería `paso` fotos y repinta. Da la vuelta en los extremos: en un
+ * carrusel corto, toparse con una flecha muerta se siente roto.
+ * @param {number} paso -1 (anterior) o +1 (siguiente).
+ */
+function moveGallery(paso){
+  const p = productById(detailId);
+  if(!p) return;
+  const total = productImages(p).length;
+  detailImg = (galleryIndex(p) + paso + total) % total;
+  renderDetail();
+}
+
+/**
+ * Salta a una foto concreta (los puntos).
+ * @param {number} i Índice de la foto.
+ */
+function showGalleryImage(i){
+  const p = productById(detailId);
+  if(!p) return;
+  detailImg = Math.min(Math.max(Number(i) || 0, 0), productImages(p).length - 1);
+  renderDetail();
+}
+
+/**
+ * Bloque de reseñas del detalle: media, conteo y la lista.
+ *
+ * Aquí SÍ se usan estrellas: son la valoración de clientes, que es lo que una
+ * estrella significa para todo el mundo. La calidad de la prenda tiene su
+ * medidor propio (qualityMeter) justo por esta convivencia.
+ * @param {object} p Prenda abierta.
+ * @returns {string} HTML del bloque.
+ */
+function reviewsHTML(p){
+  const rs = productReviews(p.id);
+  if(!rs.length){
+    return `<div class="reviews">
+        <div class="rev-head"><h3>Reseñas</h3></div>
+        <p class="rev-empty">Todavía no tiene reseñas. Si la alquilas, podrás dejar la primera.</p>
+      </div>`;
+  }
+  const media = productRating(p.id);
+  const item = r => `
+    <div class="review">
+      <div class="rev-top">
+        <span class="rev-author">${escapeHTML(r.author || profile.name || "Tú")}</span>
+        <span class="rev-date">${fmtDate(r.date)}</span>
+      </div>
+      <div class="rev-stars">${starStr(r.rating)}</div>
+      ${r.text ? `<p class="rev-text">${escapeHTML(r.text)}</p>` : ""}
+      ${r.photo ? `<img class="rev-photo" src="${escapeHTML(r.photo)}" alt="Foto de la reseña" loading="lazy">` : ""}
+    </div>`;
+  return `
+    <div class="reviews">
+      <div class="rev-head">
+        <h3>Reseñas</h3>
+        <span class="rev-avg">${starStr(Math.round(media))}
+          <b>${media.toFixed(1)}</b> <small>(${rs.length})</small></span>
+      </div>
+      ${rs.map(item).join("")}
+    </div>`;
 }
 
 /**
@@ -196,7 +322,7 @@ function renderDetail(){
   // El título de la pestaña apilada es fijo en el HTML: solo muestra detalle.
   if(!stackedDetail) sheetTitle.textContent = "Detalle";
   body.innerHTML = `
-    <div class="detail-img">${imgPlaceholder(p)}</div>
+    ${galleryHTML(p)}
     <div class="detail-head">
       <div>
         <div class="detail-name">${escapeHTML(p.name)}</div>
@@ -204,12 +330,12 @@ function renderDetail(){
       </div>
       <div class="detail-price">$${rentalPrice(p, 1).toFixed(2)}<span>1er día</span></div>
     </div>
-    <div class="detail-stars">${starStr(p.stars)}<small>${conditionLabel(p.stars)}</small></div>
+    <div class="detail-quality">${qualityMeter(p.stars)}<small>${conditionLabel(p.stars)}</small></div>
     <p class="detail-desc">${escapeHTML(p.desc)}</p>
     <div class="detail-facts">
       <div class="fact"><div class="k">Talla</div><div class="v">${escapeHTML(p.size)}</div></div>
       <div class="fact"><div class="k">Material</div><div class="v">${escapeHTML(materialLabel(p.material))}</div></div>
-      <div class="fact"><div class="k">Calidad</div><div class="v">${p.stars}/5 ★</div></div>
+      <div class="fact"><div class="k">Calidad</div><div class="v qm-fact">${qualityMeter(p.stars)} ${p.stars}/5</div></div>
       <div class="fact"><div class="k">Depósito</div><div class="v">$${depositFor(p)}</div></div>
     </div>
     <div class="detail-tarifa">
@@ -224,8 +350,9 @@ function renderDetail(){
     <p class="detail-avail">${unitsAvailable(p) > 0
       ? `${icon("checkCircle", { size: 15 })} Disponible · ${p.disponibles} unidad${p.disponibles===1?'':'es'} (prenda única)`
       : isRented(p.id)
-        ? `${icon("ban", { size: 15 })} Alquilada ahora mismo · vuelve al catálogo cuando termine el alquiler`
-        : `${icon("ban", { size: 15 })} Ya está en tu carrito (prenda única)`}</p>`;
+        ? `${icon("ban", { size: 15 })} No disponible por el momento`
+        : `${icon("ban", { size: 15 })} Ya está en tu carrito (prenda única)`}</p>
+    ${reviewsHTML(p)}`;
 
   if(isRented(p.id)){
     // Misma acción en ambas superficies: apilado el perfil ya está debajo y

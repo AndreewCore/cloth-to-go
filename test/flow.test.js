@@ -222,8 +222,8 @@ test("saveProfile con correo inválido muestra el error y no guarda", () => {
   assert.equal(app.profile.email, ""); // no persistió el correo inválido
 });
 
-/* ---- Stock del catálogo: la prenda alquilada desaparece ---- */
-test("tras alquilar, la prenda sale del catálogo (prenda única)", () => {
+/* ---- Stock del catálogo: la prenda alquilada se queda, pero apagada ---- */
+test("tras alquilar, la prenda sigue en el catálogo pero no disponible", () => {
   win.renderGrid();
   const grid = doc.getElementById("grid");
   assert.match(grid.innerHTML, /Esmoquin clásico/);        // id 7, visible al inicio
@@ -232,10 +232,28 @@ test("tras alquilar, la prenda sale del catálogo (prenda única)", () => {
   readyCheckout("cash");
   win.placeOrder();
 
-  assert.doesNotMatch(grid.innerHTML, /Esmoquin clásico/); // ya alquilada
-  assert.ok(!win.filteredProducts().some(p => p.id === 7));
-  assert.equal(win.filteredProducts().length, antes - 1);  // el conteo baja en una
-  assert.match(doc.getElementById("resultsBar").innerHTML, new RegExp(`>${antes - 1} prendas<`));
+  // Sigue visible: desaparecer costaba el escaparate. Lo que no puede es
+  // alquilarse otra vez.
+  assert.match(grid.innerHTML, /Esmoquin clásico/);
+  assert.ok(win.filteredProducts().some(p => p.id === 7));
+  assert.equal(win.filteredProducts().length, antes);      // el conteo no baja
+  assert.match(doc.getElementById("resultsBar").innerHTML, new RegExp(`>${antes} prendas<`));
+
+  const card = [...grid.querySelectorAll(".card")]
+    .find(c => c.textContent.includes("Esmoquin clásico"));
+  assert.ok(card.classList.contains("card-off"), "debe pintarse apagada");
+  assert.match(card.textContent, /No disponible/);
+  assert.ok(card.querySelector(".add-btn").disabled, "no se puede alquilar");
+});
+
+test("la prenda alquilada se ordena al final de la grilla", () => {
+  readyCheckout("cash");
+  win.placeOrder();
+
+  const ids = win.filteredProducts().map(p => p.id);
+  assert.equal(ids[ids.length - 1], 7, "la alquilada va al final");
+  // Y solo ella: el resto conserva el orden del catálogo.
+  assert.ok(ids.slice(0, -1).every(id => id !== 7));
 });
 
 test("la prenda vuelve al catálogo cuando el pedido se archiva (devuelta y pagada)", () => {
@@ -255,7 +273,7 @@ test("el detalle de una prenda alquilada no ofrece agregarla al carrito", () => 
   win.placeOrder();
 
   win.openDetail(7);
-  assert.match(doc.getElementById("sheetBody").innerHTML, /Alquilada ahora mismo/);
+  assert.match(doc.getElementById("sheetBody").innerHTML, /No disponible por el momento/);
   const btn = doc.querySelector("#sheetFoot .pay-btn");
   assert.equal(btn.dataset.action, "goProfile");   // no "addDetail"
 });
@@ -279,18 +297,23 @@ function placedOrder(start) {
   return app.orders.length - 1;
 }
 
+// Sigue en la grilla en ambos casos, así que lo que distingue "alquilada" de
+// "libre" es si se puede alquilar, no si se ve.
+const alquilada = id => win.filteredProducts().some(p => p.id === id && win.isRented(id));
+
 test("anular un pedido devuelve sus prendas al catálogo", () => {
   win.renderGrid();
   const grid = doc.getElementById("grid");
   const i = placedOrder();
-  assert.ok(!win.filteredProducts().some(p => p.id === 7));   // fuera del catálogo
+  assert.ok(alquilada(7));                                      // apagada en la grilla
 
   win.cancelOrder(i);
   app.confirmModalOk();                                        // el usuario confirma
 
   assert.equal(app.orders[i].status, "cancelled");
-  assert.ok(win.filteredProducts().some(p => p.id === 7));      // volvió
+  assert.ok(!alquilada(7));                                     // vuelve a ofrecerse
   assert.match(grid.innerHTML, /Esmoquin clásico/);             // y ya está pintado
+  assert.doesNotMatch(grid.innerHTML, /card-off/);              // sin la capa de apagado
   assert.equal(app.cart.length, 0);                             // no se rearma el carrito
 });
 
@@ -328,7 +351,7 @@ test("sin confirmar el diálogo, el pedido sigue vigente", () => {
   const i = placedOrder();
   win.cancelOrder(i);                 // se abre el modal y no se acepta
   assert.equal(app.orders[i].status, "pending");
-  assert.ok(!win.filteredProducts().some(p => p.id === 7));
+  assert.ok(alquilada(7));            // la prenda sigue retenida por el pedido
 });
 
 test("la opción de anular desaparece si el alquiler ya está con el cliente", () => {

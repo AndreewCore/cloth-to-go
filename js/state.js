@@ -32,6 +32,19 @@ let cart = [];                       // [{id}] — una unidad por prenda
 //   Ecuador), por eso un pedido anulado NO puede llamarse "cancelado" en la UI.
 // loadState() puede sobreescribir esto si hay datos guardados.
 let orders = [];
+// RESEÑAS escritas por el usuario de esta sesión:
+//   { id, productId, orderId, rating:1..5, text, photo?, date }
+// `photo` es un data URL webp ya redimensionado (ver compressPhoto en
+// profile.js). Se guardan por usuario en localStorage como el resto del estado;
+// las de muestra (DEMO_REVIEWS) NO viven aquí y no se persisten nunca.
+let reviews = [];
+// Prenda y pedido que se están reseñando, y el borrador del formulario.
+// Efímeros: un borrador a medias no merece sobrevivir a una recarga.
+let reviewOrderId = null;
+let reviewProductId = null;
+let reviewRating = 0;
+let reviewText = "";
+let reviewPhoto = "";
 // Perfil: contacto + puntos acumulados + canjes + donaciones.
 // `redeemed` es a la vez historial y cartera: cada canje es un premio con
 // nombre propio { id, rewardId, name, cost, date, usedIn } y sigue disponible
@@ -61,6 +74,9 @@ let detailId = null;
 // panel principal. Lo decide openDetail() y manda en dónde pinta renderDetail()
 // y a dónde vuelven sus botones. Efímero: no se persiste.
 let stackedDetail = false;
+// Foto visible de la galería del detalle. Efímero como stackedDetail: abrir otra
+// prenda lo devuelve a 0, y no tiene sentido persistir por qué foto ibas.
+let detailImg = 0;
 let delivery = null;                 // 'ship' | 'pickup'  — cómo RECIBE el pedido
 let address = "";
 // Punto exacto elegido en el mapa ({lat,lng}) o null si solo hay texto.
@@ -347,6 +363,90 @@ function isDelivered(o){ return !isCancelledOrder(o) && o.start <= isoOffset(0);
  * @param {object} o Pedido.
  */
 function countsForRewards(o){ return isDelivered(o) && !canCancelOrder(o); }
+
+/* ---------------- Reseñas ----------------
+   Las de muestra (DEMO_REVIEWS) se mezclan al leer, nunca se guardan: así
+   conviven con las del usuario sin ensuciar su almacenamiento, y retirarlas el
+   día del backend es vaciar una constante. */
+
+/**
+ * Reseñas de una prenda, de la más reciente a la más antigua.
+ * @param {number} id Id de la prenda.
+ * @returns {object[]} Reseñas del usuario y las de muestra, mezcladas.
+ */
+function productReviews(id){
+  return [...reviews, ...DEMO_REVIEWS]
+    .filter(r => r.productId === id)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+
+/**
+ * Valoración media de una prenda. Se DERIVA, nunca se almacena: igual que el
+ * precio y el descuento, para que borrar o editar una reseña no deje un
+ * promedio mintiendo.
+ * @param {number} id Id de la prenda.
+ * @returns {number} Media de 1 a 5, o 0 si no tiene reseñas.
+ */
+function productRating(id){
+  const rs = productReviews(id);
+  if(!rs.length) return 0;
+  return rs.reduce((s, r) => s + r.rating, 0) / rs.length;
+}
+
+/** ¿Ya reseñó el usuario esta prenda en este pedido? */
+function reviewFor(orderId, productId){
+  return reviews.find(r => r.orderId === orderId && r.productId === productId) || null;
+}
+
+/**
+ * Prendas de un pedido que el usuario puede reseñar.
+ *
+ * Solo pedidos ya cumplidos, con el mismo umbral que los puntos y las metas de
+ * agua (`countsForRewards`): reseñar algo que aún no se recibió es el agujero
+ * que se cerró en las metas, y aquí sería peor porque queda publicado.
+ * @param {object} o Pedido.
+ * @returns {number[]} Ids de prendas reseñables (vacío si el pedido no cuenta).
+ */
+function reviewableItems(o){
+  if(!o || !countsForRewards(o) || isCancelledOrder(o)) return [];
+  return o.items;
+}
+
+/** ¿Queda alguna prenda de este pedido por reseñar? */
+function hasPendingReview(o){
+  return reviewableItems(o).some(id => !reviewFor(o.id, id));
+}
+
+/**
+ * Guarda (o actualiza) la reseña del borrador y la persiste.
+ * @returns {boolean} true si se guardó; false si faltaban datos.
+ */
+function saveReview(){
+  if(!reviewProductId || !reviewRating) return false;
+  const texto = reviewText.trim();
+  const existente = reviewFor(reviewOrderId, reviewProductId);
+  const datos = {
+    productId: reviewProductId,
+    orderId: reviewOrderId,
+    rating: reviewRating,
+    text: texto,
+    photo: reviewPhoto || "",
+    date: isoOffset(),
+  };
+  if(existente) Object.assign(existente, datos);
+  else reviews.push({ id: `r${Date.now()}`, ...datos });
+  saveState();
+  return true;
+}
+
+/** Borra una reseña propia. Las de muestra no se pueden tocar: no son de nadie. */
+function deleteReview(id){
+  const i = reviews.findIndex(r => r.id === id);
+  if(i < 0) return false;
+  reviews.splice(i, 1);
+  saveState();
+  return true;
+}
 /**
  * Acredita los puntos de los pedidos ya entregados y FIRMES (no anulables).
  *
@@ -437,13 +537,14 @@ function storageKeyFor(user){ return user && user.sub ? STORAGE_PREFIX + user.su
 function resetStateToDefaults(){
   cart = [];
   orders = [];
+  reviews = [];      // las de otra cuenta no pueden asomar en esta sesión
   profile = defaultProfile();
 }
 
 function saveState(){
   if(!activeStorageKey) return;       // invitado: nada queda registrado
   try {
-    localStorage.setItem(activeStorageKey, JSON.stringify({ cart, profile, orders }));
+    localStorage.setItem(activeStorageKey, JSON.stringify({ cart, profile, orders, reviews }));
   } catch(e){ /* almacenamiento no disponible: continúa en memoria */ }
 }
 function loadState(){
@@ -453,6 +554,7 @@ function loadState(){
     if(!raw) return;
     const s = JSON.parse(raw);
     if(Array.isArray(s.cart)) cart = s.cart;
+    if(Array.isArray(s.reviews)) reviews = s.reviews;
     if(Array.isArray(s.orders)){
       orders = s.orders;
       // Migración: los pedidos guardados antes de "puntos al pagar" ya recibieron

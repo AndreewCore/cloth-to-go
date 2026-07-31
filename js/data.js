@@ -236,6 +236,11 @@ const CATS = ["Todo", "Formal", "Fiesta", "Casual", "Invierno"];
    Las imágenes se sirven localmente desde img/products/ (webp optimizado ~600×800).
    Alojarlas en el repo evita la dependencia de red de Unsplash: cargan también
    en file:// y offline. Si alguna falta (onerror), queda el placeholder de imgPlaceholder().
+   - imgs        : lista de fotos, de la portada a la última. La PRIMERA es la que
+                   sale en tarjeta, carrito y pedidos; el resto solo en el detalle.
+                   Una sola foto es válido: la galería no dibuja controles.
+                   Convención de nombres: N.webp para la portada y N-2, N-3… para
+                   las demás, de modo que añadir fotos no toca más que esta lista.
    - value       : coste de reponer la prenda en Ecuador, segunda mano (USD).
                    Es la base de TODO el precio: el alquiler sale de rentalPrice()
                    y el depósito de depositFor(). No hay precio fijo por prenda.
@@ -248,25 +253,25 @@ const CATS = ["Todo", "Formal", "Fiesta", "Casual", "Invierno"];
    - weightKg    : peso aproximado de la prenda. material + weightKg definen el
                    ahorro de agua por reutilizarla (ver garmentWater()). */
 const PRODUCTS = [
-  { id:1, name:"Blazer de lino", cat:"Formal", value:35, stars:5, size:"M",  disponibles:1, material:"lino",      weightKg:0.5, img:"img/products/1.webp",
+  { id:1, name:"Blazer de lino", cat:"Formal", value:35, stars:5, size:"M",  disponibles:1, material:"lino",      weightKg:0.5, imgs:["img/products/1.webp", "img/products/1-2.webp", "img/products/1-3.webp"],
     desc:"Blazer de lino fresco, corte recto. Ideal para eventos formales y de oficina." },
-  { id:2, name:"Vestido de gala", cat:"Fiesta", value:45, stars:4, size:"S",  disponibles:1, material:"sintetico", weightKg:0.4, img:"img/products/2.webp",
+  { id:2, name:"Vestido de gala", cat:"Fiesta", value:45, stars:4, size:"S",  disponibles:1, material:"sintetico", weightKg:0.4, imgs:["img/products/2.webp", "img/products/2-2.webp", "img/products/2-3.webp"],
     desc:"Vestido largo de gala con caída elegante. Perfecto para bodas y galas." },
-  { id:3, name:"Jeans vintage", cat:"Casual", value:15, stars:3, size:"M",  disponibles:1, material:"algodon",   weightKg:0.8, img:"img/products/3.webp",
+  { id:3, name:"Jeans vintage", cat:"Casual", value:15, stars:3, size:"M",  disponibles:1, material:"algodon",   weightKg:0.8, imgs:["img/products/3.webp"],
     desc:"Jeans de tiro alto estilo retro. Cómodos para el día a día." },
-  { id:4, name:"Abrigo de lana", cat:"Invierno", value:55, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.2, img:"img/products/4.webp",
+  { id:4, name:"Abrigo de lana", cat:"Invierno", value:55, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.2, imgs:["img/products/4.webp"],
     desc:"Abrigo de lana cálido y de gran caída. Abriga sin perder estilo." },
-  { id:5, name:"Camisa formal", cat:"Formal", value:14, stars:4, size:"M",  disponibles:1, material:"algodon",   weightKg:0.2, img:"img/products/5.webp",
+  { id:5, name:"Camisa formal", cat:"Formal", value:14, stars:4, size:"M",  disponibles:1, material:"algodon",   weightKg:0.2, imgs:["img/products/5.webp"],
     desc:"Camisa formal de algodón, fácil de combinar para reuniones." },
-  { id:6, name:"Falda plisada", cat:"Casual", value:12, stars:3, size:"S",  disponibles:1, material:"sintetico", weightKg:0.3, img:"img/products/6.webp",
+  { id:6, name:"Falda plisada", cat:"Casual", value:12, stars:3, size:"S",  disponibles:1, material:"sintetico", weightKg:0.3, imgs:["img/products/6.webp"],
     desc:"Falda plisada midi, ligera y versátil para cualquier ocasión." },
-  { id:7, name:"Esmoquin clásico", cat:"Fiesta", value:150, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.0, img:"img/products/7.webp",
+  { id:7, name:"Esmoquin clásico", cat:"Fiesta", value:150, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.0, imgs:["img/products/7.webp", "img/products/7-2.webp", "img/products/7-3.webp"],
     desc:"Esmoquin negro clásico con solapa satinada. La opción para eventos de etiqueta." },
-  { id:8, name:"Chaqueta de cuero", cat:"Casual", value:45, stars:2, size:"M",  disponibles:1, material:"cuero",     weightKg:1.3, img:"img/products/8.webp",
+  { id:8, name:"Chaqueta de cuero", cat:"Casual", value:45, stars:2, size:"M",  disponibles:1, material:"cuero",     weightKg:1.3, imgs:["img/products/8.webp"],
     desc:"Chaqueta de cuero con carácter; muestra desgaste natural que le da estilo." },
-  { id:9, name:"Sudadera bordada", cat:"Casual", value:12, stars:4, size:"L",  disponibles:1, material:"algodon",   weightKg:0.5, img:"img/products/9.webp",
+  { id:9, name:"Sudadera bordada", cat:"Casual", value:12, stars:4, size:"L",  disponibles:1, material:"algodon",   weightKg:0.5, imgs:["img/products/9.webp"],
     desc:"Sudadera de algodón con bordado, súper cómoda para el día a día." },
-  { id:10, name:"Gabardina beige", cat:"Invierno", value:40, stars:4, size:"XL", disponibles:1, material:"algodon",   weightKg:0.9, img:"img/products/10.webp",
+  { id:10, name:"Gabardina beige", cat:"Invierno", value:40, stars:4, size:"XL", disponibles:1, material:"algodon",   weightKg:0.9, imgs:["img/products/10.webp"],
     desc:"Gabardina beige atemporal, perfecta para días de lluvia y entretiempo." },
 ];
 
@@ -277,6 +282,37 @@ const SIZES = SIZE_ORDER.filter(s => PRODUCTS.some(p => p.size === s));
 /* Materiales presentes en el catálogo, en orden lógico (para el filtro). */
 const MATERIAL_ORDER = ["algodon", "lana", "lino", "cuero", "sintetico"];
 const MATERIALS = MATERIAL_ORDER.filter(m => PRODUCTS.some(p => p.material === m));
+
+/* ---- Reseñas de muestra ----
+   ⚠️ BORRAR CUANDO HAYA BACKEND. Estas reseñas NO son de nadie: existen solo
+   para que el bloque del detalle no se vea vacío en la demostración. Se retiran
+   vaciando esta constante — `productReviews()` las mezcla al vuelo, así que no
+   hay nada más que limpiar y no tocan el localStorage de ningún usuario.
+
+   Van marcadas con `demo:true`, de modo que el día de la migración se pueden
+   distinguir de las reales con una comprobación, no a ojo. Tampoco se pueden
+   editar ni borrar desde la interfaz: no pertenecen a la sesión.
+
+   Se reparten por categorías distintas para que se vea el bloque en varias
+   prendas, y una lleva foto (la segunda del propio catálogo) para enseñar cómo
+   queda una reseña con imagen. */
+const DEMO_REVIEWS = [
+  { id:"demo-1", productId:1,  rating:5, author:"Camila V.", date:"2026-07-12",
+    text:"Impecable. Lo usé para una boda y el corte cae muy bien; llegó planchado y sin una sola mancha.",
+    photo:"img/products/1-2.webp", demo:true },
+  { id:"demo-2", productId:2,  rating:4, author:"Doménica R.", date:"2026-07-05",
+    text:"El vestido es precioso y la caída es real, como en las fotos. Le doy 4 porque me quedó algo largo, pero eso es cosa mía.",
+    demo:true },
+  { id:"demo-3", productId:7,  rating:5, author:"Sebastián M.", date:"2026-06-28",
+    text:"Alquilar el esmoquin me costó menos que la corbata que compré aparte. Volvería sin dudarlo.",
+    demo:true },
+  { id:"demo-4", productId:4,  rating:4, author:"Andrés L.", date:"2026-06-20",
+    text:"Abrigo calientito y en muy buen estado. La devolución en el local tomó dos minutos.",
+    demo:true },
+  { id:"demo-5", productId:10, rating:3, author:"Paula E.", date:"2026-06-14",
+    text:"Cumple, pero la gabardina tiene algo de uso en los puños. Se avisa en la ficha, así que sin sorpresas.",
+    demo:true },
+];
 
 /* ---- Programa de puntos ----
    Premios canjeables con los puntos acumulados (cost = puntos requeridos).
@@ -372,7 +408,9 @@ function rewardIssue(rw, ctx){
   if(rw.type === "freeDay" && days < 2)
     return "Necesitas un alquiler de 2 días o más para regalar uno.";
   if(rw.type === "premiumDays" && !premiumItem(items, days, rw.minStars))
-    return `Ninguna prenda del carrito es destacada (${rw.minStars}★).`;
+    // En palabras y no con el medidor: este texto va en un toast y en avisos,
+    // donde no hay HTML que pintar.
+    return `Ninguna prenda del carrito es destacada (calidad ${rw.minStars}/5 o más).`;
   return null;
 }
 
@@ -406,7 +444,45 @@ const isValidCvv     = v => /^[0-9]{3,4}$/.test(String(v).trim());
 const conditionLabel = s => ({5:"Como nuevo",4:"Excelente",3:"Buen estado",2:"Con carácter",1:"Muy vivida"}[s] || "");
 
 // Estrellas llenas/vacías como texto.
+// Reservadas para las RESEÑAS de clientes (feature futura). La calidad de la
+// prenda ya no las usa: ver qualityMeter().
 function starStr(n){ return "★".repeat(n) + "☆".repeat(5-n); }
+
+// Recorta la calidad al rango válido; un `stars` fuera de 1–5 (o ausente) no
+// debe pintar un medidor roto.
+const qualityLevel = n => Math.max(0, Math.min(5, Math.round(Number(n) || 0)));
+
+/**
+ * Medidor de calidad: cinco pastillas, llenas hasta el nivel de la prenda.
+ *
+ * Sustituye a las ★ porque una estrella significa "valoración de usuarios" para
+ * cualquiera que haya comprado algo por internet, y esto es lo contrario: lo
+ * fija el negocio al catalogar la prenda, y de ello depende la tarifa del
+ * primer día. Con las reseñas en camino, tener las dos cosas dibujadas igual
+ * pasaba de confuso a incorrecto.
+ * @param {number} n Calidad de la prenda (`stars`, 1–5).
+ * @returns {string} HTML del medidor, con etiqueta accesible.
+ */
+function qualityMeter(n){
+  const nivel = qualityLevel(n);
+  const seg = i => `<i class="qm-seg${i < nivel ? " on" : ""}"></i>`;
+  return `<span class="qmeter" role="img" aria-label="Calidad ${nivel} de 5">`
+       + [0,1,2,3,4].map(seg).join("") + "</span>";
+}
+
+/**
+ * El mismo medidor en texto plano, para donde no cabe HTML.
+ *
+ * Existe por los `<option>` del filtro, que no admiten elementos dentro. Va
+ * siempre acompañado de la etiqueta en palabras: si la fuente no trae estos
+ * glifos, el texto sigue diciendo lo mismo.
+ * @param {number} n Calidad de la prenda (`stars`, 1–5).
+ * @returns {string} Cinco pastillas, p. ej. "▰▰▰▱▱".
+ */
+function qualityMeterText(n){
+  const nivel = qualityLevel(n);
+  return "▰".repeat(nivel) + "▱".repeat(5 - nivel);
+}
 
 // Formatea una fecha "YYYY-MM-DD" a algo legible (ej: "16 jun").
 function fmtDate(iso){
@@ -477,19 +553,49 @@ function monthGrid(ym){
   // getDay() es 0=domingo; la semana local empieza en lunes.
   const lead = (first.getDay() + 6) % 7;
   const start = addDaysISO(`${ym}-01`, -lead);
+  // SIEMPRE seis filas (42 días), aunque sobren.
+  //
+  // Antes se cortaba en cuanto una semana completa pasaba el fin de mes, y eso
+  // escondía días que el cliente necesita: alquilando a fin de mes, la fecha de
+  // devolución cae en el mes siguiente y podía quedar FUERA de la cuadrícula.
+  // El 31 de julio de 2026, con el rango por defecto de 3 días, la rejilla
+  // llegaba al 2 de agosto y la devolución era el 3: invisible e inseleccionable.
+  //
+  // Seis filas es además lo que hace cualquier calendario, así que la altura no
+  // baila al cambiar de mes.
   const cells = [];
   for(let i = 0; i < 42; i++){
     const iso = addDaysISO(start, i);
     cells.push({ iso, day: Number(iso.slice(8)), out: monthOf(iso) !== ym });
-    // Se corta en semana completa: 5 filas bastan salvo en meses que desbordan.
-    if(cells.length % 7 === 0 && cells.length >= 28 && monthOf(iso) > ym) break;
   }
   return cells;
 }
 
+/**
+ * Fotos de una prenda, siempre como lista y siempre con al menos un elemento.
+ *
+ * Normaliza en un solo sitio lo que puede llegar de tres sitios distintos: el
+ * catálogo embebido (`imgs`), el backend (que serializa la lista) y una entrada
+ * antigua con `img` suelto. Sin esto, cada vista tendría que repetir el mismo
+ * `?.` defensivo y una sola omisión rompería la galería.
+ * @param {object} p Prenda del catálogo.
+ * @returns {string[]} Rutas de las fotos; `[""]` si no hay ninguna (deja el
+ *   placeholder a la vista en lugar de romper el marcado).
+ */
+function productImages(p){
+  const lista = Array.isArray(p?.imgs) ? p.imgs.filter(Boolean)
+              : p?.img ? [p.img] : [];
+  return lista.length ? lista : [""];
+}
+
+/** Foto de portada: la que sale en tarjeta, carrito y pedidos. */
+function coverImage(p){ return productImages(p)[0]; }
+
 // HTML de una imagen con placeholder de respaldo.
 // Si la imagen no carga (onerror), se oculta y queda visible el placeholder.
-function imgPlaceholder(p){
+// `src` permite pintar una foto concreta de la galería; por defecto, la portada.
+function imgPlaceholder(p, src){
+  const ruta = src === undefined ? coverImage(p) : src;
   return `<span class="img-ph">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
         <rect x="3" y="3" width="18" height="18" rx="2"/>
@@ -498,6 +604,6 @@ function imgPlaceholder(p){
       </svg>
       <span class="ph-txt">${escapeHTML(p.name)}</span>
     </span>
-    <img src="${escapeHTML(p.img)}" alt="${escapeHTML(p.name)}" loading="lazy"
+    <img src="${escapeHTML(ruta)}" alt="${escapeHTML(p.name)}" loading="lazy"
          onerror="this.style.display='none'">`;
 }

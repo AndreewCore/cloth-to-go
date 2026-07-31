@@ -140,6 +140,18 @@ function onSheetClick(e){
     // renderDetail() sirve para ambas superficies y repinta solo el detalle,
     // que es lo único que cambia al agregar la prenda al carrito.
     case "addDetail":      addToCart(detailId); renderDetail(); break;
+    case "openReview":     openReview(+el.dataset.order); break;
+    case "pickReviewItem": reviewProductId = +el.dataset.id; renderSheet(); break;
+    // Segundo toque sobre la misma estrella = quitarla, como el premio aplicado:
+    // equivocarse al puntuar no debe obligar a salir y volver a entrar.
+    case "setReviewRating": { const n = +el.dataset.n;
+                              reviewRating = reviewRating === n ? 0 : n;
+                              renderSheet(); break; }
+    case "clearReviewPhoto": reviewPhoto = ""; renderSheet(); break;
+    case "saveReview":     submitReview(); break;
+    case "galPrev":        moveGallery(-1); break;
+    case "galNext":        moveGallery(1); break;
+    case "galDot":         showGalleryImage(+el.dataset.i); break;
     case "signOut":        signOut(); break;
     case "saveProfile":    saveProfile(); break;
     case "editProfile":    editProfile(); break;
@@ -173,6 +185,27 @@ function onSheetClick(e){
 sheet.addEventListener("click", onSheetClick);
 sheetStack.addEventListener("click", onSheetClick);
 
+/* Deslizar la galería con el dedo. Es como se navegan las fotos en el móvil, y
+   sin esto las flechas serían el único camino en la superficie donde menos se
+   acierta a pulsarlas. Se escucha en las dos superficies (panel y pestaña
+   apilada), igual que el click. */
+let swipeX = null;
+function onGalleryTouchStart(e){
+  swipeX = e.target.closest(".gallery") ? e.changedTouches[0].clientX : null;
+}
+function onGalleryTouchEnd(e){
+  if(swipeX === null) return;
+  const dx = e.changedTouches[0].clientX - swipeX;
+  swipeX = null;
+  // 40px de umbral: por debajo suele ser un toque con temblor, no un gesto, y
+  // cambiar la foto ahí se siente como que la app hace cosas sola.
+  if(Math.abs(dx) > 40) moveGallery(dx < 0 ? 1 : -1);
+}
+for(const sup of [sheet, sheetStack]){
+  sup.addEventListener("touchstart", onGalleryTouchStart, { passive: true });
+  sup.addEventListener("touchend", onGalleryTouchEnd, { passive: true });
+}
+
 // Inputs del panel: actualizan estado sin re-render (para no perder el foco).
 sheet.addEventListener("input", e=>{
   const t = e.target;
@@ -180,6 +213,9 @@ sheet.addEventListener("input", e=>{
   // dejarían de referirse al mismo sitio, y mandaríamos el reparto al viejo.
   if(t.id === "addr"){          address = t.value; clearPickedLocation("ship"); }
   else if(t.id === "retAddr"){  returnAddress = t.value; clearPickedLocation("return"); }
+  // Sin re-render: repintar el formulario en cada tecla vaciaría el textarea
+  // y perdería el cursor. El botón se habilita con las estrellas, no con esto.
+  else if(t.id === "revText"){  reviewText = t.value; }
   else if(t.id === "pfPhone")  t.value = t.value.replace(/[^0-9]/g, ""); // solo números
   // Datos de tarjeta (formateo en vivo)
   else if(t.id === "cardNumber"){ t.value = t.value.replace(/[^0-9 ]/g, ""); card.number = t.value; }
@@ -199,6 +235,10 @@ sheet.addEventListener("input", e=>{
 // Cambios de fecha: actualizan estado y re-renderizan.
 sheet.addEventListener("change", e=>{
   const t = e.target;
+  if(t.id === "revPhoto"){
+    pickReviewPhoto(t.files && t.files[0]);
+    return;
+  }
   if(t.id === "rentStart"){
     rentalStart = t.value;
     if(new Date(rentalEnd) <= new Date(rentalStart)) rentalEnd = rentalStart;
@@ -229,6 +269,17 @@ sheet.addEventListener("keydown", e=>{
     e.preventDefault();
     e.target.click();
   }
+});
+
+/* Flechas ←/→ recorren la galería del detalle. Sin esto, quien navega por
+   teclado tendría que tabular hasta los controles para ver la segunda foto. Se
+   ignora si el foco está en un campo: ahí las flechas mueven el cursor. */
+document.addEventListener("keydown", e=>{
+  if(e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+  if(!document.querySelector(".gallery")) return;
+  if(e.target.closest("input, textarea, select")) return;
+  e.preventDefault();
+  moveGallery(e.key === "ArrowRight" ? 1 : -1);
 });
 
 /* ---------------- Init ---------------- */
