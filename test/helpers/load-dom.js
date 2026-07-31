@@ -133,6 +133,15 @@ globalThis.__APP__ = {
   get modalOpen(){ return modalOverlay.classList.contains("show"); },
   // Detalle desde imagen: pestaña apilada sobre el perfil.
   openDetail, openSheet, closeSheet, closeStackSheet,
+  // Reseñas.
+  productReviews, productRating, reviewFor, reviewableItems, hasPendingReview,
+  openReview, reviewValid, submitReview, deleteReview, DEMO_REVIEWS,
+  get reviews(){ return reviews; },               set reviews(v){ reviews = v; },
+  get reviewProductId(){ return reviewProductId; }, set reviewProductId(v){ reviewProductId = v; },
+  get reviewOrderId(){ return reviewOrderId; },
+  get reviewRating(){ return reviewRating; },     set reviewRating(v){ reviewRating = v; },
+  get reviewText(){ return reviewText; },         set reviewText(v){ reviewText = v; },
+  get reviewPhoto(){ return reviewPhoto; },       set reviewPhoto(v){ reviewPhoto = v; },
   // Galería del detalle.
   productImages, coverImage, galleryHTML, moveGallery, showGalleryImage,
   get detailImg(){ return detailImg; }, set detailImg(v){ detailImg = v; },

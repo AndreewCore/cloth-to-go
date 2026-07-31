@@ -283,6 +283,37 @@ const SIZES = SIZE_ORDER.filter(s => PRODUCTS.some(p => p.size === s));
 const MATERIAL_ORDER = ["algodon", "lana", "lino", "cuero", "sintetico"];
 const MATERIALS = MATERIAL_ORDER.filter(m => PRODUCTS.some(p => p.material === m));
 
+/* ---- Reseñas de muestra ----
+   ⚠️ BORRAR CUANDO HAYA BACKEND. Estas reseñas NO son de nadie: existen solo
+   para que el bloque del detalle no se vea vacío en la demostración. Se retiran
+   vaciando esta constante — `productReviews()` las mezcla al vuelo, así que no
+   hay nada más que limpiar y no tocan el localStorage de ningún usuario.
+
+   Van marcadas con `demo:true`, de modo que el día de la migración se pueden
+   distinguir de las reales con una comprobación, no a ojo. Tampoco se pueden
+   editar ni borrar desde la interfaz: no pertenecen a la sesión.
+
+   Se reparten por categorías distintas para que se vea el bloque en varias
+   prendas, y una lleva foto (la segunda del propio catálogo) para enseñar cómo
+   queda una reseña con imagen. */
+const DEMO_REVIEWS = [
+  { id:"demo-1", productId:1,  rating:5, author:"Camila V.", date:"2026-07-12",
+    text:"Impecable. Lo usé para una boda y el corte cae muy bien; llegó planchado y sin una sola mancha.",
+    photo:"img/products/1-2.webp", demo:true },
+  { id:"demo-2", productId:2,  rating:4, author:"Doménica R.", date:"2026-07-05",
+    text:"El vestido es precioso y la caída es real, como en las fotos. Le doy 4 porque me quedó algo largo, pero eso es cosa mía.",
+    demo:true },
+  { id:"demo-3", productId:7,  rating:5, author:"Sebastián M.", date:"2026-06-28",
+    text:"Alquilar el esmoquin me costó menos que la corbata que compré aparte. Volvería sin dudarlo.",
+    demo:true },
+  { id:"demo-4", productId:4,  rating:4, author:"Andrés L.", date:"2026-06-20",
+    text:"Abrigo calientito y en muy buen estado. La devolución en el local tomó dos minutos.",
+    demo:true },
+  { id:"demo-5", productId:10, rating:3, author:"Paula E.", date:"2026-06-14",
+    text:"Cumple, pero la gabardina tiene algo de uso en los puños. Se avisa en la ficha, así que sin sorpresas.",
+    demo:true },
+];
+
 /* ---- Programa de puntos ----
    Premios canjeables con los puntos acumulados (cost = puntos requeridos).
    `type` decide cómo se traduce el premio a dinero en rewardDiscount(); los
