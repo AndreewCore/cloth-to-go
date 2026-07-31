@@ -27,7 +27,7 @@ header {
 }
 .brand-id { display: flex; align-items: center; gap: 10px; min-width: 0; }
 
-/* Logo de marca (img/Cloth To Go Logo.png): ícono de camiseta, fondo transparente. */
+/* Logo de marca (img/logo.webp): ícono de camiseta, fondo transparente. */
 .brand-logo { flex: 0 0 auto; display: grid; place-items: center; }
 .brand-logo img { height: 38px; width: auto; display: block; }
 .brand-text { min-width: 0; }
