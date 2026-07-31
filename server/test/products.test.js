@@ -38,9 +38,19 @@ test("cada prenda trae los campos que el frontend espera", async () => {
   const [first] = res.json();
   for (const field of [
     "id", "name", "cat", "value", "stars",
-    "size", "disponibles", "material", "weightKg", "imgs", "desc",
+    "size", "color", "disponibles", "material", "weightKg", "imgs", "desc",
   ]) {
     assert.ok(field in first, `falta el campo "${field}"`);
+  }
+});
+
+test("el color es una clave de paleta, no texto libre", async () => {
+  // El filtro del frontend compara por igualdad contra las claves de
+  // COLOR_LABELS (js/data.js): un "Azul marino" sembrado a mano no coincidiría
+  // con ninguna pastilla y la prenda quedaría inalcanzable desde el filtro.
+  const res = await app.inject({ method: "GET", url: "/api/products" });
+  for (const p of res.json()) {
+    assert.match(p.color, /^[a-z]+$/, `la prenda ${p.id} trae un color inválido: "${p.color}"`);
   }
 });
 

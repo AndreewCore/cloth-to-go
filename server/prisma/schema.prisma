@@ -22,6 +22,10 @@ model Product {
   value       Float
   stars       Int
   size        String
+  /// Color dominante, como clave de la paleta cerrada del frontend
+  /// (COLOR_ORDER en js/data.js): "negro", "beige", … No es texto libre — el
+  /// filtro compara por igualdad, y "azul marino" no coincidiría con "azul".
+  color       String
   disponibles Int    @default(1)
   material    String
   weightKg    Float

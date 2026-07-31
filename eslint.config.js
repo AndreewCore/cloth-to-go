@@ -36,9 +36,10 @@ const PROJECT_GLOBALS = [
   "WATER_PER_KG", "LITERS_PER_GALLON", "garmentWater", "litersToGallons", "fmtLiters",
   "WATER_GOALS", "DEMO_REVIEWS",
   "MATERIAL_LABELS", "materialLabel", "MATERIAL_ORDER", "MATERIALS",
+  "COLOR_LABELS", "COLOR_HEX", "COLORS", "colorLabel", "colorSwatch", "colorCount",
   // state.js
   "isoOffset", "cart", "orders", "profile", "activeCat", "searchQuery",
-  "qualityFilter", "sizeFilter", "materialFilter", "sortBy", "view", "detailId", "stackedDetail", "delivery", "address",
+  "qualityFilter", "sizeFilter", "materialFilter", "colorFilter", "sortBy", "openFilterGroup", "view", "detailId", "stackedDetail", "delivery", "address",
   "returnMethod", "returnAddress", "payMethod", "card", "appliedCoupon",
   "addressCoords", "returnAddressCoords",
   "detailImg", "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "lastWaterSaved", "lastWaterGoals", "lastOrder", "editingProfile",
@@ -70,6 +71,7 @@ const PROJECT_GLOBALS = [
   // catalog.js
   "renderFilters", "sortProducts", "filteredProducts", "anyFilterActive", "clearFilters",
   "activeFilterCount", "updateFilterBar", "renderFilterSheet",
+  "filterGroupValue", "filterGroupHTML", "filterOptHTML", "toggleFilterGroup", "setFilterValue",
   "renderGrid", "addToCart", "openDetail", "renderDetail", "reviewsHTML",
   "galleryIndex", "galleryHTML", "moveGallery", "showGalleryImage",
   // checkout.js

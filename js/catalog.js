@@ -27,10 +27,15 @@ function filteredProducts(){
   const q = searchQuery.trim().toLowerCase();
   const list = PRODUCTS.filter(p =>
     (activeCat === "Todo" || p.cat === activeCat) &&
-    (q === "" || p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q)) &&
+    // El color entra en la búsqueda además de tener su propio filtro: escribir
+    // "negro" es el primer reflejo de mucha gente, y hasta ahora solo acertaba
+    // por casualidad cuando la descripción mencionaba el color.
+    (q === "" || p.name.toLowerCase().includes(q) || p.cat.toLowerCase().includes(q) ||
+      p.desc.toLowerCase().includes(q) || colorLabel(p.color).toLowerCase().includes(q)) &&
     (p.stars >= qualityFilter) &&
     (sizeFilter === "Todas" || p.size === sizeFilter) &&
-    (materialFilter === "Todos" || p.material === materialFilter)
+    (materialFilter === "Todos" || p.material === materialFilter) &&
+    (colorFilter === "Todos" || p.color === colorFilter)
   );
   const orden = sortProducts(list);
   // La prenda alquilada se queda en el catálogo, pero al final: desaparecer
@@ -45,17 +50,19 @@ function filteredProducts(){
 function anyFilterActive(){
   return activeCat !== "Todo" || searchQuery.trim() !== "" ||
          qualityFilter !== 0 || sizeFilter !== "Todas" ||
-         materialFilter !== "Todos" || sortBy !== "default";
+         materialFilter !== "Todos" || colorFilter !== "Todos" ||
+         sortBy !== "default";
 }
 
-// Nº de filtros activos dentro del panel (calidad/talla/material) — alimenta el
-// badge del botón "Filtros" del header. El orden y la categoría tienen sus
-// propios controles, así que no cuentan aquí.
+// Nº de filtros activos dentro del panel (calidad/talla/material/color) —
+// alimenta el badge del botón "Filtros" del header. El orden y la categoría
+// tienen sus propios controles, así que no cuentan aquí.
 function activeFilterCount(){
   let n = 0;
   if(qualityFilter !== 0) n++;
   if(sizeFilter !== "Todas") n++;
   if(materialFilter !== "Todos") n++;
+  if(colorFilter !== "Todos") n++;
   return n;
 }
 
@@ -68,12 +75,12 @@ function updateFilterBar(){
   el.style.display = n > 0 ? "grid" : "none";
 }
 
-// Restablece todos los filtros y el orden. El único <select> del header es el de
-// orden; los de calidad/talla/material viven en el panel y se regeneran desde
-// el estado al re-renderizar.
+// Restablece todos los filtros y el orden. El único <select> que queda es el de
+// orden, en el header; los grupos de calidad/talla/material/color viven en el
+// panel y se regeneran desde el estado al re-renderizar.
 function clearFilters(){
   activeCat = "Todo"; searchQuery = ""; qualityFilter = 0; sizeFilter = "Todas";
-  materialFilter = "Todos"; sortBy = "default";
+  materialFilter = "Todos"; colorFilter = "Todos"; sortBy = "default";
   searchInput.value = "";
   const sortSel = document.getElementById("sortBy");
   if(sortSel) sortSel.value = "default";
@@ -83,40 +90,111 @@ function clearFilters(){
   if(view === "filters" && sheet.classList.contains("show")) renderFilterSheet();
 }
 
-/* ---------------- Panel de filtros (sheet) ---------------- */
+/* ---------------- Panel de filtros (sheet) ----------------
+   Los <select> nativos se cambiaron por grupos plegables propios: el desplegable
+   del sistema no admite elementos dentro de un <option> (ni el medidor de
+   calidad ni el punto de color), y en móvil se abre como una rueda que tapa el
+   catálogo que el filtro está actualizando en vivo. */
+
+/** Qué valor tiene puesto un grupo, para que el cabezal cerrado lo diga. */
+function filterGroupValue(group){
+  if(group === "quality")  return qualityFilter === 0 ? "Todas" : conditionLabel(qualityFilter);
+  if(group === "size")     return sizeFilter === "Todas" ? "Todas" : sizeFilter;
+  if(group === "material") return materialFilter === "Todos" ? "Todos" : materialLabel(materialFilter);
+  return "";
+}
+
+/**
+ * Grupo plegable del panel: cabezal con el valor vigente y la flecha, y las
+ * opciones debajo.
+ * @param {string} group Clave del filtro (`quality`|`size`|`material`).
+ * @param {string} label Título visible.
+ * @param {string} optsHTML Opciones ya renderizadas.
+ * @returns {string} HTML del grupo.
+ */
+function filterGroupHTML(group, label, optsHTML){
+  const open = openFilterGroup === group;
+  return `
+    <div class="fs-group${open ? " open" : ""}" data-group="${group}">
+      <button class="fs-head" data-action="toggleFilterGroup" data-group="${group}" aria-expanded="${open}">
+        <span class="fs-head-l">${label}</span>
+        <span class="fs-head-v">${escapeHTML(filterGroupValue(group))}</span>
+        <span class="fs-chev">${icon("chevronDown", { size: 16 })}</span>
+      </button>
+      <div class="fs-opts"><div class="fs-opts-in">${optsHTML}</div></div>
+    </div>`;
+}
+
+/**
+ * Una opción de filtro. `aria-pressed` y no `role="radio"`: son botones que
+ * conmutan un valor único, y el grupo puede quedar en su opción "Todas".
+ * @param {string} group Clave del filtro.
+ * @param {string|number} value Valor que aplica.
+ * @param {boolean} sel Si es el valor vigente.
+ * @param {string} inner Contenido del botón.
+ * @param {string} [cls] Clase extra (variante de la opción).
+ * @returns {string} HTML del botón.
+ */
+function filterOptHTML(group, value, sel, inner, cls = ""){
+  return `<button class="fs-opt${cls ? " " + cls : ""}${sel ? " sel" : ""}"
+    data-action="setFilter" data-filter="${group}" data-value="${escapeHTML(String(value))}"
+    aria-pressed="${sel}">${inner}</button>`;
+}
+
 function renderFilterSheet(){
   sheetTitle.textContent = "Filtros";
-  // Las pastillas van en TEXTO porque un <option> no admite elementos dentro, y
-  // siempre con la etiqueta en palabras: si la fuente no trae los glifos, el
-  // filtro se sigue entendiendo.
+  // El medidor va dibujado (no en texto) y la etiqueta en palabras al lado: si
+  // la fuente o el contraste se comen las pastillas, el filtro se sigue
+  // entendiendo. El "o más" del criterio se dice UNA vez, en la nota del grupo:
+  // repetirlo en cada fila era ruido en cinco líneas seguidas.
   const qOpts = [
-    [0, "Todas"],
-    ...[5, 4, 3, 2].map(n => [
-      n, `${qualityMeterText(n)}  ${conditionLabel(n)}${n === 5 ? "" : " o más"}`,
-    ]),
-  ];
+    filterOptHTML("quality", 0, qualityFilter === 0, `<span class="fs-opt-t">Todas</span>`, "fs-row"),
+    ...[5, 4, 3, 2].map(n => filterOptHTML("quality", n, qualityFilter === n,
+      `<span class="fs-opt-t">${conditionLabel(n)}</span>${qualityMeter(n)}`, "fs-row")),
+  ].join("");
+
+  const sOpts = [
+    filterOptHTML("size", "Todas", sizeFilter === "Todas", "Todas"),
+    ...SIZES.map(s => filterOptHTML("size", s, sizeFilter === s, escapeHTML(s))),
+  ].join("");
+
+  // Cada material lleva su icono: cinco filas de solo texto se leen todas
+  // iguales, y el icono da dónde apoyar la vista al recorrerlas.
+  const mOpts = [
+    filterOptHTML("material", "Todos", materialFilter === "Todos",
+      `${icon("layers", { size: 15 })}<span class="fs-opt-t">Todos</span>`, "fs-row"),
+    ...MATERIALS.map(m => filterOptHTML("material", m, materialFilter === m,
+      `${icon("layers", { size: 15 })}<span class="fs-opt-t">${escapeHTML(materialLabel(m))}</span>
+       <span class="fs-opt-n">${PRODUCTS.filter(p => p.material === m).length}</span>`, "fs-row")),
+  ].join("");
+
+  // El color NO se pliega: son catorce opciones, y plegadas obligan a abrir,
+  // desplazar y leer una lista larga para lo que la vista resuelve de un
+  // vistazo. Cada botón lleva su muestra de color, que es lo que de verdad se
+  // busca; el conteo va al lado porque el banco ofrece el catálogo entero de
+  // tonos, y sin él elegir uno sin prendas parece un filtro roto.
+  const cOpts = [
+    // "Todos" también lleva muestra (la rueda entera): sin ella su renglón
+    // arrancaría desalineado del resto de la rejilla.
+    filterOptHTML("color", "Todos", colorFilter === "Todos",
+      `<span class="color-dot" style="background:conic-gradient(${COLORS.map(colorSwatch).join(",")})"></span>
+       <span class="fs-opt-t">Todos</span>`, "fs-color"),
+    ...COLORS.map(c => filterOptHTML("color", c, colorFilter === c,
+      `<span class="color-dot" style="background:${colorSwatch(c)}"></span>
+       <span class="fs-opt-t">${escapeHTML(colorLabel(c))}</span>
+       <span class="fs-opt-n">${colorCount(c)}</span>`, "fs-color")),
+  ].join("");
+
   sheetBody.innerHTML = `
     <div class="filter-sheet">
-      <label class="fs-fld">
-        <span>Calidad</span>
-        <select id="fQuality">
-          ${qOpts.map(([v,l]) => `<option value="${v}" ${qualityFilter===v?"selected":""}>${l}</option>`).join("")}
-        </select>
-      </label>
-      <label class="fs-fld">
-        <span>Talla</span>
-        <select id="fSize">
-          <option value="Todas" ${sizeFilter==="Todas"?"selected":""}>Todas</option>
-          ${SIZES.map(s => `<option value="${s}" ${sizeFilter===s?"selected":""}>${s}</option>`).join("")}
-        </select>
-      </label>
-      <label class="fs-fld">
-        <span>Material</span>
-        <select id="fMaterial">
-          <option value="Todos" ${materialFilter==="Todos"?"selected":""}>Todos</option>
-          ${MATERIALS.map(m => `<option value="${m}" ${materialFilter===m?"selected":""}>${materialLabel(m)}</option>`).join("")}
-        </select>
-      </label>
+      ${filterGroupHTML("quality", "Calidad",
+        `<p class="fs-hint">Muestra las prendas de esa calidad o mejor.</p>${qOpts}`)}
+      ${filterGroupHTML("size", "Talla", `<div class="fs-chips">${sOpts}</div>`)}
+      ${filterGroupHTML("material", "Material", mOpts)}
+      <div class="fs-group fs-static">
+        <div class="fs-head-l fs-static-l">Color</div>
+        <div class="fs-colors">${cOpts}</div>
+      </div>
     </div>`;
 
   const n = filteredProducts().length;
@@ -125,6 +203,38 @@ function renderFilterSheet(){
       <button class="fs-clear" data-action="clearFiltersSheet" ${activeFilterCount()?"":"disabled"}>Limpiar</button>
       <button class="pay-btn fs-apply" data-action="closeSheet">Ver ${n} ${n===1?"prenda":"prendas"}</button>
     </div>`;
+}
+
+/**
+ * Abre un grupo del panel y cierra el que estuviera abierto (solo uno a la vez:
+ * el panel es corto y con dos abiertos el botón "Ver N prendas" se va de la
+ * pantalla). Toca las clases del DOM en vez de repintar: el repintado nace ya
+ * en el estado final y se comería la animación de la flecha y del desplegado.
+ * @param {string} group Clave del grupo pulsado.
+ */
+function toggleFilterGroup(group){
+  openFilterGroup = openFilterGroup === group ? null : group;
+  sheetBody.querySelectorAll(".fs-group[data-group]").forEach(el => {
+    const open = el.dataset.group === openFilterGroup;
+    el.classList.toggle("open", open);
+    el.querySelector(".fs-head").setAttribute("aria-expanded", String(open));
+  });
+}
+
+/**
+ * Aplica una opción del panel. Volver a pulsar la vigente la quita: equivocarse
+ * no debe obligar a buscar la opción "Todas" al principio de la lista.
+ * @param {string} group Clave del filtro.
+ * @param {string} value Valor elegido.
+ */
+function setFilterValue(group, value){
+  if(group === "quality")  qualityFilter  = qualityFilter === +value ? 0 : +value;
+  if(group === "size")     sizeFilter     = sizeFilter === value ? "Todas" : value;
+  if(group === "material") materialFilter = materialFilter === value ? "Todos" : value;
+  if(group === "color")    colorFilter    = colorFilter === value ? "Todos" : value;
+  renderGrid();
+  updateFilterBar();
+  renderFilterSheet();
 }
 
 function renderGrid(){
@@ -335,6 +445,7 @@ function renderDetail(){
     <div class="detail-facts">
       <div class="fact"><div class="k">Talla</div><div class="v">${escapeHTML(p.size)}</div></div>
       <div class="fact"><div class="k">Material</div><div class="v">${escapeHTML(materialLabel(p.material))}</div></div>
+      ${p.color ? `<div class="fact"><div class="k">Color</div><div class="v"><span class="color-dot" style="background:${colorSwatch(p.color)}"></span> ${escapeHTML(colorLabel(p.color))}</div></div>` : ""}
       <div class="fact"><div class="k">Calidad</div><div class="v qm-fact">${qualityMeter(p.stars)} ${p.stars}/5</div></div>
       <div class="fact"><div class="k">Depósito</div><div class="v">$${depositFor(p)}</div></div>
     </div>

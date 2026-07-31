@@ -178,6 +178,9 @@ function onSheetClick(e){
     case "cancelOrder":    cancelOrder(+el.dataset.idx); break;
     case "toggleLateInfo": toggleLateInfo(+el.dataset.idx); break;
     case "clearFiltersSheet": clearFilters(); break;
+    case "toggleFilterGroup": toggleFilterGroup(el.dataset.group); break;
+    // Los filtros actualizan en vivo el catálogo de fondo, sin cerrar el panel.
+    case "setFilter":      setFilterValue(el.dataset.filter, el.dataset.value); break;
     case "pickLocation":   openMapPicker(el.dataset.target); break;
     case "closeSheet":     closeSheet(); break;
   }
@@ -252,10 +255,6 @@ sheet.addEventListener("change", e=>{
   } else if(t.id === "donDate"){
     donDate = t.value; renderSheet();
   }
-  // Selects del panel de filtros: actualizan en vivo el catálogo de fondo.
-  else if(t.id === "fQuality"){ qualityFilter = +t.value; renderGrid(); renderFilterSheet(); }
-  else if(t.id === "fSize"){ sizeFilter = t.value; renderGrid(); renderFilterSheet(); }
-  else if(t.id === "fMaterial"){ materialFilter = t.value; renderGrid(); renderFilterSheet(); }
 });
 
 // Al salir de una dirección o de un campo de tarjeta, re-render para revalidar el botón.
