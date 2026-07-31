@@ -274,6 +274,45 @@ function showGalleryImage(i){
 }
 
 /**
+ * Bloque de reseñas del detalle: media, conteo y la lista.
+ *
+ * Aquí SÍ se usan estrellas: son la valoración de clientes, que es lo que una
+ * estrella significa para todo el mundo. La calidad de la prenda tiene su
+ * medidor propio (qualityMeter) justo por esta convivencia.
+ * @param {object} p Prenda abierta.
+ * @returns {string} HTML del bloque.
+ */
+function reviewsHTML(p){
+  const rs = productReviews(p.id);
+  if(!rs.length){
+    return `<div class="reviews">
+        <div class="rev-head"><h3>Reseñas</h3></div>
+        <p class="rev-empty">Todavía no tiene reseñas. Si la alquilas, podrás dejar la primera.</p>
+      </div>`;
+  }
+  const media = productRating(p.id);
+  const item = r => `
+    <div class="review">
+      <div class="rev-top">
+        <span class="rev-author">${escapeHTML(r.author || profile.name || "Tú")}</span>
+        <span class="rev-date">${fmtDate(r.date)}</span>
+      </div>
+      <div class="rev-stars">${starStr(r.rating)}</div>
+      ${r.text ? `<p class="rev-text">${escapeHTML(r.text)}</p>` : ""}
+      ${r.photo ? `<img class="rev-photo" src="${escapeHTML(r.photo)}" alt="Foto de la reseña" loading="lazy">` : ""}
+    </div>`;
+  return `
+    <div class="reviews">
+      <div class="rev-head">
+        <h3>Reseñas</h3>
+        <span class="rev-avg">${starStr(Math.round(media))}
+          <b>${media.toFixed(1)}</b> <small>(${rs.length})</small></span>
+      </div>
+      ${rs.map(item).join("")}
+    </div>`;
+}
+
+/**
  * Pinta el detalle de la prenda en la superficie que toque: la pestaña
  * apilada (sobre el perfil) o el panel principal, según `stackedDetail`.
  */
@@ -312,7 +351,8 @@ function renderDetail(){
       ? `${icon("checkCircle", { size: 15 })} Disponible · ${p.disponibles} unidad${p.disponibles===1?'':'es'} (prenda única)`
       : isRented(p.id)
         ? `${icon("ban", { size: 15 })} No disponible por el momento`
-        : `${icon("ban", { size: 15 })} Ya está en tu carrito (prenda única)`}</p>`;
+        : `${icon("ban", { size: 15 })} Ya está en tu carrito (prenda única)`}</p>
+    ${reviewsHTML(p)}`;
 
   if(isRented(p.id)){
     // Misma acción en ambas superficies: apilado el perfil ya está debajo y

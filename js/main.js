@@ -140,6 +140,15 @@ function onSheetClick(e){
     // renderDetail() sirve para ambas superficies y repinta solo el detalle,
     // que es lo único que cambia al agregar la prenda al carrito.
     case "addDetail":      addToCart(detailId); renderDetail(); break;
+    case "openReview":     openReview(+el.dataset.order); break;
+    case "pickReviewItem": reviewProductId = +el.dataset.id; renderSheet(); break;
+    // Segundo toque sobre la misma estrella = quitarla, como el premio aplicado:
+    // equivocarse al puntuar no debe obligar a salir y volver a entrar.
+    case "setReviewRating": { const n = +el.dataset.n;
+                              reviewRating = reviewRating === n ? 0 : n;
+                              renderSheet(); break; }
+    case "clearReviewPhoto": reviewPhoto = ""; renderSheet(); break;
+    case "saveReview":     submitReview(); break;
     case "galPrev":        moveGallery(-1); break;
     case "galNext":        moveGallery(1); break;
     case "galDot":         showGalleryImage(+el.dataset.i); break;
@@ -204,6 +213,9 @@ sheet.addEventListener("input", e=>{
   // dejarían de referirse al mismo sitio, y mandaríamos el reparto al viejo.
   if(t.id === "addr"){          address = t.value; clearPickedLocation("ship"); }
   else if(t.id === "retAddr"){  returnAddress = t.value; clearPickedLocation("return"); }
+  // Sin re-render: repintar el formulario en cada tecla vaciaría el textarea
+  // y perdería el cursor. El botón se habilita con las estrellas, no con esto.
+  else if(t.id === "revText"){  reviewText = t.value; }
   else if(t.id === "pfPhone")  t.value = t.value.replace(/[^0-9]/g, ""); // solo números
   // Datos de tarjeta (formateo en vivo)
   else if(t.id === "cardNumber"){ t.value = t.value.replace(/[^0-9 ]/g, ""); card.number = t.value; }
@@ -223,6 +235,10 @@ sheet.addEventListener("input", e=>{
 // Cambios de fecha: actualizan estado y re-renderizan.
 sheet.addEventListener("change", e=>{
   const t = e.target;
+  if(t.id === "revPhoto"){
+    pickReviewPhoto(t.files && t.files[0]);
+    return;
+  }
   if(t.id === "rentStart"){
     rentalStart = t.value;
     if(new Date(rentalEnd) <= new Date(rentalStart)) rentalEnd = rentalStart;
