@@ -47,10 +47,12 @@ bundler y **sin dependencias en tiempo de ejecución**. Se abre directamente con
 
 ## ✨ Características
 
-- 🛍️ **Catálogo** de prendas con condición, talla, material y calidad.
-- 🔎 **Búsqueda** por nombre/categoría/descripción y **filtros** por categoría, calidad,
-  talla y material, además de **ordenamiento** (precio, calidad, recomendado).
-- 👕 **Detalle de prenda** con ficha (talla, material, calidad, depósito), tabla de
+- 🛍️ **Catálogo** de prendas con condición, talla, material, color y calidad.
+- 🔎 **Búsqueda** por nombre/categoría/descripción/color y **filtros** por categoría,
+  calidad, talla, material y **color** (banco fijo de 14 colores comunes, cada uno
+  con el número de prendas que tiene), además de **ordenamiento** (precio, calidad,
+  recomendado).
+- 👕 **Detalle de prenda** con ficha (talla, material, color, calidad, depósito), tabla de
   tarifas por duración y disponibilidad.
 - 🛒 **Carrito** con selector de **período de alquiler** y **calendario de tarifas**: cada
   día muestra debajo cuánto suma al total, para que se vea de un vistazo qué cuesta
