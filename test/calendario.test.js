@@ -78,6 +78,28 @@ test("monthGrid arma semanas completas de lunes a domingo", async (t) => {
     assert.equal(dentro[30].iso, "2026-08-31");
   });
 
+  await t.test("siempre seis filas, para que no se escondan días del mes siguiente", () => {
+    // El bug: la rejilla se cortaba en cuanto una semana completa pasaba el fin
+    // de mes. Alquilando el 31 de julio de 2026 con el rango por defecto de 3
+    // días, la devolución caía el 3 de agosto y la rejilla terminaba el 2: el
+    // día quedaba invisible e inseleccionable. Rompió CI al cambiar el mes.
+    for (const ym of ["2026-07", "2026-08", "2026-02", "2027-01", "2028-02"]) {
+      assert.equal(app.monthGrid(ym).length, 42, `${ym} no trae seis filas`);
+    }
+  });
+
+  await t.test("la rejilla llega siempre al menos 3 días más allá del fin de mes", () => {
+    // 3 = el rango por defecto del checkout. Es la garantía concreta de que la
+    // fecha preseleccionada se puede ver y tocar, se abra el día que se abra.
+    for (const ym of ["2026-07", "2026-02", "2026-11"]) {
+      const g = app.monthGrid(ym);
+      const ultimoDelMes = g.filter(c => !c.out).pop().iso;
+      const ultimoDeLaRejilla = g[g.length - 1].iso;
+      assert.ok(ultimoDeLaRejilla >= app.addDaysISO(ultimoDelMes, 3),
+        `${ym}: la rejilla termina en ${ultimoDeLaRejilla} y no cubre ${ultimoDelMes}+3`);
+    }
+  });
+
   await t.test("los días de relleno se marcan 'out'", () => {
     const g = app.monthGrid("2026-08");
     assert.equal(g[0].out, true);
