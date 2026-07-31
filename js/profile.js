@@ -95,6 +95,11 @@ function renderProfile(){
             <b>$${LATE_PENALTY.toFixed(2)}</b> y podría retenerse tu depósito ($${orderDeposit(o).toFixed(2)}).
           </div>` : ""}
       ` : ""}
+      ${/* Fuera del bloque !archived: un pedido TERMINADO es justo cuando se
+            quiere reseñar. Dentro, el botón no habría aparecido nunca donde
+            más sentido tiene. */""}
+      ${hasPendingReview(o) ? `
+        <button class="rev-add-btn" data-action="openReview" data-order="${o.id}">${icon("pencil", { size: 14 })} Agregar reseña</button>` : ""}
     </div>`;
   };
 
@@ -475,6 +480,156 @@ function openWardrobe(){
 }
 
 /* ---- Premios / canje de puntos ---- */
+/* ---------------- Reseñas ---------------- */
+
+// Lado máximo de la foto de una reseña y calidad del webp. Una cámara de móvil
+// entrega 3–5 MB por foto y localStorage da ~5 MB POR ORIGEN, compartidos con
+// carrito, perfil y pedidos: guardar el original en base64 llenaría la cuota con
+// una sola reseña y tumbaría el resto del estado. A 1000 px y calidad 0.7 la
+// foto baja a decenas de KB sin que se note en pantalla.
+const REVIEW_PHOTO_MAX_PX = 1000;
+const REVIEW_PHOTO_QUALITY = 0.7;
+// Techo duro por foto ya comprimida. Si aun así se pasa (una imagen enorme y muy
+// ruidosa), es preferible rechazarla y decirlo que reventar el almacenamiento en
+// silencio y perder el carrito del usuario.
+const REVIEW_PHOTO_MAX_BYTES = 400 * 1024;
+
+/**
+ * Abre el formulario de reseña de un pedido.
+ * @param {number} orderId Id del pedido a reseñar.
+ */
+function openReview(orderId){
+  const o = orders.find(x => x.id === orderId);
+  const pendientes = o ? reviewableItems(o).filter(id => !reviewFor(o.id, id)) : [];
+  if(!pendientes.length) return;
+  reviewOrderId = orderId;
+  // Con una sola prenda pendiente no hay nada que elegir: se preselecciona.
+  reviewProductId = pendientes.length === 1 ? pendientes[0] : null;
+  reviewRating = 0;
+  reviewText = "";
+  reviewPhoto = "";
+  view = "review";
+  renderSheet();
+}
+
+/** ¿El borrador está listo para guardarse? */
+function reviewValid(){ return !!reviewProductId && reviewRating >= 1; }
+
+/**
+ * Formulario de reseña: elegir prenda (si hay varias), estrellas, texto y foto.
+ */
+function renderReview(){
+  sheetTitle.textContent = "Escribir reseña";
+  const o = orders.find(x => x.id === reviewOrderId);
+  if(!o){ view = "profile"; renderSheet(); return; }
+  const pendientes = reviewableItems(o).filter(id => !reviewFor(o.id, id));
+
+  const prendas = pendientes.map(id => { const p = productById(id); return `
+    <div class="rev-pick${reviewProductId === id ? " on" : ""}" data-action="pickReviewItem" data-id="${id}"
+         role="button" tabindex="0">
+      <div class="ci-thumb">${imgPlaceholder(p)}</div>
+      <div class="oi-info">
+        <div class="oi-name">${escapeHTML(p.name)}</div>
+        <div class="oi-meta">Talla ${escapeHTML(p.size)}</div>
+      </div>
+    </div>`; }).join("");
+
+  const estrellas = [1,2,3,4,5].map(n => `
+    <button class="rev-star${n <= reviewRating ? " on" : ""}" data-action="setReviewRating" data-n="${n}"
+            aria-label="${n} ${n === 1 ? "estrella" : "estrellas"}">★</button>`).join("");
+
+  sheetBody.innerHTML = `
+    ${pendientes.length > 1 ? `
+      <div class="rev-section">
+        <div class="rev-label">¿Qué prenda quieres reseñar?</div>
+        <div class="rev-picks">${prendas}</div>
+      </div>` : `
+      <div class="rev-section"><div class="rev-picks">${prendas}</div></div>`}
+
+    <div class="rev-section">
+      <div class="rev-label">Tu valoración</div>
+      <div class="rev-stars-input">${estrellas}</div>
+    </div>
+
+    <div class="rev-section">
+      <div class="rev-label">¿Qué tal te fue? <span class="rev-opt">(opcional)</span></div>
+      <textarea id="revText" class="rev-textarea" rows="4" maxlength="500"
+        placeholder="Cómo te quedó, cómo llegó, si repetirías…">${escapeHTML(reviewText)}</textarea>
+    </div>
+
+    <div class="rev-section">
+      <div class="rev-label">Foto <span class="rev-opt">(opcional)</span></div>
+      ${reviewPhoto ? `
+        <div class="rev-photo-wrap">
+          <img class="rev-photo" src="${escapeHTML(reviewPhoto)}" alt="Foto elegida">
+          <button class="rev-photo-del" data-action="clearReviewPhoto">${icon("trash", { size: 14 })} Quitar</button>
+        </div>` : `
+        <label class="rev-photo-pick">
+          ${icon("clipboard", { size: 15 })} Elegir una foto
+          <input type="file" id="revPhoto" accept="image/*" hidden>
+        </label>`}
+    </div>`;
+
+  sheetFoot.innerHTML = `
+    <button class="pay-btn" data-action="saveReview" ${reviewValid() ? "" : "disabled"}>
+      Publicar reseña</button>`;
+}
+
+/**
+ * Redimensiona y convierte a webp la foto elegida, devolviendo un data URL.
+ *
+ * El navegador hace todo el trabajo: no hay servidor donde subirla, y guardar el
+ * original en base64 se comería la cuota de localStorage de una sentada.
+ * @param {File} file Archivo elegido por el usuario.
+ * @returns {Promise<string>} Data URL en webp, o "" si no se pudo procesar.
+ */
+function compressPhoto(file){
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const escala = Math.min(1, REVIEW_PHOTO_MAX_PX / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * escala);
+      canvas.height = Math.round(img.height * escala);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      // webp comprime bastante mejor que jpeg a igual calidad percibida; si el
+      // navegador no lo soportara, toDataURL devuelve png y el techo de bytes
+      // se encarga de rechazarlo.
+      resolve(canvas.toDataURL("image/webp", REVIEW_PHOTO_QUALITY));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(""); };
+    img.src = url;
+  });
+}
+
+/**
+ * Procesa la foto elegida en el formulario y repinta.
+ * @param {File} file Archivo del input.
+ */
+async function pickReviewPhoto(file){
+  if(!file) return;
+  const dataUrl = await compressPhoto(file);
+  if(!dataUrl){ toast("No se pudo leer esa imagen."); return; }
+  // El data URL es base64: ~4 bytes por cada 3 del binario.
+  if(dataUrl.length * 3 / 4 > REVIEW_PHOTO_MAX_BYTES){
+    toast("La foto es demasiado pesada. Prueba con otra.");
+    return;
+  }
+  reviewPhoto = dataUrl;
+  renderSheet();
+}
+
+/** Guarda la reseña del borrador y vuelve al perfil. */
+function submitReview(){
+  if(!reviewValid()) return;
+  saveReview();
+  toast("¡Gracias por tu reseña!");
+  view = "profile";
+  renderSheet();
+}
+
 function renderRewards(){
   sheetTitle.textContent = "Premios";
   sheetBody.innerHTML = `

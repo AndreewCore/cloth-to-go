@@ -27,7 +27,7 @@ header {
 }
 .brand-id { display: flex; align-items: center; gap: 10px; min-width: 0; }
 
-/* Logo de marca (img/Cloth To Go Logo.png): ícono de camiseta, fondo transparente. */
+/* Logo de marca (img/logo.webp): ícono de camiseta, fondo transparente. */
 .brand-logo { flex: 0 0 auto; display: grid; place-items: center; }
 .brand-logo img { height: 38px; width: auto; display: block; }
 .brand-text { min-width: 0; }
@@ -276,6 +276,33 @@ main::-webkit-scrollbar { display: none; }
      la foto), y en oscuro --ink se vuelve clara → texto invisible. */
   color: #23301f;
 }
+/* ---- Prenda alquilada: sigue en el catálogo, pero apagada ----
+   Antes desaparecía del grid, y con ella el escaparate: nadie podía verla ni
+   volver a por ella, y el catálogo parecía más pequeño de lo que es. Ahora se
+   queda al final, en gris. El estado se DERIVA de los pedidos (isRented), como
+   siempre: al archivarse el pedido vuelve sola al frente. */
+/* Solo `filter`, nunca `opacity`: el placeholder (.img-ph, con el icono y el
+   nombre) vive DEBAJO de la foto, así que bajarle la opacidad a la imagen lo
+   deja verse a través. El apagado se consigue desaturando y oscureciendo, con
+   la foto opaca del todo. */
+.card-off .thumb img { filter: grayscale(1) brightness(.62); }
+.card-off .card-name,
+.card-off .card-meta,
+.card-off .price-row { opacity: .6; }
+/* El medidor de calidad no se desatura: es un dato de la prenda, no de su
+   disponibilidad, y en gris se confundiría con "calidad baja". */
+/* Abajo a la izquierda: las otras dos esquinas ya están ocupadas por la
+   condición (arriba izq.) y la talla (arriba der.). */
+.off-tag {
+  position: absolute;
+  bottom: 8px; left: 8px;
+  background: rgba(35,48,31,.92);
+  color: #fff;
+  border-radius: 8px;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 700;
+}
 .size-tag {
   position: absolute;
   top: 8px; right: 8px;
@@ -294,8 +321,31 @@ main::-webkit-scrollbar { display: none; }
 }
 .card-meta .cm-dot { opacity: .6; }
 .card-meta .cm-mat { color: var(--accent); font-weight: 700; }
+/* Estrellas: reservadas para las reseñas de clientes (feature futura). */
 .stars { font-size: 12px; letter-spacing: 1px; color: var(--star); }
 .stars small { color: var(--muted); margin-left: 3px; letter-spacing: 0; }
+
+/* ---- Medidor de calidad ----
+   Cinco pastillas en vez de estrellas: la calidad la fija el negocio al
+   catalogar la prenda, no los clientes, y con las reseñas en camino dibujar
+   ambas cosas igual sería decir que son lo mismo. Un medidor lee como "nivel",
+   que es exactamente lo que es. */
+.qmeter { display: inline-flex; gap: 2px; vertical-align: middle; }
+.qm-seg {
+  width: 9px; height: 5px; border-radius: 2px;
+  background: var(--line);
+  /* La pastilla vacía necesita cuerpo propio: sin esto, en alto contraste
+     desaparece y el medidor miente sobre el nivel. */
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.qm-seg.on { background: var(--star); box-shadow: none; }
+.quality, .detail-quality, .ci-quality { display: flex; align-items: center; gap: 6px; }
+.quality { font-size: 12px; }
+.quality small, .detail-quality small { color: var(--muted); letter-spacing: 0; }
+.ci-quality { font-size: 11px; }
+/* En el chip del detalle el medidor acompaña a "5/5", así que va algo mayor. */
+.qm-fact { display: flex; align-items: center; gap: 6px; }
+.qm-fact .qm-seg { width: 7px; height: 6px; }
 /* El precio ya no es lineal por día, así que la tarjeta ancla en el primer día
    y deja el coste del día extra debajo, en vez de en la misma línea. */
 .price-row {
@@ -431,7 +481,7 @@ main::-webkit-scrollbar { display: none; }
 .ci-info { flex: 1; min-width: 0; }
 .ci-name { font-size: 14px; font-weight: 700; }
 .ci-meta { font-size: 11px; color: var(--muted); }
-.ci-stars { font-size: 11px; color: var(--star); }
+/* .ci-quality vive junto al resto del medidor, más arriba. */
 .days-ctrl {
   display: flex;
   align-items: center;
@@ -825,13 +875,65 @@ main::-webkit-scrollbar { display: none; }
   overflow: hidden;
   margin-bottom: 14px;
 }
+/* ---- Galería de fotos del detalle ----
+   Solo aparece con dos o más fotos; con una, el marcado es el de siempre. */
+.gallery.detail-img { margin-bottom: 8px; }
+.gal-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  display: flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px;
+  border: none; border-radius: 50%;
+  background: rgba(20,26,18,.55);
+  color: #fff;
+  cursor: pointer;
+  /* Sobre una foto cualquiera, el círculo oscuro puede perderse: el reborde
+     claro lo separa igual en una prenda negra que en una blanca. */
+  box-shadow: 0 0 0 1px rgba(255,255,255,.25);
+}
+.gal-nav:hover { background: rgba(20,26,18,.75); }
+.gal-prev { left: 8px; }
+.gal-next { right: 8px; }
+.gal-count {
+  position: absolute;
+  right: 8px; bottom: 8px;
+  z-index: 3;
+  background: rgba(20,26,18,.6);
+  color: #fff;
+  border-radius: 20px;
+  padding: 2px 9px;
+  font-size: 11px; font-weight: 700;
+}
+.gal-dots { display: flex; justify-content: center; gap: 2px; margin-bottom: 12px; }
+/* El botón mide 22px aunque el punto se dibuje de 7: un objetivo de 7px es
+   imposible de acertar con el pulgar. El área táctil va en el botón y el
+   dibujo en el ::before, así que agrandar una no engorda el otro. */
+.gal-dot {
+  width: 22px; height: 22px; padding: 0;
+  border: none; background: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.gal-dot::before {
+  content: "";
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--line);
+  transition: background .15s;
+}
+.gal-dot.on::before { background: var(--accent); }
+
 .detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .detail-name { font-size: 20px; font-weight: 800; line-height: 1.15; }
 .detail-cat { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .detail-price { font-size: 22px; font-weight: 800; color: var(--accent); white-space: nowrap; }
 .detail-price span { font-size: 12px; color: var(--muted); font-weight: 500; }
-.detail-stars { font-size: 16px; color: var(--star); letter-spacing: 2px; margin: 12px 0 4px; }
-.detail-stars small { color: var(--muted); font-size: 12px; letter-spacing: 0; margin-left: 6px; }
+.detail-quality { margin: 12px 0 4px; }
+.detail-quality small { font-size: 12px; }
+/* En el detalle el medidor es la pieza principal de la ficha: algo más grande. */
+.detail-quality .qm-seg { width: 13px; height: 6px; }
 .detail-desc { font-size: 14px; line-height: 1.55; color: var(--ink); margin: 10px 0; }
 .detail-avail { font-size: 13px; font-weight: 700; color: var(--ok); margin: 12px 0 0; }
 .detail-facts { display: flex; gap: 10px; margin: 14px 0 4px; }
@@ -1702,3 +1804,71 @@ main::-webkit-scrollbar { display: none; }
 :root[data-theme="dark"] .login-mark {
   background: var(--logo-plate);
 }
+
+/* ---- Reseñas de clientes ----
+   Aquí SÍ van estrellas: son la valoración de la gente, que es lo que una
+   estrella significa para cualquiera. La calidad de la prenda usa su medidor
+   propio (.qmeter) precisamente para que estas dos no se confundan. */
+.reviews { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }
+.rev-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.rev-head h3 { margin: 0; font-size: 15px; }
+.rev-avg { color: var(--star); font-size: 13px; letter-spacing: 1px; }
+.rev-avg b { color: var(--ink); margin-left: 4px; letter-spacing: 0; }
+.rev-avg small { color: var(--muted); letter-spacing: 0; }
+.rev-empty { color: var(--muted); font-size: 12px; margin: 8px 0 0; }
+.review { padding: 12px 0; border-bottom: 1px solid var(--line); }
+.review:last-child { border-bottom: none; padding-bottom: 0; }
+.rev-top { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.rev-author { font-weight: 700; }
+.rev-date { color: var(--muted); }
+.rev-stars { color: var(--star); font-size: 12px; letter-spacing: 1px; margin-top: 2px; }
+.rev-text { margin: 6px 0 0; font-size: 13px; line-height: 1.45; }
+.rev-photo { margin-top: 8px; max-width: 160px; width: 100%; border-radius: 10px; display: block; }
+
+/* ---- Formulario de reseña ---- */
+.rev-add-btn {
+  width: 100%; margin-top: 8px; padding: 9px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: none; color: var(--ink);
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.rev-add-btn:hover { border-color: var(--accent); color: var(--accent); }
+.rev-section { margin-bottom: 16px; }
+.rev-label { font-size: 12px; font-weight: 700; margin-bottom: 7px; }
+.rev-opt { color: var(--muted); font-weight: 400; }
+.rev-picks { display: flex; flex-direction: column; gap: 8px; }
+.rev-pick {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer;
+}
+.rev-pick.on { border-color: var(--accent); background: var(--accent-soft, transparent); }
+.rev-pick .ci-thumb { width: 44px; height: 56px; flex: none; }
+/* Las estrellas del formulario son botones grandes: puntuar es la única acción
+   obligatoria de la pantalla y con el pulgar hay que acertarlas a la primera. */
+.rev-stars-input { display: flex; gap: 4px; }
+.rev-star {
+  border: none; background: none; cursor: pointer;
+  font-size: 30px; line-height: 1; padding: 2px 4px;
+  color: var(--line);
+}
+.rev-star.on { color: var(--star); }
+.rev-textarea {
+  width: 100%; resize: vertical;
+  padding: 10px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--card); color: var(--ink);
+  font: inherit; font-size: 13px;
+}
+.rev-photo-pick {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 12px; border: 1px dashed var(--line); border-radius: 12px;
+  color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.rev-photo-pick:hover { border-color: var(--accent); color: var(--accent); }
+.rev-photo-wrap { display: flex; align-items: flex-start; gap: 10px; }
+.rev-photo-del {
+  display: flex; align-items: center; gap: 5px;
+  border: none; background: none; cursor: pointer;
+  color: var(--muted); font-size: 12px; font-weight: 700;
+}
+.rev-photo-del:hover { color: var(--danger, #b3261e); }
