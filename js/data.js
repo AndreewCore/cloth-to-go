@@ -553,12 +553,20 @@ function monthGrid(ym){
   // getDay() es 0=domingo; la semana local empieza en lunes.
   const lead = (first.getDay() + 6) % 7;
   const start = addDaysISO(`${ym}-01`, -lead);
+  // SIEMPRE seis filas (42 días), aunque sobren.
+  //
+  // Antes se cortaba en cuanto una semana completa pasaba el fin de mes, y eso
+  // escondía días que el cliente necesita: alquilando a fin de mes, la fecha de
+  // devolución cae en el mes siguiente y podía quedar FUERA de la cuadrícula.
+  // El 31 de julio de 2026, con el rango por defecto de 3 días, la rejilla
+  // llegaba al 2 de agosto y la devolución era el 3: invisible e inseleccionable.
+  //
+  // Seis filas es además lo que hace cualquier calendario, así que la altura no
+  // baila al cambiar de mes.
   const cells = [];
   for(let i = 0; i < 42; i++){
     const iso = addDaysISO(start, i);
     cells.push({ iso, day: Number(iso.slice(8)), out: monthOf(iso) !== ym });
-    // Se corta en semana completa: 5 filas bastan salvo en meses que desbordan.
-    if(cells.length % 7 === 0 && cells.length >= 28 && monthOf(iso) > ym) break;
   }
   return cells;
 }
