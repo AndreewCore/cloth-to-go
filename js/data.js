@@ -247,31 +247,37 @@ const CATS = ["Todo", "Formal", "Fiesta", "Casual", "Invierno"];
    - stars       : calidad / desgaste (1 a 5). Además de informar al cliente,
                    define cuántos alquileres le quedan a la prenda (garmentCycles).
    - size        : talla de la prenda
+   - color       : color dominante de la prenda, tomado de la FOTO y no del
+                   nombre (la "gabardina beige" es el único caso en que ambos
+                   coinciden). Es una sola clave del banco COLOR_LABELS —el más
+                   cercano si el tono exacto no está—: el cliente filtra por el
+                   color que recuerda haber visto, no por la carta de tonos del
+                   fabricante.
    - disponibles : unidades en stock. Al ser ropa de segunda mano, cada prenda
                    es única: normalmente 1 (no hay varias instancias, colores ni modelos).
    - material    : fibra principal (algodon/lana/cuero/lino/sintetico) → intensidad hídrica.
    - weightKg    : peso aproximado de la prenda. material + weightKg definen el
                    ahorro de agua por reutilizarla (ver garmentWater()). */
 const PRODUCTS = [
-  { id:1, name:"Blazer de lino", cat:"Formal", value:35, stars:5, size:"M",  disponibles:1, material:"lino",      weightKg:0.5, imgs:["img/products/1.webp", "img/products/1-2.webp", "img/products/1-3.webp"],
+  { id:1, name:"Blazer de lino", cat:"Formal", value:35, stars:5, size:"M",  color:"negro",  disponibles:1, material:"lino",      weightKg:0.5, imgs:["img/products/1.webp", "img/products/1-2.webp", "img/products/1-3.webp"],
     desc:"Blazer de lino fresco, corte recto. Ideal para eventos formales y de oficina." },
-  { id:2, name:"Vestido de gala", cat:"Fiesta", value:45, stars:4, size:"S",  disponibles:1, material:"sintetico", weightKg:0.4, imgs:["img/products/2.webp", "img/products/2-2.webp", "img/products/2-3.webp"],
+  { id:2, name:"Vestido de gala", cat:"Fiesta", value:45, stars:4, size:"S",  color:"blanco", disponibles:1, material:"sintetico", weightKg:0.4, imgs:["img/products/2.webp", "img/products/2-2.webp", "img/products/2-3.webp"],
     desc:"Vestido largo de gala con caída elegante. Perfecto para bodas y galas." },
-  { id:3, name:"Jeans vintage", cat:"Casual", value:15, stars:3, size:"M",  disponibles:1, material:"algodon",   weightKg:0.8, imgs:["img/products/3.webp"],
+  { id:3, name:"Jeans vintage", cat:"Casual", value:15, stars:3, size:"M",  color:"azul",   disponibles:1, material:"algodon",   weightKg:0.8, imgs:["img/products/3.webp"],
     desc:"Jeans de tiro alto estilo retro. Cómodos para el día a día." },
-  { id:4, name:"Abrigo de lana", cat:"Invierno", value:55, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.2, imgs:["img/products/4.webp"],
+  { id:4, name:"Abrigo de lana", cat:"Invierno", value:55, stars:5, size:"L",  color:"beige",  disponibles:1, material:"lana",      weightKg:1.2, imgs:["img/products/4.webp"],
     desc:"Abrigo de lana cálido y de gran caída. Abriga sin perder estilo." },
-  { id:5, name:"Camisa formal", cat:"Formal", value:14, stars:4, size:"M",  disponibles:1, material:"algodon",   weightKg:0.2, imgs:["img/products/5.webp"],
+  { id:5, name:"Camisa formal", cat:"Formal", value:14, stars:4, size:"M",  color:"blanco", disponibles:1, material:"algodon",   weightKg:0.2, imgs:["img/products/5.webp"],
     desc:"Camisa formal de algodón, fácil de combinar para reuniones." },
-  { id:6, name:"Falda plisada", cat:"Casual", value:12, stars:3, size:"S",  disponibles:1, material:"sintetico", weightKg:0.3, imgs:["img/products/6.webp"],
+  { id:6, name:"Falda plisada", cat:"Casual", value:12, stars:3, size:"S",  color:"beige",  disponibles:1, material:"sintetico", weightKg:0.3, imgs:["img/products/6.webp"],
     desc:"Falda plisada midi, ligera y versátil para cualquier ocasión." },
-  { id:7, name:"Esmoquin clásico", cat:"Fiesta", value:150, stars:5, size:"L",  disponibles:1, material:"lana",      weightKg:1.0, imgs:["img/products/7.webp", "img/products/7-2.webp", "img/products/7-3.webp"],
+  { id:7, name:"Esmoquin clásico", cat:"Fiesta", value:150, stars:5, size:"L",  color:"negro",  disponibles:1, material:"lana",      weightKg:1.0, imgs:["img/products/7.webp", "img/products/7-2.webp", "img/products/7-3.webp"],
     desc:"Esmoquin negro clásico con solapa satinada. La opción para eventos de etiqueta." },
-  { id:8, name:"Chaqueta de cuero", cat:"Casual", value:45, stars:2, size:"M",  disponibles:1, material:"cuero",     weightKg:1.3, imgs:["img/products/8.webp"],
+  { id:8, name:"Chaqueta de cuero", cat:"Casual", value:45, stars:2, size:"M",  color:"negro",  disponibles:1, material:"cuero",     weightKg:1.3, imgs:["img/products/8.webp"],
     desc:"Chaqueta de cuero con carácter; muestra desgaste natural que le da estilo." },
-  { id:9, name:"Sudadera bordada", cat:"Casual", value:12, stars:4, size:"L",  disponibles:1, material:"algodon",   weightKg:0.5, imgs:["img/products/9.webp"],
+  { id:9, name:"Sudadera bordada", cat:"Casual", value:12, stars:4, size:"L",  color:"blanco", disponibles:1, material:"algodon",   weightKg:0.5, imgs:["img/products/9.webp"],
     desc:"Sudadera de algodón con bordado, súper cómoda para el día a día." },
-  { id:10, name:"Gabardina beige", cat:"Invierno", value:40, stars:4, size:"XL", disponibles:1, material:"algodon",   weightKg:0.9, imgs:["img/products/10.webp"],
+  { id:10, name:"Gabardina beige", cat:"Invierno", value:40, stars:4, size:"XL", color:"beige",  disponibles:1, material:"algodon",   weightKg:0.9, imgs:["img/products/10.webp"],
     desc:"Gabardina beige atemporal, perfecta para días de lluvia y entretiempo." },
 ];
 
@@ -282,6 +288,84 @@ const SIZES = SIZE_ORDER.filter(s => PRODUCTS.some(p => p.size === s));
 /* Materiales presentes en el catálogo, en orden lógico (para el filtro). */
 const MATERIAL_ORDER = ["algodon", "lana", "lino", "cuero", "sintetico"];
 const MATERIALS = MATERIAL_ORDER.filter(m => PRODUCTS.some(p => p.material === m));
+
+/* ---- Colores ----
+   Banco FIJO de colores comunes, en orden de neutros → cálidos → fríos. A
+   diferencia de SIZES y MATERIALS, esta lista NO se recorta a lo que hay en el
+   catálogo: es de donde se elige al dar de alta una prenda, y ofrecerla entera
+   es lo que evita que cada prenda nueva estrene su propia clave ("azul marino"
+   junto a "azul" son dos colores que el filtro ya no sabe juntar). Si el tono
+   real no está, se asigna el más cercano.
+
+   El precio de mostrarlos todos es que algunos no tengan prendas; por eso el
+   filtro anuncia el conteo de cada uno (ver colorCount()) en vez de dejar que
+   se descubra con la pantalla vacía.
+
+   El hex NO es el color exacto de la tela, sino su muestra en la interfaz: los
+   tonos reales de una foto (un negro que es gris carbón, un beige que tira a
+   rosa) se confunden entre sí al tamaño de un punto. */
+const COLOR_LABELS = {
+  negro:    "Negro",
+  gris:     "Gris",
+  blanco:   "Blanco",
+  beige:    "Beige",
+  cafe:     "Café",
+  rojo:     "Rojo",
+  naranja:  "Naranja",
+  amarillo: "Amarillo",
+  verde:    "Verde",
+  turquesa: "Turquesa",
+  celeste:  "Celeste",
+  azul:     "Azul",
+  morado:   "Morado",
+  rosa:     "Rosa",
+};
+const COLOR_HEX = {
+  negro:    "#1e1e1e",
+  gris:     "#9aa0a6",
+  blanco:   "#f6f5f1",
+  beige:    "#d8c3a0",
+  cafe:     "#6d4a2f",
+  rojo:     "#c0392b",
+  naranja:  "#e07b2c",
+  amarillo: "#e3c355",
+  verde:    "#4a7c59",
+  turquesa: "#3fb8ad",
+  celeste:  "#7fc4e8",
+  azul:     "#33609c",
+  morado:   "#7b5ea7",
+  rosa:     "#e2a0bb",
+};
+const COLORS = Object.keys(COLOR_LABELS);
+
+/**
+ * Cuántas prendas del catálogo son de un color. Alimenta la etiqueta del filtro:
+ * como el desplegable ofrece el banco completo, el conteo es lo que distingue
+ * "no hay prendas de ese color" de "el filtro no funciona".
+ * @param {string} c Clave del color.
+ * @returns {number}
+ */
+const colorCount = c => PRODUCTS.filter(p => p.color === c).length;
+
+/**
+ * Nombre legible de un color; devuelve la clave tal cual si es desconocida
+ * (una prenda que llegue del backend con un color que el front no conoce se
+ * sigue mostrando, en vez de quedarse sin etiqueta) y cadena vacía si no trae
+ * ninguno — un catálogo hidratado por una API vieja no debe reventar la
+ * búsqueda, que llama a .toLowerCase() sobre este valor.
+ * @param {string} c Clave del color.
+ * @returns {string}
+ */
+const colorLabel = c => COLOR_LABELS[c] || c || "";
+
+/**
+ * Muestra (hex) con la que se pinta la pastilla de un color. Los desconocidos
+ * caen en un gris neutro: es preferible una muestra apagada a un cuadro
+ * transparente que parezca un fallo de carga.
+ * @param {string} c Clave del color.
+ * @returns {string} Color CSS.
+ */
+const colorSwatch = c => COLOR_HEX[c] || "#c9cdc6";
 
 /* ---- Reseñas de muestra ----
    ⚠️ BORRAR CUANDO HAYA BACKEND. Estas reseñas NO son de nadie: existen solo
@@ -473,9 +557,11 @@ function qualityMeter(n){
 /**
  * El mismo medidor en texto plano, para donde no cabe HTML.
  *
- * Existe por los `<option>` del filtro, que no admiten elementos dentro. Va
- * siempre acompañado de la etiqueta en palabras: si la fuente no trae estos
- * glifos, el texto sigue diciendo lo mismo.
+ * Para superficies sin HTML (texto plano, `<option>` de un desplegable nativo,
+ * un `aria-label`). El panel de filtros ya no lo usa —dibuja el medidor de
+ * verdad—, pero cualquier salida en texto lo sigue necesitando. Va siempre
+ * acompañado de la etiqueta en palabras: si la fuente no trae estos glifos, el
+ * texto sigue diciendo lo mismo.
  * @param {number} n Calidad de la prenda (`stars`, 1–5).
  * @returns {string} Cinco pastillas, p. ej. "▰▰▰▱▱".
  */

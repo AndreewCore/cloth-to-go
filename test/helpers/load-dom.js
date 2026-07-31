@@ -84,8 +84,11 @@ globalThis.__APP__ = {
     if('qualityFilter'  in p) qualityFilter  = p.qualityFilter;
     if('sizeFilter'     in p) sizeFilter     = p.sizeFilter;
     if('materialFilter' in p) materialFilter = p.materialFilter;
+    if('colorFilter'    in p) colorFilter    = p.colorFilter;
     if('sortBy'         in p) sortBy         = p.sortBy;
   },
+  get colorFilter(){ return colorFilter; },
+  COLORS, COLOR_LABELS, colorLabel, colorSwatch, colorCount,
   // Formulario de donación y editor de devolución (también variables let).
   setDonation(p){
     if('donName'   in p) donName   = p.donName;

@@ -67,7 +67,11 @@ let searchQuery = "";
 let qualityFilter = 0;               // estrellas mínimas (0 = todas)
 let sizeFilter = "Todas";            // filtro por talla
 let materialFilter = "Todos";        // filtro por material
+let colorFilter = "Todos";           // filtro por color dominante
 let sortBy = "default";              // ordenamiento del catálogo
+// Grupo desplegado del panel de filtros (null = todos plegados). Es estado de
+// presentación, no un filtro: no se persiste ni cuenta en el badge.
+let openFilterGroup = null;
 let view = "cart";                   // cart | checkout | done | detail | profile
 let detailId = null;
 // El detalle se está viendo en la pestaña apilada (sobre el perfil) y no en el
