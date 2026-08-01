@@ -489,6 +489,47 @@ function premiumItem(items, days, minStars){
 }
 
 /**
+ * Tarifa del alquiler del contexto, en CENTAVOS, para valorar un premio.
+ * El descuento por volumen se aplica siempre sobre el pedido entero (`n`): un
+ * premio no puede cambiar cuántas prendas se llevan, así que tampoco el tramo.
+ * @param {object[]} items Prendas del alquiler.
+ * @returns {{precio:function, suma:function}} `precio(p, d)` en USD (una prenda,
+ *   `d` días) y `suma(d)` en centavos (todas las prendas).
+ */
+function rewardQuote(items){
+  const n = items.length;
+  const precio = (p, d) => rentalPrice(p, Math.max(1, d), n);
+  return { precio, suma: d => items.reduce((s, p) => s + cents(precio(p, d)), 0) };
+}
+
+/* Cuánto vale EN BRUTO cada tipo de premio, en centavos y antes del tope.
+   Una tabla y no un `switch` porque este es el punto de extensión real del
+   programa de puntos: dar de alta un premio nuevo es añadir una entrada aquí y
+   otra en REWARDS, sin abrir una función que ya mezclaba cuatro aritméticas
+   distintas con el tope que comparten. La clave es el `type` de REWARDS; un
+   tipo desconocido no vale nada, igual que antes hacía el `switch` sin `default`.
+   @type {Object<string, function(object, object, {precio:function, suma:function}): number>} */
+const REWARD_GROSS = {
+  // Cubre UNA tarifa de logística: el premio dice "envío O retiro", no ambos.
+  shipping: (rw, ctx) =>
+    (deliveryFeeFor(ctx.delivery) || returnFeeFor(ctx.ret)) ? cents(SHIPPING_FEE) : 0,
+
+  // Un día menos de alquiler. Con un solo día no hay nada que regalar sin
+  // dejar el alquiler en cero, así que el premio se reserva para otro pedido.
+  freeDay: (rw, ctx, q) =>
+    ctx.days >= 2 ? q.suma(ctx.days) - q.suma(ctx.days - 1) : 0,
+
+  percent: (rw, ctx, q) => Math.round(q.suma(ctx.days) * rw.rate),
+
+  // La prenda destacada sale gratis hasta `rw.days` días; si el alquiler dura
+  // menos, se regala solo lo que realmente se cobró por ella.
+  premiumDays: (rw, ctx, q) => {
+    const p = premiumItem(ctx.items, ctx.days, rw.minStars);
+    return p ? cents(q.precio(p, Math.min(ctx.days, rw.days))) : 0;
+  },
+};
+
+/**
  * Traduce un premio a un descuento en dólares sobre un alquiler concreto.
  *
  * Es puro y se calcula, nunca se guarda: así un pedido que cambia (p. ej. su
@@ -496,7 +537,9 @@ function premiumItem(items, days, minStars){
  * que el precio y el depósito.
  *
  * El descuento NUNCA toca el depósito: es dinero reembolsable, no ingreso, y
- * rebajarlo dejaría a la empresa cubriendo menos riesgo del que asumió.
+ * rebajarlo dejaría a la empresa cubriendo menos riesgo del que asumió. Por eso
+ * el tope se calcula aquí, fuera de REWARD_GROSS: es común a todos los premios
+ * y ningún tipo nuevo debe poder saltárselo.
  *
  * @param {object} rw Premio de REWARDS.
  * @param {{items:object[], days:number, delivery:string, ret:string}} ctx
@@ -507,35 +550,14 @@ function rewardDiscount(rw, ctx){
   if(!rw) return 0;
   const { items, days, delivery, ret } = ctx;
   if(!items.length) return 0;
-  const n = items.length;
-  const precio = (p, d) => rentalPrice(p, Math.max(1, d), n);
-  const suma = d => items.reduce((s, p) => s + cents(precio(p, d)), 0);
 
-  let bruto = 0;
-  switch(rw.type){
-    // Cubre UNA tarifa de logística: el premio dice "envío O retiro", no ambos.
-    case "shipping":
-      bruto = (deliveryFeeFor(delivery) || returnFeeFor(ret)) ? cents(SHIPPING_FEE) : 0;
-      break;
-    // Un día menos de alquiler. Con un solo día no hay nada que regalar sin
-    // dejar el alquiler en cero, así que el premio se reserva para otro pedido.
-    case "freeDay":
-      bruto = days >= 2 ? suma(days) - suma(days - 1) : 0;
-      break;
-    case "percent":
-      bruto = Math.round(suma(days) * rw.rate);
-      break;
-    // La prenda destacada sale gratis hasta `rw.days` días; si el alquiler dura
-    // menos, se regala solo lo que realmente se cobró por ella.
-    case "premiumDays": {
-      const p = premiumItem(items, days, rw.minStars);
-      bruto = p ? cents(precio(p, Math.min(days, rw.days))) : 0;
-      break;
-    }
-  }
+  const q = rewardQuote(items);
+  const calc = REWARD_GROSS[rw.type];
+  const bruto = calc ? calc(rw, ctx, q) : 0;
+
   // Tope: el premio puede dejar el alquiler en $0, nunca en negativo (que sería
   // devolverle al cliente parte del depósito).
-  const cobrable = suma(days)
+  const cobrable = q.suma(days)
     + cents(deliveryFeeFor(delivery))
     + cents(returnFeeFor(ret));
   return Math.max(0, Math.min(bruto, cobrable)) / 100;
