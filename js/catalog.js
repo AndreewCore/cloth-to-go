@@ -268,7 +268,10 @@ function renderGrid(){
     const btn = inCart(p.id)
       ? `<button class="add-btn in-cart" data-add="${p.id}">${icon("check", { size: 14 })} En carrito</button>`
       : avail > 0
-        ? `<button class="add-btn" data-add="${p.id}">+ Alquilar</button>`
+        // "Agregar al carrito" y no "+ Alquilar": el botón no cierra ningún
+        // trato, solo aparta la prenda, y en la feria hubo quien no lo pulsó
+        // por miedo a estar alquilando ahí mismo.
+        ? `<button class="add-btn" data-add="${p.id}">${icon("cart", { size: 14 })} Agregar al carrito</button>`
         : `<button class="add-btn" disabled>No disponible</button>`;
     return `
     <div class="card${fuera ? " card-off" : ""}">
@@ -297,14 +300,25 @@ function renderGrid(){
 }
 
 /* ---------------- Operación de carrito ---------------- */
-function addToCart(id){
+/**
+ * Agrega una prenda al carrito y acusa recibo.
+ * @param {number} id Prenda a agregar.
+ * @param {Element} [origin] Miniatura de la que sale la animación. El vuelo se
+ *   mide ANTES de repintar la grilla: el repintado destruye ese nodo, y sin la
+ *   medida tomada a tiempo el fantasma saldría desde la esquina de la página.
+ */
+function addToCart(id, origin){
   if(inCart(id)){ toast("Ya está en tu carrito"); return; }
   if(isRented(id)){ toast("Ya la tienes alquilada"); renderGrid(); return; }
   cart.push({ id });
   saveState();
   updateBadge();
+  // El vuelo sale antes del repintado; si no llegó a lanzarse (sin origen, con
+  // menos movimiento, o en un navegador sin la API) el badge se sacude solo,
+  // para que el acuse de recibo nunca dependa del adorno.
+  if(!flyToCart(origin)) bumpBadge();
   renderGrid();
-  toast("Añadido al carrito");
+  toast("Agregada al carrito");
 }
 
 /* ---------------- Detalle de prenda ---------------- */

@@ -66,7 +66,7 @@ const PROJECT_GLOBALS = [
   // dom.js
   "grid", "noResults", "resultsBar", "filtersEl", "overlay", "sheet", "sheetBody",
   "sheetFoot", "sheetTitle", "searchInput", "loginEl", "greeting", "backBtn",
-  "SHEET_BACK", "FULL_VIEWS", "openSheet", "closeSheet", "renderSheet", "scrollSheetTo", "updateBadge", "toastTimer", "toast",
+  "SHEET_BACK", "FULL_VIEWS", "openSheet", "closeSheet", "renderSheet", "scrollSheetTo", "updateBadge", "bumpBadge", "flyToCart", "toastTimer", "toast",
   "sheetStack", "stackOverlay", "stackBody", "stackFoot", "openStackSheet", "closeStackSheet",
   "modalOverlay", "modalText", "modalOk", "modalCancel", "onConfirmCb", "confirmDialog", "closeModal",
   // catalog.js

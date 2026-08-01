@@ -89,6 +89,33 @@ header {
   padding: 0 5px;
   border: 2px solid var(--bg);
 }
+/* Sacudida al aterrizar una prenda. La animación se declara aquí y la clase la
+   pone bumpBadge(): el badge cambia en una esquina que nadie mira mientras
+   pulsa, y sin este acuse hubo quien pulsó dos veces creyendo que no pasó nada.
+   El bloque de reduce-motion de base.css la desactiva por su cuenta. */
+.cart-badge.bump { animation: badge-bump .42s cubic-bezier(.3,1.4,.5,1); }
+@keyframes badge-bump {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.45); }
+  70%  { transform: scale(.92); }
+  100% { transform: scale(1); }
+}
+
+/* Miniatura que vuela de la tarjeta al carrito al agregar una prenda.
+   position:fixed y coordenadas de viewport: el fantasma sale del flujo para
+   poder cruzar la página por encima de todo, sin desplazar nada a su paso.
+   El gradiente de respaldo se ve solo cuando la prenda no tiene foto — un
+   cuadro vacío volando parecería un error de carga. */
+.fly-ghost {
+  position: fixed;
+  z-index: 120;
+  pointer-events: none;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--cta), var(--cta-strong));
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, .28);
+}
 
 /* ---- Barra de filtros/orden bajo las categorías ---- */
 .cat-toolbar {
