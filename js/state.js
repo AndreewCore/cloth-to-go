@@ -52,7 +52,10 @@ let reviewPhoto = "";
 // `redeemed` es a la vez historial y cartera: cada canje es un premio con
 // nombre propio { id, rewardId, name, cost, date, usedIn } y sigue disponible
 // mientras `usedIn` sea null (después guarda el id del pedido que lo gastó).
-let profile = { name:"", email:"", phone:"", points: 0, redeemed: [], donations: [] };
+// La forma la define defaultProfile() y no un literal aquí: había dos y no
+// coincidían (a este le faltaban `picture` y `waterGoals`), así que la sesión
+// de invitado arrancaba con un perfil distinto del que deja cambiar de cuenta.
+let profile = defaultProfile();
 let lastEarnedPoints = 0;            // puntos del último pedido (para la confirmación)
 let lastWaterSaved = 0;              // litros de agua ahorrados en el último pedido (para la confirmación/pop-up)
 let lastWaterGoals = [];             // metas de agua cruzadas por el último pedido (para la confirmación)
@@ -204,6 +207,11 @@ function availableCoupons(){ return profile.redeemed.filter(c => !c.usedIn && !c
 // Siguiente número de canje (correlativo a partir de 1).
 function nextCouponId(){ return profile.redeemed.reduce((m,c) => Math.max(m, c.id || 0), 0) + 1; }
 
+/* Contexto con el que se valora un premio. Hay dos fuentes —el checkout en
+   curso y un pedido ya confirmado— y una sola forma; van juntas a propósito,
+   porque si una gana un campo y la otra no, el descuento del pedido deja de
+   coincidir con el que se le enseñó al cliente al pagar. */
+
 // Contexto de descuento del CARRITO (checkout en curso).
 function cartRewardCtx(){
   return {
@@ -211,6 +219,15 @@ function cartRewardCtx(){
     days: rentalDays(),
     delivery,
     ret: returnMethod
+  };
+}
+// Contexto de descuento de un PEDIDO ya confirmado.
+function orderRewardCtx(o){
+  return {
+    items: o.items.map(id => productById(id)),
+    days: daysBetween(o.start, o.end),
+    delivery: o.delivery,
+    ret: o.ret
   };
 }
 // Descuento del premio aplicado al checkout actual (0 si no hay ninguno).
@@ -315,12 +332,7 @@ function orderDiscount(o){
   if(!o.couponId) return 0;
   const c = couponById(o.couponId);
   if(!c) return 0;
-  return rewardDiscount(rewardById(c.rewardId), {
-    items: o.items.map(id => productById(id)),
-    days: daysBetween(o.start, o.end),
-    delivery: o.delivery,
-    ret: o.ret
-  });
+  return rewardDiscount(rewardById(c.rewardId), orderRewardCtx(o));
 }
 // Valor total del cobro de un pedido (incluye depósito reembolsable + envío +
 // devolución, menos el premio aplicado). Se usa para guardar/actualizar o.total.

@@ -52,7 +52,7 @@ const PROJECT_GLOBALS = [
   "rentalDays", "isLate", "inCart", "isRented", "unitsAvailable", "cartCount", "cents", "subtotal",
   "cartItemPrice", "subtotalBeforeVolume", "volumeRate", "volumeSavings", "depositTotal",
   "shippingFee", "returnFee", "grandTotal", "orderPoints",
-  "couponById", "availableCoupons", "nextCouponId", "cartRewardCtx",
+  "couponById", "availableCoupons", "nextCouponId", "cartRewardCtx", "orderRewardCtx",
   "couponDiscount", "couponIssue", "orderDiscount",
   "waterSavedForItems", "cartWaterSaved", "totalWaterSaved",
   "reachedWaterGoals", "nextWaterGoal", "waterGoalProgress", "creditWaterGoals",
