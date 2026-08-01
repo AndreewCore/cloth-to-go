@@ -108,6 +108,55 @@ function renderSheet(){
   else if(view==="review") renderReview();
 }
 
+/* ---------------- Piezas de marcado compartidas ----------------
+   Las usan varias vistas. Viven aquí y no en una de ellas para que ninguna
+   dependa de otra: checkout no debe cargar profile para pintar una opción. */
+
+/**
+ * Tarjeta de opción seleccionable, del grupo `delivery-opts`.
+ *
+ * Estaba copiada seis veces —envío/retiro del checkout, devolución del checkout
+ * y las dos de la donación—, y en cada copia el valor aparecía TRES veces (la
+ * clase activa, el data-value y el aria-pressed). Tres sitios donde escribirlo
+ * distinto y que el botón dejara de marcarse sin que nada fallara.
+ *
+ * @param {object} o
+ * @param {string} o.action `data-action` que atiende el despachador de main.js.
+ * @param {string} o.value Valor que viaja en `data-value`.
+ * @param {boolean} o.active Si es la opción elegida ahora mismo.
+ * @param {string} o.glyph Nombre del icono en ICON_PATHS.
+ * @param {string} o.title Título de la opción.
+ * @param {string} o.desc Explicación corta bajo el título.
+ * @param {string} [o.note] Coste o etiqueta a la derecha del título.
+ * @param {string} [o.noteVar=ok] Variable CSS del color de la nota (`ok`|`accent`).
+ * @returns {string} HTML de la tarjeta.
+ */
+function optionCardHTML({ action, value, active, glyph, title, desc, note, noteVar = "ok" }){
+  return `
+      <div class="delivery-opt ${active ? "active" : ""}" data-action="${action}" data-value="${value}" role="button" tabindex="0" aria-pressed="${active}">
+        <div class="do-icon">${icon(glyph, { size: 22 })}</div>
+        <div class="do-text">
+          <div class="do-title"><span>${title}</span>${note ? `<span style="color:var(--${noteVar})">${note}</span>` : ""}</div>
+          <div class="do-desc">${desc}</div>
+        </div>
+        <div class="do-radio"></div>
+      </div>`;
+}
+
+/**
+ * Ficha del local físico (nombre, dirección y horario).
+ * La pintan el retiro en local del checkout y la donación en local; es un dato
+ * del negocio, no de una pantalla.
+ * @returns {string} HTML.
+ */
+function localCardHTML(){
+  return `<div class="pickup-detail">
+        ${icon("store", { size: 15 })} <b>${LOCAL.nombre}</b><br>
+        ${LOCAL.direccion}<br>
+        <span style="color:var(--muted)">${LOCAL.horario}</span>
+      </div>`;
+}
+
 /* ---------------- Badge del carrito ---------------- */
 function updateBadge(){
   const badge = document.getElementById("badge");

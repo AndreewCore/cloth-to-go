@@ -6,38 +6,106 @@
    Depende de data.js (LATE_*, SHIPPING_FEE, helpers), state.js y dom.js.
    ============================================================ */
 
-function renderProfile(){
-  sheetTitle.textContent = "Mi perfil";
-  const esc = escapeHTML;   // escape anti-XSS (contenido y atributos)
-  const initial = escapeHTML(profile.name.trim().charAt(0) || "?").toUpperCase();
-  const payNames = {
-    cash:   `${icon("cash", { size: 14 })} Efectivo`,
-    credit: `${icon("card", { size: 14 })} Crédito`,
-    debit:  `${icon("bank", { size: 14 })} Débito`
-  };
+/* Método de pago → etiqueta con su icono. Const de módulo y no un literal
+   dentro del render: el pedido guarda `pay` en crudo y esta es la única
+   traducción a palabras que ve el cliente. */
+const PAY_LABELS = {
+  cash:   `${icon("cash", { size: 14 })} Efectivo`,
+  credit: `${icon("card", { size: 14 })} Crédito`,
+  debit:  `${icon("bank", { size: 14 })} Débito`
+};
 
-  // Distingue la cuenta de Google (identidad real) del invitado (demo efímera).
+/**
+ * Cabecera del perfil: avatar, nombre, distintivo de sesión y salida.
+ *
+ * Distingue la cuenta de Google (identidad real) del invitado (demo efímera),
+ * que es la diferencia que más confunde si no se dice: en invitado no se
+ * guarda nada.
+ * @returns {string} HTML.
+ */
+function profileHeadHTML(){
   const isUser = !!currentUser;
+  const initial = escapeHTML(profile.name.trim().charAt(0) || "?").toUpperCase();
   // Avatar: foto de Google si la hay; si no, la inicial en círculo de color.
   // referrerpolicy=no-referrer: las fotos de Google fallan si se manda referer.
   const avatarInner = profile.picture
-    ? `<img class="avatar-img" src="${esc(profile.picture)}" alt="" referrerpolicy="no-referrer" />`
+    ? `<img class="avatar-img" src="${escapeHTML(profile.picture)}" alt="" referrerpolicy="no-referrer" />`
     : initial;
   const sessionBadge = isUser
     ? `<span class="session-badge user">${icon("check", { size: 13 })} Cuenta de Google</span>`
     : `<span class="session-badge guest">Invitado · nada se guarda</span>`;
   const logoutLabel = isUser ? "Cerrar sesión" : "Salir de invitado";
 
-  const ordersWithIdx   = orders.map((o, i) => ({ o, i }));
-  const activeOrders    = ordersWithIdx.filter(({ o }) => !isPastOrder(o));
-  const archivedOrders  = ordersWithIdx.filter(({ o }) =>  isPastOrder(o));
+  return `
+    <div class="profile-head">
+      <div class="avatar${profile.picture ? " has-img" : ""}">${avatarInner}</div>
+      <div class="ph-info">
+        <div class="profile-name">${escapeHTML(profile.name) || "Sin nombre"}</div>
+        ${isUser ? `<div class="profile-email">${escapeHTML(profile.email) || "—"}</div>` : ""}
+        ${sessionBadge}
+      </div>
+      <button class="logout-btn" data-action="signOut" aria-label="${logoutLabel}" title="${logoutLabel}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
+    </div>`;
+}
 
-  const orderCardHTML = ({ o, i }, archived) => {
+/**
+ * Información de contacto: las tres filas, o el formulario si se está editando.
+ * @returns {string} HTML.
+ */
+function contactInfoHTML(){
+  const esc = escapeHTML;   // escape anti-XSS (contenido y atributos)
+  if(editingProfile) return `
+    <div class="profile-form">
+      <label class="pf-fld">Nombre
+        <input id="pfName" value="${esc(profile.name)}" placeholder="Tu nombre" />
+      </label>
+      <small class="pf-error" id="errName" style="display:none"></small>
+      <label class="pf-fld">Correo
+        <input id="pfEmail" type="email" value="${esc(profile.email)}" placeholder="tucorreo@ejemplo.com" />
+      </label>
+      <small class="pf-error" id="errEmail" style="display:none"></small>
+      <label class="pf-fld">Celular
+        <input id="pfPhone" type="tel" inputmode="numeric" value="${esc(profile.phone)}" placeholder="09xxxxxxxx" />
+      </label>
+      <small class="pf-error" id="errPhone" style="display:none"></small>
+      <div class="pf-actions">
+        <button class="ret-cancel" data-action="cancelProfileEdit">Cancelar</button>
+        <button class="save-btn" data-action="saveProfile">Guardar cambios</button>
+      </div>
+    </div>`;
+
+  return `
+    <div class="profile-info">
+      <div class="pi-row"><span class="pi-k">Nombre</span><span class="pi-v">${esc(profile.name) || "—"}</span></div>
+      <div class="pi-row"><span class="pi-k">Correo</span><span class="pi-v">${esc(profile.email) || "—"}</span></div>
+      <div class="pi-row"><span class="pi-k">Celular</span><span class="pi-v">${esc(profile.phone) || "—"}</span></div>
+      <button class="edit-info-btn" data-action="editProfile">${icon("pencil", { size: 15 })} Modificar información</button>
+    </div>`;
+}
+
+/**
+ * Tarjeta de un pedido en el perfil.
+ *
+ * Es la pieza más cargada de la app: reúne el cobro, el período, el modo de
+ * devolución, los puntos y litros pendientes, y los controles que solo aplican
+ * a un pedido vivo. Vive fuera de renderProfile porque la pintan dos listas
+ * —activos y archivados— con reglas distintas sobre qué controles se ofrecen.
+ *
+ * @param {object} o Pedido.
+ * @param {number} i Índice en `orders`; viaja en los data-idx de sus botones.
+ * @param {boolean} archived Si se pinta en "Alquileres anteriores".
+ * @returns {string} HTML.
+ */
+function orderCardHTML(o, i, archived){
     const days = daysBetween(o.start, o.end);
     const voided = isCancelledOrder(o);
     // Un pedido anulado nunca está "vencido": no hay prenda que devolver.
     const late = !archived && !voided && isLate(o);
-    const retLabel = o.ret === "home"
+    const retLabel = o.ret === RETURN_TO.HOME
       ? `${icon("truck", { size: 15 })} Devolución a domicilio`
       : `${icon("store", { size: 15 })} Devolución en local`;
     const stClass  = voided ? "cancelled" : (o.status === "settled" ? "settled" : "pending");
@@ -46,7 +114,7 @@ function renderProfile(){
       <div class="order-head">
         <div class="order-head-main">
           <div class="order-id">Pedido #${o.id}</div>
-          <div class="order-date">${fmtDate(o.date)} · ${payNames[o.pay] || "—"}</div>
+          <div class="order-date">${fmtDate(o.date)} · ${PAY_LABELS[o.pay] || "—"}</div>
         </div>
         <div class="order-badges">
           <span class="pay-status ${stClass}">${paymentStatusLabel(o)}</span>
@@ -77,7 +145,7 @@ function renderProfile(){
 
       ${voided
         ? `<div class="ci-ret">${icon("x", { size: 14 })} Anulado el ${fmtDate(o.cancelledAt)} · las prendas volvieron al catálogo</div>`
-        : `<div class="ci-ret">${retLabel}${o.ret === "home" && o.retAddr ? ` · <span class="ret-addr">${icon("mapPin", { size: 13 })} ${escapeHTML(o.retAddr)}</span>` : ""}</div>`}
+        : `<div class="ci-ret">${retLabel}${o.ret === RETURN_TO.HOME && o.retAddr ? ` · <span class="ret-addr">${icon("mapPin", { size: 13 })} ${escapeHTML(o.retAddr)}</span>` : ""}</div>`}
       ${!archived ? `
         ${!o.pointsCredited ? `
           <div class="points-pending">${icon("sprout", { size: 14 })} Ganarás ${o.points} pts cuando recibas tus prendas</div>` : ""}
@@ -101,22 +169,22 @@ function renderProfile(){
       ${hasPendingReview(o) ? `
         <button class="rev-add-btn" data-action="openReview" data-order="${o.id}">${icon("pencil", { size: 14 })} Agregar reseña</button>` : ""}
     </div>`;
-  };
+}
+
+/**
+ * Vista de perfil: cabecera, puntos, metas de agua, acciones, pedidos y
+ * contacto. Aquí solo se ensambla y se decide qué pedido va en qué lista; cada
+ * pieza se pinta en su propia función.
+ */
+function renderProfile(){
+  sheetTitle.textContent = "Mi perfil";
+
+  const conIndice     = orders.map((o, i) => ({ o, i }));
+  const activeOrders   = conIndice.filter(({ o }) => !isPastOrder(o));
+  const archivedOrders = conIndice.filter(({ o }) =>  isPastOrder(o));
 
   sheetBody.innerHTML = `
-    <div class="profile-head">
-      <div class="avatar${profile.picture ? " has-img" : ""}">${avatarInner}</div>
-      <div class="ph-info">
-        <div class="profile-name">${escapeHTML(profile.name) || "Sin nombre"}</div>
-        ${isUser ? `<div class="profile-email">${escapeHTML(profile.email) || "—"}</div>` : ""}
-        ${sessionBadge}
-      </div>
-      <button class="logout-btn" data-action="signOut" aria-label="${logoutLabel}" title="${logoutLabel}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-        </svg>
-      </button>
-    </div>
+    ${profileHeadHTML()}
 
     <button class="points-card" data-action="openRewards" aria-label="Ver premios y canjear puntos">
       <div>
@@ -150,7 +218,7 @@ function renderProfile(){
 
     <div class="section-label" id="misPedidos">Mis pedidos</div>
     ${activeOrders.length
-      ? activeOrders.map(pair => orderCardHTML(pair, false)).join("")
+      ? activeOrders.map(({ o, i }) => orderCardHTML(o, i, false)).join("")
       : `<div class="empty" style="padding:30px 20px"><div class="em">${icon("shirt", { size: 34 })}</div><p>No tienes pedidos activos.<br>Alquila algo del catálogo.</p></div>`}
 
     ${archivedOrders.length ? `
@@ -160,39 +228,13 @@ function renderProfile(){
         <span class="past-count">${archivedOrders.length}</span>
       </summary>
       <div class="past-orders-body">
-        ${archivedOrders.map(pair => orderCardHTML(pair, true)).join("")}
+        ${archivedOrders.map(({ o, i }) => orderCardHTML(o, i, true)).join("")}
       </div>
     </details>
     ` : ""}
 
     <div class="section-label">Información de contacto</div>
-    ${editingProfile ? `
-    <div class="profile-form">
-      <label class="pf-fld">Nombre
-        <input id="pfName" value="${esc(profile.name)}" placeholder="Tu nombre" />
-      </label>
-      <small class="pf-error" id="errName" style="display:none"></small>
-      <label class="pf-fld">Correo
-        <input id="pfEmail" type="email" value="${esc(profile.email)}" placeholder="tucorreo@ejemplo.com" />
-      </label>
-      <small class="pf-error" id="errEmail" style="display:none"></small>
-      <label class="pf-fld">Celular
-        <input id="pfPhone" type="tel" inputmode="numeric" value="${esc(profile.phone)}" placeholder="09xxxxxxxx" />
-      </label>
-      <small class="pf-error" id="errPhone" style="display:none"></small>
-      <div class="pf-actions">
-        <button class="ret-cancel" data-action="cancelProfileEdit">Cancelar</button>
-        <button class="save-btn" data-action="saveProfile">Guardar cambios</button>
-      </div>
-    </div>
-    ` : `
-    <div class="profile-info">
-      <div class="pi-row"><span class="pi-k">Nombre</span><span class="pi-v">${escapeHTML(profile.name) || "—"}</span></div>
-      <div class="pi-row"><span class="pi-k">Correo</span><span class="pi-v">${escapeHTML(profile.email) || "—"}</span></div>
-      <div class="pi-row"><span class="pi-k">Celular</span><span class="pi-v">${escapeHTML(profile.phone) || "—"}</span></div>
-      <button class="edit-info-btn" data-action="editProfile">${icon("pencil", { size: 15 })} Modificar información</button>
-    </div>
-    `}
+    ${contactInfoHTML()}
   `;
   sheetFoot.innerHTML = "";
 }
@@ -308,15 +350,15 @@ function returnEditorHTML(i){
   return `
     <div class="ret-editor">
       <div class="ret-editor-title">Al finalizar el alquiler, ¿cómo quieres devolver la prenda?</div>
-      <button type="button" class="ret-opt ${editRet==='store'?'active':''}" data-action="pickReturn" data-value="store" aria-pressed="${editRet==='store'}">
+      <button type="button" class="ret-opt ${editRet===RETURN_TO.STORE?'active':''}" data-action="pickReturn" data-value="${RETURN_TO.STORE}" aria-pressed="${editRet===RETURN_TO.STORE}">
         <span class="ro-head"><span>${icon("store", { size: 15 })} Devolución en el local</span><span class="ro-tag free">Gratis</span></span>
         <small class="ro-desc">Te acercas a nuestro local físico a dejar la prenda.</small>
       </button>
-      <button type="button" class="ret-opt ${editRet==='home'?'active':''}" data-action="pickReturn" data-value="home" aria-pressed="${editRet==='home'}">
+      <button type="button" class="ret-opt ${editRet===RETURN_TO.HOME?'active':''}" data-action="pickReturn" data-value="${RETURN_TO.HOME}" aria-pressed="${editRet===RETURN_TO.HOME}">
         <span class="ro-head"><span>${icon("truck", { size: 15 })} Devolución a domicilio</span><span class="ro-tag fee">+$${SHIPPING_FEE.toFixed(2)}</span></span>
         <small class="ro-desc">Vamos a la dirección que indiques a retirar la prenda (cargo adicional).</small>
       </button>
-      ${editRet==='home' ? `
+      ${editRet===RETURN_TO.HOME ? `
         <input class="ret-addr-input" id="editRetAddr" placeholder="Dirección de retiro…" value="${escapeHTML(editRetAddr)}" aria-label="Dirección de retiro" />` : ``}
       <div class="ret-editor-actions">
         <button type="button" class="ret-cancel" data-action="cancelReturn">Cancelar</button>
@@ -336,14 +378,14 @@ function closeReturnEditor(){
   renderProfile();
 }
 function saveReturn(i){
-  if(editRet === "home" && !isValidAddress(editRetAddr)){
+  if(editRet === RETURN_TO.HOME && !isValidAddress(editRetAddr)){
     toast("Ingresa una dirección de retiro válida");
     return;
   }
   const o = orders[i];
   const apply = ()=>{
     o.ret = editRet;
-    o.retAddr = editRet === "home" ? editRetAddr.trim() : "";
+    o.retAddr = editRet === RETURN_TO.HOME ? editRetAddr.trim() : "";
     o.total = orderTotal(o);   // el cambio de devolución actualiza el total del cobro
     saveState();
     closeReturnEditor();
@@ -353,7 +395,7 @@ function saveReturn(i){
   // si solo cambia la dirección, aplicar directo.
   if(o.ret !== editRet){
     const newTotal = orderTotal({ ...o, ret: editRet }).toFixed(2);
-    const msg = editRet === "home"
+    const msg = editRet === RETURN_TO.HOME
       ? `Cambiarás a Devolución a domicilio.\n\nSe COBRARÁ un adicional de $${SHIPPING_FEE.toFixed(2)} por ir a retirar la prenda. El total del cobro del pedido pasará a $${newTotal}.\n\n¿Confirmar?`
       : `Cambiarás a Devolución en el local.\n\nSe te DESCONTARÁ $${SHIPPING_FEE.toFixed(2)} (ya no haremos el retiro a domicilio). El total del cobro del pedido pasará a $${newTotal}.\n\n¿Confirmar?`;
     confirmDialog(msg, apply);
@@ -386,11 +428,11 @@ function cancelOrder(i){
     <div class="ci-thumb">${imgPlaceholder(p)}</div>`).join("")}</div>`;
   // El reembolso se muestra SIEMPRE, también cuando es $0: que la cifra falte
   // deja al cliente preguntándose si perdió el dinero.
-  const cobrado = o.status === "settled";
+  const cobrado = o.status === ORDER_STATUS.SETTLED;
   const refundHTML = `
     <div class="md-refund${cobrado ? "" : " zero"}">
       <span>${cobrado
-        ? (o.pay === "cash"
+        ? (o.pay === PAY_METHOD.CASH
           ? `${icon("cash", { size: 15 })} Se te devolverá en el local`
           : `${icon("card", { size: 15 })} Reembolso a tu tarjeta`)
         : `${icon("cash", { size: 15 })} No se te ha cobrado nada`}</span>
@@ -717,7 +759,7 @@ function openDonate(){
 
 function donateValid(){
   if(donName.trim().length < 3 || !donMethod) return false;
-  if(donMethod === "home") return isValidAddress(donAddr) && !!donDate;
+  if(donMethod === RETURN_TO.HOME) return isValidAddress(donAddr) && !!donDate;
   return true;   // entrega en local
 }
 
@@ -735,28 +777,17 @@ function renderDonate(){
 
     <div class="section-label">¿Cómo nos las entregas?</div>
     <div class="delivery-opts">
-      <div class="delivery-opt ${donMethod==='store'?'active':''}" data-action="setDonateMethod" data-value="store" role="button" tabindex="0" aria-pressed="${donMethod==='store'}">
-        <div class="do-icon">${icon("store", { size: 22 })}</div>
-        <div class="do-text">
-          <div class="do-title"><span>Donar en el local</span><span style="color:var(--ok)">Gratis</span></div>
-          <div class="do-desc">Acércate a nuestro local físico a dejar la prenda.</div>
-        </div>
-        <div class="do-radio"></div>
-      </div>
-      <div class="delivery-opt ${donMethod==='home'?'active':''}" data-action="setDonateMethod" data-value="home" role="button" tabindex="0" aria-pressed="${donMethod==='home'}">
-        <div class="do-icon">${icon("truck", { size: 22 })}</div>
-        <div class="do-text">
-          <div class="do-title"><span>Solicitar retiro a domicilio</span><span style="color:var(--ok)">Gratis</span></div>
-          <div class="do-desc">Agenda una cita y vamos a tu dirección a retirarla.</div>
-        </div>
-        <div class="do-radio"></div>
-      </div>
+      ${optionCardHTML({ action:"setDonateMethod", value:RETURN_TO.STORE, active: donMethod===RETURN_TO.STORE,
+        glyph:"store", title:"Donar en el local", note:"Gratis",
+        desc:"Acércate a nuestro local físico a dejar la prenda." })}
+      ${optionCardHTML({ action:"setDonateMethod", value:RETURN_TO.HOME, active: donMethod===RETURN_TO.HOME,
+        glyph:"truck", title:"Solicitar retiro a domicilio", note:"Gratis",
+        desc:"Agenda una cita y vamos a tu dirección a retirarla." })}
     </div>
 
-    ${donMethod==='store' ? `
-      <div class="pickup-detail">${icon("store", { size: 15 })} <b>${LOCAL.nombre}</b><br>${LOCAL.direccion}<br><span style="color:var(--muted)">${LOCAL.horario}</span></div>` : ``}
+    ${donMethod===RETURN_TO.STORE ? localCardHTML() : ``}
 
-    ${donMethod==='home' ? `
+    ${donMethod===RETURN_TO.HOME ? `
       <div class="ship-detail">
         ${icon("mapPin", { size: 14 })} Dirección de retiro
         <input id="donAddr" placeholder="Calle, número, ciudad…" value="${escapeHTML(donAddr)}" />
@@ -784,8 +815,8 @@ function renderDonate(){
   let label = "Enviar solicitud de donación";
   if(donName.trim().length < 3)                            label = "Describe la prenda a donar";
   else if(!donMethod)                                      label = "Elige cómo entregarla";
-  else if(donMethod==='home' && !isValidAddress(donAddr))  label = "Ingresa la dirección de retiro";
-  else if(donMethod==='home' && !donDate)                  label = "Elige la fecha de la cita";
+  else if(donMethod===RETURN_TO.HOME && !isValidAddress(donAddr))  label = "Ingresa la dirección de retiro";
+  else if(donMethod===RETURN_TO.HOME && !donDate)                  label = "Elige la fecha de la cita";
   sheetFoot.innerHTML = `<button class="pay-btn" data-action="submitDonation" ${valid?'':'disabled'}>${label}</button>`;
 }
 
@@ -794,8 +825,8 @@ function submitDonation(){
   profile.donations.unshift({
     item: donName.trim(),
     method: donMethod,
-    addr: donMethod === "home" ? donAddr.trim() : "",
-    date: donMethod === "home" ? donDate : "",
+    addr: donMethod === RETURN_TO.HOME ? donAddr.trim() : "",
+    date: donMethod === RETURN_TO.HOME ? donDate : "",
     status: "En revisión",
     points: null
   });
