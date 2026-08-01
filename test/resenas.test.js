@@ -170,6 +170,24 @@ test("una prenda sin reseñas lo dice, no muestra un bloque vacío", () => {
   assert.equal(doc.querySelector(".rev-avg"), null);
 });
 
+test("la reseña publicada se fecha hoy, y esa fecha se pinta legible", () => {
+  // Se guardaba con `isoOffset()` sin argumento, o sea "NaN-NaN-NaN": el detalle
+  // mostraba "NaN undefined" y el orden por fecha ponía siempre las del usuario
+  // delante, porque "N" gana a "2" al comparar cadenas.
+  pedido({ items: [1] });          // la 1 ya tiene una reseña de muestra
+  app.openReview(1);
+  app.reviewRating = 5;
+  app.reviewText = "Recién publicada.";
+  app.submitReview();
+
+  assert.equal(app.reviews[0].date, app.isoOffset(0));
+
+  app.openDetail(1);
+  const fechas = Array.from(doc.querySelectorAll(".rev-date"), e => e.textContent);
+  assert.ok(fechas.length, "el detalle debe pintar las fechas");
+  for (const f of fechas) assert.doesNotMatch(f, /NaN|undefined/);
+});
+
 test("las reseñas se ordenan de la más reciente a la más antigua", () => {
   app.reviews = [
     { id: "a", productId: 3, orderId: 1, rating: 5, text: "vieja", date: "2026-01-01" },
