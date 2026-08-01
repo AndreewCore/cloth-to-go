@@ -24,14 +24,34 @@ const SHIPPING_FEE = 4.50;
  * @param {string} delivery Modo de entrega del pedido (`ship`|`pickup`).
  * @returns {number} USD.
  */
-function deliveryFeeFor(delivery){ return delivery === "ship" ? SHIPPING_FEE : 0; }
+function deliveryFeeFor(delivery){ return delivery === DELIVERY.SHIP ? SHIPPING_FEE : 0; }
 
 /**
  * Cargo por DEVOLVER el pedido. Solo el retiro a domicilio cuesta.
  * @param {string} ret Modo de devolución del pedido (`home`|`store`).
  * @returns {number} USD.
  */
-function returnFeeFor(ret){ return ret === "home" ? SHIPPING_FEE : 0; }
+function returnFeeFor(ret){ return ret === RETURN_TO.HOME ? SHIPPING_FEE : 0; }
+
+/* ---- Vocabulario del pedido ----
+   Los cuatro juegos de valores que un pedido guarda en crudo y que media app
+   comparaba a mano. Lo que ganan al estar aquí es un sitio ÚNICO donde leer qué
+   valores existen: antes había que reconstruirlo grepeando cadenas por seis
+   archivos. Lo que NO ganan, y conviene no creérselo: protección contra erratas.
+   En JS `DELIVERY.SHIPP` vale `undefined` y la comparación falla tan callada
+   como `"shipp"`; eso solo lo atrapa un compilador que aquí no hay.
+
+   Tres homónimos que NO son este vocabulario y por eso siguen siendo literales:
+   - Los nombres de icono: `icon("store")`, `icon("cash")`. Otro catálogo.
+   - Los nombres de clase CSS: `.pay-status.settled`, `.date-total.pending`.
+     Coinciden con el valor porque derivan de él, pero viven en el CSS.
+   - `pickerTarget` en maps.js, que vale "ship" | "return": es el CAMPO de
+     dirección que recibe el punto del mapa, no el modo de entrega. Comparte la
+     cadena por casualidad y su pareja es "return", no "pickup". */
+const DELIVERY     = Object.freeze({ SHIP: "ship", PICKUP: "pickup" });   // cómo RECIBE el pedido
+const RETURN_TO    = Object.freeze({ HOME: "home", STORE: "store" });     // cómo lo DEVUELVE (y cómo dona)
+const ORDER_STATUS = Object.freeze({ SETTLED: "settled", PENDING: "pending", CANCELLED: "cancelled" });
+const PAY_METHOD   = Object.freeze({ CASH: "cash", CREDIT: "credit", DEBIT: "debit" });
 
 /* ---- Devolución tardía ---- */
 const LATE_GRACE_DAYS = 3;     // días hábiles de gracia tras la fecha límite
@@ -579,7 +599,7 @@ function rewardDiscount(rw, ctx){
 function rewardIssue(rw, ctx){
   if(!rw) return null;
   const { items, days, delivery, ret } = ctx;
-  if(rw.type === "shipping" && delivery !== "ship" && ret !== "home")
+  if(rw.type === "shipping" && delivery !== DELIVERY.SHIP && ret !== RETURN_TO.HOME)
     return "Solo aplica si eliges envío a domicilio o retiro a domicilio.";
   if(rw.type === "freeDay" && days < 2)
     return "Necesitas un alquiler de 2 días o más para regalar uno.";
