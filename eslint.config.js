@@ -64,7 +64,7 @@ const PROJECT_GLOBALS = [
   "saveReview", "deleteReview",
   "countsForRewards", "creditDeliveredPoints", "revokeOrderPoints", "nextOrderId",
   "STORAGE_PREFIX", "activeStorageKey", "defaultProfile", "storageKeyFor",
-  "resetStateToDefaults", "saveState", "loadState",
+  "resetStateToDefaults", "saveState", "loadState", "migrateOrders", "migrateRedeemed",
   // dom.js
   "grid", "noResults", "resultsBar", "filtersEl", "overlay", "sheet", "sheetBody",
   "sheetFoot", "sheetTitle", "searchInput", "loginEl", "greeting", "backBtn",

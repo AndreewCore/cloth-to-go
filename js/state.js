@@ -556,6 +556,58 @@ function saveState(){
     localStorage.setItem(activeStorageKey, JSON.stringify({ cart, profile, orders, reviews }));
   } catch(e){ /* almacenamiento no disponible: continúa en memoria */ }
 }
+/* ---- Migraciones de datos guardados ----
+   Van aparte de loadState porque son reglas con FECHA DE CADUCIDAD: describen
+   cómo era el almacenamiento en una versión anterior, no cómo funciona la app
+   hoy. Mezcladas con el parseo no se distinguían del camino normal, y el día
+   que se puedan retirar (cuando el backend sea la fuente y nadie arrastre
+   claves viejas) hay que poder borrarlas sin releer el resto. Cada una se
+   aplica al leer y es idempotente: volver a pasarla sobre datos ya migrados no
+   cambia nada. */
+
+/**
+ * Completa los pedidos guardados antes de "puntos al pagar" (PR #23).
+ *
+ * Esos pedidos ya recibieron sus puntos con la lógica anterior y ya están en
+ * profile.points, así que se marcan como acreditados: si no, cualquier
+ * consumidor de `pointsCredited` (la nota de "puntos pendientes", o el futuro
+ * panel de cobros) los trataría como pendientes y volvería a sumarlos.
+ *
+ * El centinela es `undefined` y no un valor falsy: un pedido NUEVO pendiente
+ * trae `pointsCredited:false` y no debe pisarse a true.
+ * @param {object[]} list Pedidos recién leídos del almacenamiento.
+ */
+function migrateOrders(list){
+  for(const o of list){
+    if(o.pointsCredited === undefined) o.pointsCredited = true;
+    if(o.points === undefined) o.points = 0;
+  }
+}
+
+/**
+ * Completa los canjes guardados cuando `redeemed` era solo una línea de
+ * historial: sin id, sin premio asociado y sin forma de aplicarse (PR #35).
+ *
+ * Se les da identidad y se dan por DISPONIBLES: el cliente ya pagó esos puntos
+ * y nunca recibió nada a cambio, así que honrarlos es lo correcto.
+ * @param {object[]} redeemed Canjes del perfil recién leído.
+ */
+function migrateRedeemed(redeemed){
+  let idSeq = 0;
+  for(const c of redeemed){
+    if(c.id === undefined) c.id = ++idSeq;
+    else idSeq = Math.max(idSeq, c.id);
+    if(c.rewardId === undefined){
+      const rw = REWARDS.find(r => r.name === c.name);
+      c.rewardId = rw ? rw.id : null;
+    }
+    if(c.usedIn === undefined) c.usedIn = null;
+    // Un canje sin premio reconocible (nombre cambiado en REWARDS) no puede
+    // valorarse: se deja como historial, no como cupón utilizable.
+    if(c.rewardId === null) c.usedIn = c.usedIn || "—";
+  }
+}
+
 function loadState(){
   if(!activeStorageKey) return;       // invitado: sin datos previos que cargar
   try {
@@ -566,38 +618,16 @@ function loadState(){
     if(Array.isArray(s.reviews)) reviews = s.reviews;
     if(Array.isArray(s.orders)){
       orders = s.orders;
-      // Migración: los pedidos guardados antes de "puntos al pagar" ya recibieron
-      // sus puntos con la lógica anterior (y ya están en profile.points). Los
-      // marcamos como acreditados para que ningún consumidor de pointsCredited
-      // (la nota de "puntos pendientes", o el futuro backend/panel de cobros) los
-      // trate como pendientes ni los vuelva a sumar. El centinela es `undefined`:
-      // un pending NUEVO trae pointsCredited:false y NO debe pisarse a true.
-      for(const o of orders){
-        if(o.pointsCredited === undefined) o.pointsCredited = true;
-        if(o.points === undefined) o.points = 0;
-      }
+      migrateOrders(orders);
     }
     if(s.profile && typeof s.profile === "object"){
+      // Object.assign sobre defaultProfile() es la migración de los campos
+      // nuevos (picture, waterGoals): un perfil viejo entra con el valor por
+      // defecto en vez de con un hueco.
       profile = Object.assign(defaultProfile(), s.profile);
       if(!Array.isArray(profile.redeemed)) profile.redeemed = [];
       if(!Array.isArray(profile.donations)) profile.donations = [];
-      // Migración: los canjes anteriores solo eran una línea de historial (sin
-      // id, sin premio asociado y sin forma de aplicarse). Se les completa la
-      // identidad y se dan por DISPONIBLES: el cliente ya pagó esos puntos y
-      // nunca recibió nada a cambio, así que honrarlos es lo correcto.
-      let idSeq = 0;
-      for(const c of profile.redeemed){
-        if(c.id === undefined) c.id = ++idSeq;
-        else idSeq = Math.max(idSeq, c.id);
-        if(c.rewardId === undefined){
-          const rw = REWARDS.find(r => r.name === c.name);
-          c.rewardId = rw ? rw.id : null;
-        }
-        if(c.usedIn === undefined) c.usedIn = null;
-        // Un canje sin premio reconocible (nombre cambiado en REWARDS) no puede
-        // valorarse: se deja como historial, no como cupón utilizable.
-        if(c.rewardId === null) c.usedIn = c.usedIn || "—";
-      }
+      migrateRedeemed(profile.redeemed);
     }
   } catch(e){ /* datos corruptos: se usan los valores por defecto */ }
 }
