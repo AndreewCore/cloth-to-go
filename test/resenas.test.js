@@ -182,6 +182,11 @@ test("la reseña publicada se fecha hoy, y esa fecha se pinta legible", () => {
 
   assert.equal(app.reviews[0].date, app.isoOffset(0));
 
+  // Lo persistido importa más que lo que hay en memoria: una fecha inválida en
+  // localStorage sobrevive al arreglo y sigue mintiendo en cada recarga.
+  const guardado = JSON.parse(win.localStorage.getItem(app.activeStorageKey));
+  assert.equal(guardado.reviews[0].date, app.isoOffset(0));
+
   app.openDetail(1);
   const fechas = Array.from(doc.querySelectorAll(".rev-date"), e => e.textContent);
   assert.ok(fechas.length, "el detalle debe pintar las fechas");

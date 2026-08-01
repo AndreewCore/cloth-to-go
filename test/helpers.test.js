@@ -71,6 +71,19 @@ test("isoOffset sin argumento es hoy, no una fecha inválida", () => {
   assert.match(A.isoOffset(), /^\d{4}-\d{2}-\d{2}$/);
 });
 
+test("isoOffset: desplazamientos negativos y saltos de mes y de año", () => {
+  // Contra una referencia independiente (aritmética UTC sobre la medianoche
+  // local de hoy) y no contra la propia función: comparar isoOffset consigo
+  // misma daría por buena cualquier fórmula, incluida una equivocada.
+  const h = new Date();
+  const base = Date.UTC(h.getFullYear(), h.getMonth(), h.getDate());
+  const ref = n => new Date(base + n * 86400000).toISOString().slice(0, 10);
+
+  for (const n of [-400, -31, -1, 0, 1, 30, 400]) {
+    assert.equal(A.isoOffset(n), ref(n), `desfase con ${n} días`);
+  }
+});
+
 test("garmentWater = peso · intensidad hídrica del material", () => {
   assert.equal(A.garmentWater({ material: "lino", weightKg: 0.5 }), 1450); // 0.5·2900
   assert.equal(A.garmentWater({ material: "sintetico", weightKg: 0.3 }), 36); // 0.3·120
