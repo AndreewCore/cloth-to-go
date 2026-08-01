@@ -223,52 +223,27 @@ function renderCheckout(){
   sheetBody.innerHTML = `
     <div class="section-label">¿Cómo quieres recibir tu pedido?</div>
     <div class="delivery-opts">
-      <div class="delivery-opt ${delivery==='ship'?'active':''}" data-action="setDelivery" data-value="ship" role="button" tabindex="0" aria-pressed="${delivery==='ship'}">
-        <div class="do-icon">${icon("truck", { size: 22 })}</div>
-        <div class="do-text">
-          <div class="do-title"><span>Envío a domicilio</span><span style="color:var(--accent)">$${ship.toFixed(2)}</span></div>
-          <div class="do-desc">Recíbelo en 24–48 h en tu dirección.</div>
-        </div>
-        <div class="do-radio"></div>
-      </div>
-      <div class="delivery-opt ${delivery==='pickup'?'active':''}" data-action="setDelivery" data-value="pickup" role="button" tabindex="0" aria-pressed="${delivery==='pickup'}">
-        <div class="do-icon">${icon("store", { size: 22 })}</div>
-        <div class="do-text">
-          <div class="do-title"><span>Retiro en local</span><span style="color:var(--ok)">Gratis</span></div>
-          <div class="do-desc">Recoge en nuestro único local físico.</div>
-        </div>
-        <div class="do-radio"></div>
-      </div>
+      ${optionCardHTML({ action:"setDelivery", value:"ship", active: delivery==="ship",
+        glyph:"truck", title:"Envío a domicilio", note:`$${ship.toFixed(2)}`, noteVar:"accent",
+        desc:"Recíbelo en 24–48 h en tu dirección." })}
+      ${optionCardHTML({ action:"setDelivery", value:"pickup", active: delivery==="pickup",
+        glyph:"store", title:"Retiro en local", note:"Gratis",
+        desc:"Recoge en nuestro único local físico." })}
     </div>
     ${delivery==='ship' ? `
       <div class="ship-detail">
         ${addressFieldHTML("ship", "Dirección de envío", address, addressCoords)}
       </div>` : ``}
-    ${delivery==='pickup' ? `
-      <div class="pickup-detail">
-        ${icon("store", { size: 15 })} <b>${LOCAL.nombre}</b><br>
-        ${LOCAL.direccion}<br>
-        <span style="color:var(--muted)">${LOCAL.horario}</span>
-      </div>` : ``}
+    ${delivery==='pickup' ? localCardHTML() : ``}
 
     <div class="section-label">¿Cómo deseas devolver la ropa al terminar el alquiler?</div>
     <div class="delivery-opts">
-      <div class="delivery-opt ${returnMethod==='store'?'active':''}" data-action="setReturn" data-value="store" role="button" tabindex="0" aria-pressed="${returnMethod==='store'}">
-        <div class="do-icon">${icon("store", { size: 22 })}</div>
-        <div class="do-text">
-          <div class="do-title"><span>Devolver en el local</span><span style="color:var(--ok)">Gratis</span></div>
-          <div class="do-desc">Acércate a nuestro local físico al terminar el alquiler.</div>
-        </div>
-        <div class="do-radio"></div>
-      </div>
-      <div class="delivery-opt ${returnMethod==='home'?'active':''}" data-action="setReturn" data-value="home" role="button" tabindex="0" aria-pressed="${returnMethod==='home'}">
-        <div class="do-icon">${icon("truck", { size: 22 })}</div>
-        <div class="do-text">
-          <div class="do-title"><span>Retiro a domicilio</span><span style="color:var(--accent)">$${ship.toFixed(2)}</span></div>
-          <div class="do-desc">Pasamos por tu dirección a retirar las prendas.</div>
-        </div>
-        <div class="do-radio"></div>
-      </div>
+      ${optionCardHTML({ action:"setReturn", value:"store", active: returnMethod==="store",
+        glyph:"store", title:"Devolver en el local", note:"Gratis",
+        desc:"Acércate a nuestro local físico al terminar el alquiler." })}
+      ${optionCardHTML({ action:"setReturn", value:"home", active: returnMethod==="home",
+        glyph:"truck", title:"Retiro a domicilio", note:`$${ship.toFixed(2)}`, noteVar:"accent",
+        desc:"Pasamos por tu dirección a retirar las prendas." })}
     </div>
     ${returnMethod==='home' ? `
       <div class="ship-detail">

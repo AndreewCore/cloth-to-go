@@ -735,26 +735,15 @@ function renderDonate(){
 
     <div class="section-label">¿Cómo nos las entregas?</div>
     <div class="delivery-opts">
-      <div class="delivery-opt ${donMethod==='store'?'active':''}" data-action="setDonateMethod" data-value="store" role="button" tabindex="0" aria-pressed="${donMethod==='store'}">
-        <div class="do-icon">${icon("store", { size: 22 })}</div>
-        <div class="do-text">
-          <div class="do-title"><span>Donar en el local</span><span style="color:var(--ok)">Gratis</span></div>
-          <div class="do-desc">Acércate a nuestro local físico a dejar la prenda.</div>
-        </div>
-        <div class="do-radio"></div>
-      </div>
-      <div class="delivery-opt ${donMethod==='home'?'active':''}" data-action="setDonateMethod" data-value="home" role="button" tabindex="0" aria-pressed="${donMethod==='home'}">
-        <div class="do-icon">${icon("truck", { size: 22 })}</div>
-        <div class="do-text">
-          <div class="do-title"><span>Solicitar retiro a domicilio</span><span style="color:var(--ok)">Gratis</span></div>
-          <div class="do-desc">Agenda una cita y vamos a tu dirección a retirarla.</div>
-        </div>
-        <div class="do-radio"></div>
-      </div>
+      ${optionCardHTML({ action:"setDonateMethod", value:"store", active: donMethod==="store",
+        glyph:"store", title:"Donar en el local", note:"Gratis",
+        desc:"Acércate a nuestro local físico a dejar la prenda." })}
+      ${optionCardHTML({ action:"setDonateMethod", value:"home", active: donMethod==="home",
+        glyph:"truck", title:"Solicitar retiro a domicilio", note:"Gratis",
+        desc:"Agenda una cita y vamos a tu dirección a retirarla." })}
     </div>
 
-    ${donMethod==='store' ? `
-      <div class="pickup-detail">${icon("store", { size: 15 })} <b>${LOCAL.nombre}</b><br>${LOCAL.direccion}<br><span style="color:var(--muted)">${LOCAL.horario}</span></div>` : ``}
+    ${donMethod==='store' ? localCardHTML() : ``}
 
     ${donMethod==='home' ? `
       <div class="ship-detail">
