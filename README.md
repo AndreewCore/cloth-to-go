@@ -71,6 +71,9 @@ bundler y **sin dependencias en tiempo de ejecución**. Se abre directamente con
 - 🎁 **Donación de ropa** y armario propio (próximamente, poner tus prendas en alquiler).
 - 🌗 **Tema claro/oscuro** y **preferencias de accesibilidad**: tamaño de texto, menos
   animación y alto contraste.
+- 🗑️ **Eliminar mis datos** desde Ajustes: borra los datos de esa cuenta en el
+  dispositivo y cierra la sesión. Las preferencias de tema y accesibilidad son del
+  aparato y se conservan.
 - 📱 **Responsive**: mockup de teléfono en escritorio y pantalla completa en móvil.
 - ♿ Cuidado de **accesibilidad**: contraste AA, foco visible y soporte de teclado.
 

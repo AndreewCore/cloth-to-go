@@ -137,6 +137,8 @@ globalThis.__APP__ = {
   get modalOpen(){ return modalOverlay.classList.contains("show"); },
   // Detalle desde imagen: pestaña apilada sobre el perfil.
   openDetail, openSheet, closeSheet, closeStackSheet,
+  // Baja de cuenta.
+  deleteAccount, askDeleteAccount, renderSettings, signOut,
   // Acuse de recibo al agregar al carrito.
   addToCart, flyToCart, bumpBadge, updateBadge,
   // Reseñas.

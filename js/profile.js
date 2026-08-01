@@ -892,6 +892,24 @@ function renderSettings(){
         </div>
         ${prefToggleHTML("highContrast", p.highContrast)}
       </div>
-    </div>`;
+    </div>
+
+    <!-- Al invitado no se le ofrece: su sesión no persiste (activeStorageKey es
+         null), y un botón que promete borrar algo inexistente enseña un modelo
+         mental falso de dónde viven los datos. La condición es la clave de
+         almacenamiento y no currentUser porque es exactamente lo que se borra.
+         Va al final y en rojo, lejos del resto: aquí no hay deshacer. -->
+    ${activeStorageKey ? `
+    <div class="pref-row danger-row">
+      <div class="pref-head">
+        <span class="pref-icon ico-danger">${icon("trash", { size: 20 })}</span>
+        <div>
+          <div class="pref-name">Eliminar mis datos</div>
+          <div class="pref-desc">Borra tu carrito, pedidos, reseñas y puntos de este
+          dispositivo, y cierra la sesión. No se puede deshacer.</div>
+        </div>
+      </div>
+      <button class="danger-btn" data-action="deleteAccount">Eliminar mis datos</button>
+    </div>` : ""}`;
   sheetFoot.innerHTML = "";
 }

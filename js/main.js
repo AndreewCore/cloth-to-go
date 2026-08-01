@@ -159,6 +159,7 @@ function onSheetClick(e){
     case "galNext":        moveGallery(1); break;
     case "galDot":         showGalleryImage(+el.dataset.i); break;
     case "signOut":        signOut(); break;
+    case "deleteAccount":  askDeleteAccount(); break;
     case "saveProfile":    saveProfile(); break;
     case "editProfile":    editProfile(); break;
     case "cancelProfileEdit": cancelProfileEdit(); break;
