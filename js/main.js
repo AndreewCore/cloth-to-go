@@ -171,7 +171,6 @@ function onSheetClick(e){
     case "redeem":         redeem(+el.dataset.id); break;
     case "openDonate":     openDonate(); break;
     case "openWardrobe":   openWardrobe(); break;
-    case "openSettings":   view="settings"; renderSheet(); break;
     case "setPref":        setPref(el.dataset.pref, el.dataset.value); renderSheet(); break;
     // Los booleanos leen su estado del DOM (aria-checked) en vez de recalcularlo:
     // el botón ya es la fuente de verdad de lo que el usuario está viendo.

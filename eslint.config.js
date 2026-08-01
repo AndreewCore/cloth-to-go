@@ -20,6 +20,7 @@ const PROJECT_GLOBALS = [
   "getPrefs", "setPref", "toggleTheme", "watchSystemTheme",
   // data.js
   "LOCAL", "SHIPPING_FEE", "deliveryFeeFor", "returnFeeFor",
+  "DELIVERY", "RETURN_TO", "ORDER_STATUS", "PAY_METHOD",
   "LATE_GRACE_DAYS", "LATE_PENALTY",
   "LAUNDRY_BY_MATERIAL", "OVERHEAD_PER_CYCLE", "CYCLES_PER_STAR", "MIN_MARGIN",
   "garmentCycles", "cycleCost", "DAY1_RATE_DEFAULT", "DAY1_RATE_BY_STARS", "DAY_TRAMOS",
@@ -68,7 +69,7 @@ const PROJECT_GLOBALS = [
   // dom.js
   "grid", "noResults", "resultsBar", "filtersEl", "overlay", "sheet", "sheetBody",
   "sheetFoot", "sheetTitle", "searchInput", "loginEl", "greeting", "backBtn",
-  "SHEET_BACK", "FULL_VIEWS", "openSheet", "closeSheet", "renderSheet", "scrollSheetTo", "updateBadge", "bumpBadge", "flyToCart", "toastTimer", "toast",
+  "SHEET_BACK", "FULL_VIEWS", "optionCardHTML", "localCardHTML", "openSheet", "closeSheet", "renderSheet", "scrollSheetTo", "updateBadge", "bumpBadge", "flyToCart", "toastTimer", "toast",
   "sheetStack", "stackOverlay", "stackBody", "stackFoot", "openStackSheet", "closeStackSheet",
   "modalOverlay", "modalText", "modalOk", "modalCancel", "onConfirmCb", "confirmDialog", "closeModal",
   // catalog.js
@@ -81,11 +82,11 @@ const PROJECT_GLOBALS = [
   "totalRowHTML", "calVisibleMonth", "calDayIndex", "calDayCost", "calGridHTML",
   "pickCalendarDay", "shiftCalendar", "dateBoxHTML", "renderCart", "removeItem", "renderCheckout",
   "couponSectionHTML",
-  "checkoutValid", "renderPayment", "paymentValid", "placeOrder", "renderDone",
+  "deliveryReady", "returnReady", "checkoutValid", "renderPayment", "paymentValid", "placeOrder", "renderDone",
   "confirmItemsHTML", "confirmDetailHTML", "confirmOrder",
   "resetCheckoutState", "finishOrder", "goToOrders",
   // profile.js
-  "renderProfile", "waterGoalHTML", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
+  "renderProfile", "PAY_LABELS", "profileHeadHTML", "contactInfoHTML", "orderCardHTML", "waterGoalHTML", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
   "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn", "cancelOrder",
   "renderRewards", "couponListHTML", "redeem",
   "prefOptionsHTML", "prefToggleHTML", "renderSettings",
