@@ -348,11 +348,38 @@ function couponSectionHTML(){
       : ""}`;
 }
 
-// ¿El checkout tiene datos suficientes para pagar?
+/**
+ * ¿Está resuelto CÓMO recibe el cliente el pedido?
+ * Retirar en el local no pide nada más; el envío exige dirección utilizable
+ * (ver addressReady en maps.js: con selector de mapa manda el punto, sin él
+ * manda el texto).
+ * @returns {boolean}
+ */
+function deliveryReady(){
+  if(delivery === "pickup") return true;
+  return delivery === "ship" && addressReady(address, addressCoords);
+}
+
+/**
+ * ¿Está resuelto CÓMO devuelve el cliente las prendas?
+ * @returns {boolean}
+ */
+function returnReady(){
+  if(returnMethod === "store") return true;
+  return returnMethod === "home" && addressReady(returnAddress, returnAddressCoords);
+}
+
+/**
+ * ¿El checkout tiene datos suficientes para pagar?
+ *
+ * Devuelve booleano de verdad. Antes empezaba por `delivery && …`, así que sin
+ * entrega elegida respondía `null`: funcionaba porque solo alimenta un
+ * `disabled`, pero es una firma que miente y que el primer `=== false` o el
+ * primer `JSON.stringify` habrían delatado.
+ * @returns {boolean}
+ */
 function checkoutValid(){
-  const deliveryOk = delivery && (delivery==="pickup" || (delivery==="ship" && addressReady(address, addressCoords)));
-  const returnOk = returnMethod && (returnMethod==="store" || (returnMethod==="home" && addressReady(returnAddress, returnAddressCoords)));
-  return deliveryOk && returnOk;
+  return deliveryReady() && returnReady();
 }
 
 /* ---- Pago (método) ---- */
