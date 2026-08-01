@@ -88,7 +88,9 @@ filtersEl.addEventListener("click", e=>{
 
 grid.addEventListener("click", e=>{
   const add = e.target.closest("[data-add]");
-  if(add){ addToCart(+add.dataset.add); return; }
+  // La miniatura de la tarjeta es el origen del vuelo al carrito: es lo que el
+  // cliente está mirando cuando pulsa, no el botón.
+  if(add){ addToCart(+add.dataset.add, add.closest(".card")?.querySelector(".thumb")); return; }
   const card = e.target.closest("[data-detail]");
   if(card){ openDetail(+card.dataset.detail); }
 });
@@ -139,7 +141,11 @@ function onSheetClick(e){
                            editingOrder=null; editingProfile=false; view="profile"; renderSheet(); break;
     // renderDetail() sirve para ambas superficies y repinta solo el detalle,
     // que es lo único que cambia al agregar la prenda al carrito.
-    case "addDetail":      addToCart(detailId); renderDetail(); break;
+    // Desde el detalle vuela la foto grande: el botón vive en el pie del panel,
+    // y la galería es lo que ocupa la mirada. `.sheet` acota a la superficie
+    // pulsada — el detalle también se abre apilado sobre el perfil.
+    case "addDetail":      addToCart(detailId, el.closest(".sheet")?.querySelector(".gallery"));
+                           renderDetail(); break;
     case "openReview":     openReview(+el.dataset.order); break;
     case "pickReviewItem": reviewProductId = +el.dataset.id; renderSheet(); break;
     // Segundo toque sobre la misma estrella = quitarla, como el premio aplicado:

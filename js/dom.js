@@ -116,6 +116,71 @@ function updateBadge(){
   badge.style.display = n > 0 ? "grid" : "none";
 }
 
+/**
+ * Sacude el badge para acusar recibo de la prenda que acaba de entrar.
+ * Reinicia la animación quitando y volviendo a poner la clase: agregar dos
+ * prendas seguidas debe dar dos sacudidas, no una sola que ya estaba corriendo.
+ */
+function bumpBadge(){
+  const badge = document.getElementById("badge");
+  if(!badge || shouldReduceMotion()) return;
+  badge.classList.remove("bump");
+  void badge.offsetWidth;   // fuerza el reflujo: sin él el navegador funde ambos cambios de clase en uno
+  badge.classList.add("bump");
+}
+
+/**
+ * Manda una miniatura de la prenda volando desde su tarjeta hasta el carrito.
+ *
+ * Es el acuse de recibo que faltaba: el badge cambia en una esquina que nadie
+ * está mirando cuando pulsa el botón, y en la feria hubo quien pulsó dos veces
+ * por no ver nada. El vuelo une los dos puntos, así que enseña *dónde* quedó la
+ * prenda además de *que* entró.
+ *
+ * Degrada a nada si no hay de dónde salir, si el usuario pidió menos movimiento
+ * o si el entorno no trae la API de animaciones (jsdom, navegadores viejos): el
+ * carrito ya quedó actualizado antes de llamar aquí, esto es solo el adorno.
+ * @param {Element|null} origin Elemento del que sale el vuelo (la miniatura).
+ * @returns {boolean} Si el vuelo llegó a lanzarse.
+ */
+function flyToCart(origin){
+  const target = document.getElementById("openCart");
+  if(!origin || !target || shouldReduceMotion() || typeof origin.animate !== "function") return false;
+
+  const desde = origin.getBoundingClientRect();
+  const hasta = target.getBoundingClientRect();
+  // Sin medidas no hay trayecto que dibujar (elemento oculto, o un DOM sin
+  // layout como el de los tests).
+  if(!desde.width || !hasta.width) return false;
+
+  const ghost = document.createElement("div");
+  ghost.className = "fly-ghost";
+  const img = origin.querySelector("img");
+  // Si la prenda no tiene foto, vuela el color de la marca: un fantasma vacío
+  // parecería un fallo de carga.
+  if(img && img.src && img.style.display !== "none") ghost.style.backgroundImage = `url("${img.src}")`;
+  ghost.style.left   = `${desde.left}px`;
+  ghost.style.top    = `${desde.top}px`;
+  ghost.style.width  = `${desde.width}px`;
+  ghost.style.height = `${desde.height}px`;
+  document.body.appendChild(ghost);
+
+  const dx = (hasta.left + hasta.width / 2) - (desde.left + desde.width / 2);
+  const dy = (hasta.top + hasta.height / 2) - (desde.top + desde.height / 2);
+  const vuelo = ghost.animate([
+    { transform: "translate(0,0) scale(1)", opacity: .95, borderRadius: "14px" },
+    // El punto medio sube un poco: en línea recta el recorrido se lee como un
+    // salto de posición, con la curva se lee como algo que va hacia el carrito.
+    { transform: `translate(${dx * .55}px, ${dy * .35 - 40}px) scale(.5)`, opacity: .9, offset: .55 },
+    { transform: `translate(${dx}px, ${dy}px) scale(.12)`, opacity: .25, borderRadius: "50%" },
+  ], { duration: 540, easing: "cubic-bezier(.4,.05,.4,1)", fill: "forwards" });
+
+  // onfinish y no un setTimeout: si la pestaña se va a segundo plano el vuelo se
+  // congela, y el temporizador dejaría el fantasma clavado sobre la pantalla.
+  vuelo.onfinish = vuelo.oncancel = () => { ghost.remove(); bumpBadge(); };
+  return true;
+}
+
 /* ---------------- Toast ---------------- */
 let toastTimer;
 function toast(msg){
