@@ -13,6 +13,26 @@ const LOCAL = {
 };
 const SHIPPING_FEE = 4.50;
 
+/* Qué modos de entrega y devolución llevan cargo logístico. La regla vivía
+   escrita a mano en seis sitios (el carrito, el pedido guardado y las dos
+   cuentas del premio de envío); un tercer modo de entrega obligaba a
+   encontrarlos todos y el que se olvidara cobraría de menos en silencio. */
+
+/**
+ * Cargo por RECIBIR el pedido. Solo el envío a domicilio cuesta: retirarlo en
+ * el local no mueve a nadie.
+ * @param {string} delivery Modo de entrega del pedido (`ship`|`pickup`).
+ * @returns {number} USD.
+ */
+function deliveryFeeFor(delivery){ return delivery === "ship" ? SHIPPING_FEE : 0; }
+
+/**
+ * Cargo por DEVOLVER el pedido. Solo el retiro a domicilio cuesta.
+ * @param {string} ret Modo de devolución del pedido (`home`|`store`).
+ * @returns {number} USD.
+ */
+function returnFeeFor(ret){ return ret === "home" ? SHIPPING_FEE : 0; }
+
 /* ---- Devolución tardía ---- */
 const LATE_GRACE_DAYS = 3;     // días hábiles de gracia tras la fecha límite
 const LATE_PENALTY = 15.00;    // penalización si no se devuelve dentro de la gracia
@@ -495,7 +515,7 @@ function rewardDiscount(rw, ctx){
   switch(rw.type){
     // Cubre UNA tarifa de logística: el premio dice "envío O retiro", no ambos.
     case "shipping":
-      bruto = (delivery === "ship" || ret === "home") ? cents(SHIPPING_FEE) : 0;
+      bruto = (deliveryFeeFor(delivery) || returnFeeFor(ret)) ? cents(SHIPPING_FEE) : 0;
       break;
     // Un día menos de alquiler. Con un solo día no hay nada que regalar sin
     // dejar el alquiler en cero, así que el premio se reserva para otro pedido.
@@ -516,8 +536,8 @@ function rewardDiscount(rw, ctx){
   // Tope: el premio puede dejar el alquiler en $0, nunca en negativo (que sería
   // devolverle al cliente parte del depósito).
   const cobrable = suma(days)
-    + (delivery === "ship" ? cents(SHIPPING_FEE) : 0)
-    + (ret === "home" ? cents(SHIPPING_FEE) : 0);
+    + cents(deliveryFeeFor(delivery))
+    + cents(returnFeeFor(ret));
   return Math.max(0, Math.min(bruto, cobrable)) / 100;
 }
 

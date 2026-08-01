@@ -182,8 +182,10 @@ function volumeSavings(){
 function depositTotal(){
   return depositForItems(cart.map(c => productById(c.id)));
 }
-function shippingFee(){ return delivery === "ship" ? SHIPPING_FEE : 0; }
-function returnFee(){ return returnMethod === "home" ? SHIPPING_FEE : 0; }
+// Cargos logísticos del CHECKOUT en curso; la regla de cuáles se cobran vive
+// en data.js (deliveryFeeFor/returnFeeFor), compartida con el pedido guardado.
+function shippingFee(){ return deliveryFeeFor(delivery); }
+function returnFee(){ return returnFeeFor(returnMethod); }
 function grandTotal(){
   return (cents(subtotal()) + cents(depositTotal()) + cents(shippingFee())
         + cents(returnFee()) - cents(couponDiscount())) / 100;
@@ -323,8 +325,8 @@ function orderDiscount(o){
 // Valor total del cobro de un pedido (incluye depósito reembolsable + envío +
 // devolución, menos el premio aplicado). Se usa para guardar/actualizar o.total.
 function orderTotal(o){
-  const ship = o.delivery === "ship" ? SHIPPING_FEE : 0;
-  const ret  = o.ret === "home" ? SHIPPING_FEE : 0;
+  const ship = deliveryFeeFor(o.delivery);
+  const ret  = returnFeeFor(o.ret);
   return (cents(orderItemsSubtotal(o)) + cents(orderDeposit(o)) + cents(ship)
         + cents(ret) - cents(orderDiscount(o))) / 100;
 }
