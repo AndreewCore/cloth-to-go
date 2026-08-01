@@ -544,15 +544,31 @@ function creditDeliveredPoints(){
 function revokeOrderPoints(o){
   if(!o.pointsCredited) return 0;
   o.pointsCredited = false;
+  const revocados = reclaimPointsUpTo(o.points);
+  profile.points = Math.max(0, profile.points - o.points);
+  return revocados;
+}
+
+/**
+ * Devuelve puntos al saldo revocando canjes sin usar, hasta llegar a `objetivo`.
+ *
+ * Del más reciente al más antiguo, que son los que esos puntos financiaron. Si
+ * al quedarse sin canjes el saldo sigue sin alcanzar, **el resto se perdona**:
+ * la alternativa sería dejar al cliente en números rojos o retirarle un premio
+ * ya disfrutado, y ninguna de las dos es defendible por un pedido que la app
+ * misma le dejó anular.
+ * @param {number} objetivo Puntos que el saldo debe alcanzar.
+ * @returns {number} Canjes revocados.
+ */
+function reclaimPointsUpTo(objetivo){
   let revocados = 0;
-  while(profile.points < o.points){
+  while(profile.points < objetivo){
     const c = availableCoupons()[0];   // redeemed se llena con unshift: [0] es el último canje
-    if(!c) break;                      // nada más que recuperar: el resto se perdona
+    if(!c) break;                      // nada más que recuperar
     c.revoked = true;
     profile.points += c.cost;
     revocados++;
   }
-  profile.points = Math.max(0, profile.points - o.points);
   return revocados;
 }
 // Siguiente número de pedido (correlativo a partir de 1000).

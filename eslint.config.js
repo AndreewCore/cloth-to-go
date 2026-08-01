@@ -62,7 +62,7 @@ const PROJECT_GLOBALS = [
   "reviews", "reviewOrderId", "reviewProductId", "reviewRating", "reviewText", "reviewPhoto",
   "productReviews", "productRating", "reviewFor", "reviewableItems", "hasPendingReview",
   "saveReview", "deleteReview",
-  "countsForRewards", "creditDeliveredPoints", "revokeOrderPoints", "nextOrderId",
+  "countsForRewards", "creditDeliveredPoints", "revokeOrderPoints", "reclaimPointsUpTo", "nextOrderId",
   "STORAGE_PREFIX", "activeStorageKey", "defaultProfile", "storageKeyFor",
   "resetStateToDefaults", "saveState", "loadState", "migrateOrders", "migrateRedeemed",
   // dom.js
