@@ -85,7 +85,7 @@ const PROJECT_GLOBALS = [
   "confirmItemsHTML", "confirmDetailHTML", "confirmOrder",
   "resetCheckoutState", "finishOrder", "goToOrders",
   // profile.js
-  "renderProfile", "waterGoalHTML", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
+  "renderProfile", "PAY_LABELS", "profileHeadHTML", "contactInfoHTML", "orderCardHTML", "waterGoalHTML", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
   "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn", "cancelOrder",
   "renderRewards", "couponListHTML", "redeem",
   "prefOptionsHTML", "prefToggleHTML", "renderSettings",

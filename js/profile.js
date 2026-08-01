@@ -6,33 +6,101 @@
    Depende de data.js (LATE_*, SHIPPING_FEE, helpers), state.js y dom.js.
    ============================================================ */
 
-function renderProfile(){
-  sheetTitle.textContent = "Mi perfil";
-  const esc = escapeHTML;   // escape anti-XSS (contenido y atributos)
-  const initial = escapeHTML(profile.name.trim().charAt(0) || "?").toUpperCase();
-  const payNames = {
-    cash:   `${icon("cash", { size: 14 })} Efectivo`,
-    credit: `${icon("card", { size: 14 })} Crédito`,
-    debit:  `${icon("bank", { size: 14 })} Débito`
-  };
+/* Método de pago → etiqueta con su icono. Const de módulo y no un literal
+   dentro del render: el pedido guarda `pay` en crudo y esta es la única
+   traducción a palabras que ve el cliente. */
+const PAY_LABELS = {
+  cash:   `${icon("cash", { size: 14 })} Efectivo`,
+  credit: `${icon("card", { size: 14 })} Crédito`,
+  debit:  `${icon("bank", { size: 14 })} Débito`
+};
 
-  // Distingue la cuenta de Google (identidad real) del invitado (demo efímera).
+/**
+ * Cabecera del perfil: avatar, nombre, distintivo de sesión y salida.
+ *
+ * Distingue la cuenta de Google (identidad real) del invitado (demo efímera),
+ * que es la diferencia que más confunde si no se dice: en invitado no se
+ * guarda nada.
+ * @returns {string} HTML.
+ */
+function profileHeadHTML(){
   const isUser = !!currentUser;
+  const initial = escapeHTML(profile.name.trim().charAt(0) || "?").toUpperCase();
   // Avatar: foto de Google si la hay; si no, la inicial en círculo de color.
   // referrerpolicy=no-referrer: las fotos de Google fallan si se manda referer.
   const avatarInner = profile.picture
-    ? `<img class="avatar-img" src="${esc(profile.picture)}" alt="" referrerpolicy="no-referrer" />`
+    ? `<img class="avatar-img" src="${escapeHTML(profile.picture)}" alt="" referrerpolicy="no-referrer" />`
     : initial;
   const sessionBadge = isUser
     ? `<span class="session-badge user">${icon("check", { size: 13 })} Cuenta de Google</span>`
     : `<span class="session-badge guest">Invitado · nada se guarda</span>`;
   const logoutLabel = isUser ? "Cerrar sesión" : "Salir de invitado";
 
-  const ordersWithIdx   = orders.map((o, i) => ({ o, i }));
-  const activeOrders    = ordersWithIdx.filter(({ o }) => !isPastOrder(o));
-  const archivedOrders  = ordersWithIdx.filter(({ o }) =>  isPastOrder(o));
+  return `
+    <div class="profile-head">
+      <div class="avatar${profile.picture ? " has-img" : ""}">${avatarInner}</div>
+      <div class="ph-info">
+        <div class="profile-name">${escapeHTML(profile.name) || "Sin nombre"}</div>
+        ${isUser ? `<div class="profile-email">${escapeHTML(profile.email) || "—"}</div>` : ""}
+        ${sessionBadge}
+      </div>
+      <button class="logout-btn" data-action="signOut" aria-label="${logoutLabel}" title="${logoutLabel}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
+    </div>`;
+}
 
-  const orderCardHTML = ({ o, i }, archived) => {
+/**
+ * Información de contacto: las tres filas, o el formulario si se está editando.
+ * @returns {string} HTML.
+ */
+function contactInfoHTML(){
+  const esc = escapeHTML;   // escape anti-XSS (contenido y atributos)
+  if(editingProfile) return `
+    <div class="profile-form">
+      <label class="pf-fld">Nombre
+        <input id="pfName" value="${esc(profile.name)}" placeholder="Tu nombre" />
+      </label>
+      <small class="pf-error" id="errName" style="display:none"></small>
+      <label class="pf-fld">Correo
+        <input id="pfEmail" type="email" value="${esc(profile.email)}" placeholder="tucorreo@ejemplo.com" />
+      </label>
+      <small class="pf-error" id="errEmail" style="display:none"></small>
+      <label class="pf-fld">Celular
+        <input id="pfPhone" type="tel" inputmode="numeric" value="${esc(profile.phone)}" placeholder="09xxxxxxxx" />
+      </label>
+      <small class="pf-error" id="errPhone" style="display:none"></small>
+      <div class="pf-actions">
+        <button class="ret-cancel" data-action="cancelProfileEdit">Cancelar</button>
+        <button class="save-btn" data-action="saveProfile">Guardar cambios</button>
+      </div>
+    </div>`;
+
+  return `
+    <div class="profile-info">
+      <div class="pi-row"><span class="pi-k">Nombre</span><span class="pi-v">${esc(profile.name) || "—"}</span></div>
+      <div class="pi-row"><span class="pi-k">Correo</span><span class="pi-v">${esc(profile.email) || "—"}</span></div>
+      <div class="pi-row"><span class="pi-k">Celular</span><span class="pi-v">${esc(profile.phone) || "—"}</span></div>
+      <button class="edit-info-btn" data-action="editProfile">${icon("pencil", { size: 15 })} Modificar información</button>
+    </div>`;
+}
+
+/**
+ * Tarjeta de un pedido en el perfil.
+ *
+ * Es la pieza más cargada de la app: reúne el cobro, el período, el modo de
+ * devolución, los puntos y litros pendientes, y los controles que solo aplican
+ * a un pedido vivo. Vive fuera de renderProfile porque la pintan dos listas
+ * —activos y archivados— con reglas distintas sobre qué controles se ofrecen.
+ *
+ * @param {object} o Pedido.
+ * @param {number} i Índice en `orders`; viaja en los data-idx de sus botones.
+ * @param {boolean} archived Si se pinta en "Alquileres anteriores".
+ * @returns {string} HTML.
+ */
+function orderCardHTML(o, i, archived){
     const days = daysBetween(o.start, o.end);
     const voided = isCancelledOrder(o);
     // Un pedido anulado nunca está "vencido": no hay prenda que devolver.
@@ -46,7 +114,7 @@ function renderProfile(){
       <div class="order-head">
         <div class="order-head-main">
           <div class="order-id">Pedido #${o.id}</div>
-          <div class="order-date">${fmtDate(o.date)} · ${payNames[o.pay] || "—"}</div>
+          <div class="order-date">${fmtDate(o.date)} · ${PAY_LABELS[o.pay] || "—"}</div>
         </div>
         <div class="order-badges">
           <span class="pay-status ${stClass}">${paymentStatusLabel(o)}</span>
@@ -101,22 +169,22 @@ function renderProfile(){
       ${hasPendingReview(o) ? `
         <button class="rev-add-btn" data-action="openReview" data-order="${o.id}">${icon("pencil", { size: 14 })} Agregar reseña</button>` : ""}
     </div>`;
-  };
+}
+
+/**
+ * Vista de perfil: cabecera, puntos, metas de agua, acciones, pedidos y
+ * contacto. Aquí solo se ensambla y se decide qué pedido va en qué lista; cada
+ * pieza se pinta en su propia función.
+ */
+function renderProfile(){
+  sheetTitle.textContent = "Mi perfil";
+
+  const conIndice     = orders.map((o, i) => ({ o, i }));
+  const activeOrders   = conIndice.filter(({ o }) => !isPastOrder(o));
+  const archivedOrders = conIndice.filter(({ o }) =>  isPastOrder(o));
 
   sheetBody.innerHTML = `
-    <div class="profile-head">
-      <div class="avatar${profile.picture ? " has-img" : ""}">${avatarInner}</div>
-      <div class="ph-info">
-        <div class="profile-name">${escapeHTML(profile.name) || "Sin nombre"}</div>
-        ${isUser ? `<div class="profile-email">${escapeHTML(profile.email) || "—"}</div>` : ""}
-        ${sessionBadge}
-      </div>
-      <button class="logout-btn" data-action="signOut" aria-label="${logoutLabel}" title="${logoutLabel}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-        </svg>
-      </button>
-    </div>
+    ${profileHeadHTML()}
 
     <button class="points-card" data-action="openRewards" aria-label="Ver premios y canjear puntos">
       <div>
@@ -150,7 +218,7 @@ function renderProfile(){
 
     <div class="section-label" id="misPedidos">Mis pedidos</div>
     ${activeOrders.length
-      ? activeOrders.map(pair => orderCardHTML(pair, false)).join("")
+      ? activeOrders.map(({ o, i }) => orderCardHTML(o, i, false)).join("")
       : `<div class="empty" style="padding:30px 20px"><div class="em">${icon("shirt", { size: 34 })}</div><p>No tienes pedidos activos.<br>Alquila algo del catálogo.</p></div>`}
 
     ${archivedOrders.length ? `
@@ -160,39 +228,13 @@ function renderProfile(){
         <span class="past-count">${archivedOrders.length}</span>
       </summary>
       <div class="past-orders-body">
-        ${archivedOrders.map(pair => orderCardHTML(pair, true)).join("")}
+        ${archivedOrders.map(({ o, i }) => orderCardHTML(o, i, true)).join("")}
       </div>
     </details>
     ` : ""}
 
     <div class="section-label">Información de contacto</div>
-    ${editingProfile ? `
-    <div class="profile-form">
-      <label class="pf-fld">Nombre
-        <input id="pfName" value="${esc(profile.name)}" placeholder="Tu nombre" />
-      </label>
-      <small class="pf-error" id="errName" style="display:none"></small>
-      <label class="pf-fld">Correo
-        <input id="pfEmail" type="email" value="${esc(profile.email)}" placeholder="tucorreo@ejemplo.com" />
-      </label>
-      <small class="pf-error" id="errEmail" style="display:none"></small>
-      <label class="pf-fld">Celular
-        <input id="pfPhone" type="tel" inputmode="numeric" value="${esc(profile.phone)}" placeholder="09xxxxxxxx" />
-      </label>
-      <small class="pf-error" id="errPhone" style="display:none"></small>
-      <div class="pf-actions">
-        <button class="ret-cancel" data-action="cancelProfileEdit">Cancelar</button>
-        <button class="save-btn" data-action="saveProfile">Guardar cambios</button>
-      </div>
-    </div>
-    ` : `
-    <div class="profile-info">
-      <div class="pi-row"><span class="pi-k">Nombre</span><span class="pi-v">${escapeHTML(profile.name) || "—"}</span></div>
-      <div class="pi-row"><span class="pi-k">Correo</span><span class="pi-v">${escapeHTML(profile.email) || "—"}</span></div>
-      <div class="pi-row"><span class="pi-k">Celular</span><span class="pi-v">${escapeHTML(profile.phone) || "—"}</span></div>
-      <button class="edit-info-btn" data-action="editProfile">${icon("pencil", { size: 15 })} Modificar información</button>
-    </div>
-    `}
+    ${contactInfoHTML()}
   `;
   sheetFoot.innerHTML = "";
 }
