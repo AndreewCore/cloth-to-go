@@ -136,6 +136,8 @@ globalThis.__APP__ = {
   get modalOpen(){ return modalOverlay.classList.contains("show"); },
   // Detalle desde imagen: pestaña apilada sobre el perfil.
   openDetail, openSheet, closeSheet, closeStackSheet,
+  // Acuse de recibo al agregar al carrito.
+  addToCart, flyToCart, bumpBadge, updateBadge,
   // Reseñas.
   productReviews, productRating, reviewFor, reviewableItems, hasPendingReview,
   openReview, reviewValid, submitReview, deleteReview, DEMO_REVIEWS,
