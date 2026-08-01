@@ -144,13 +144,12 @@ function accionesAtendidas() {
    que envejece mal — nadie la revisa cuando el prefijo cambia. */
 
 /**
- * Cases que hoy no los pinta nadie. HALLAZGO de `feature/tests-cobertura`, no
- * un permiso: `openSettings` quedó huérfano cuando Ajustes pasó a abrirse desde
- * el botón del header (`#openPrefs`, con su propio onclick en main.js). Se anota
- * aquí en vez de borrarlo porque esta rama no toca código de producción; le
- * toca a `feature/refactor-vistas`, que entonces debe vaciar esta lista.
+ * Cases que hoy no los pinta nadie. Vacía a propósito: el único que había
+ * (`openSettings`, huérfano desde que Ajustes se abre por el botón del header)
+ * lo borró `feature/refactor-vistas`. Si vuelve a haber uno, la prueba de abajo
+ * falla; añadirlo aquí es declarar deuda, no resolverla.
  */
-const CASES_MUERTOS_CONOCIDOS = ["openSettings"];
+const CASES_MUERTOS_CONOCIDOS = [];
 
 let win, doc, app;
 
