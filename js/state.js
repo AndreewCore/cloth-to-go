@@ -8,7 +8,10 @@
 /* ---------------- Helper de fecha ---------------- */
 // Devuelve "YYYY-MM-DD" en hora LOCAL (no UTC) para evitar desfase de día
 // cerca de medianoche en zonas como Guayaquil (UTC-5).
-function isoOffset(days){
+// El 0 por defecto ("hoy") no es comodidad: sin él, isoOffset() sumaba
+// `undefined` y devolvía "NaN-NaN-NaN" en silencio, una fecha que se guarda,
+// se ordena y se pinta sin que nada proteste.
+function isoOffset(days = 0){
   const d = new Date();
   d.setDate(d.getDate() + days);
   const y = d.getFullYear();

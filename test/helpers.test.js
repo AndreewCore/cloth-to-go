@@ -64,6 +64,13 @@ test("isoOffset devuelve YYYY-MM-DD en hora local", () => {
   assert.equal(hoy, esperado);
 });
 
+test("isoOffset sin argumento es hoy, no una fecha inválida", () => {
+  // Sin el 0 por defecto sumaba `undefined` y devolvía "NaN-NaN-NaN": una fecha
+  // que se guardaba, se ordenaba y se pintaba sin que nada fallara a la vista.
+  assert.equal(A.isoOffset(), A.isoOffset(0));
+  assert.match(A.isoOffset(), /^\d{4}-\d{2}-\d{2}$/);
+});
+
 test("garmentWater = peso · intensidad hídrica del material", () => {
   assert.equal(A.garmentWater({ material: "lino", weightKg: 0.5 }), 1450); // 0.5·2900
   assert.equal(A.garmentWater({ material: "sintetico", weightKg: 0.3 }), 36); // 0.3·120
