@@ -7,9 +7,22 @@
  * `case`, y el botón simplemente no hace nada: sin excepción, sin traza, sin
  * test que lo note.
  *
- * Estas pruebas leen el FUENTE y no el DOM a propósito: un `data-action` que
- * solo aparece en una vista que ninguna prueba renderiza igual tiene que estar
- * atendido, y es justo el que se escapa.
+ * El inventario de lo que la app pinta se arma por DOS caminos, porque ninguno
+ * de los dos basta solo:
+ *
+ * - **Leyendo el fuente** (`data-action="…"`). Ve las vistas que ninguna prueba
+ *   renderiza y las ramas condicionales que aquí no se dan: `pickLocation` solo
+ *   se dibuja con clave de Google Maps, que en las pruebas no existe.
+ * - **Barriendo el DOM** tras renderizar todas las vistas. Ve lo que el
+ *   escaneo estático NO puede ver: acciones con el nombre interpolado
+ *   (`data-action="gal${'$'}{dir}"`) y las que salen de un HELPER de marcado
+ *   compartido, donde el literal ya no está en la plantilla sino en el
+ *   argumento de la llamada.
+ *
+ * Sin el barrido, extraer un helper de marcado —el trabajo normal de un
+ * refactor de vistas— hacía desaparecer del inventario acciones que se siguen
+ * pintando, y el guardarraíl se debilitaba sin avisar. La unión de ambos es lo
+ * que hay que mirar.
  */
 const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
@@ -23,11 +36,12 @@ const leer = f => fs.readFileSync(path.join(JS_DIR, f), "utf8");
 const FUENTES = fs.readdirSync(JS_DIR).filter(f => f.endsWith(".js"));
 
 /**
- * Todos los `data-action="…"` que la app llega a pintar. Incluye index.html: hay
+ * Los `data-action="…"` literales que hay en el fuente. Incluye index.html: hay
  * controles estáticos (galería, ajustes) que no nacen de ninguna plantilla y
  * cuyo case es igual de fácil de borrar por descuido.
+ * @returns {string[]}
  */
-function accionesEmitidas() {
+function accionesEnFuente() {
   const out = new Set();
   const fuentes = [...FUENTES.map(leer), fs.readFileSync(path.join(ROOT, "index.html"), "utf8")];
   for (const src of fuentes) {
@@ -36,18 +50,98 @@ function accionesEmitidas() {
   return [...out].sort();
 }
 
+/**
+ * Los `data-action` que aparecen REALMENTE en el DOM tras pintar la app entera.
+ *
+ * Recorre las once vistas y los estados que enseñan controles distintos (perfil
+ * en edición, editor de devolución, pedido vencido, cupón aplicado, sesión de
+ * Google, confirmación de un pedido recién pagado). Es un barrido, no una
+ * prueba: no afirma nada por sí mismo, alimenta el inventario.
+ *
+ * Se hace una sola vez y se memoriza — monta su propio entorno porque deja el
+ * estado hecho un cristo a propósito, y no debe contaminar el `beforeEach`.
+ * @returns {string[]}
+ */
+let _accionesDom = null;
+function accionesEnDOM() {
+  if (_accionesDom) return _accionesDom;
+  const { window: w, document: d, app: a } = loadDom({ withMain: true });
+  const vistas = new Set();
+  const recoger = () => d.querySelectorAll("[data-action]")
+    .forEach(el => vistas.add(el.dataset.action));
+  const pintar = v => { a.view = v; w.renderSheet(); recoger(); };
+
+  const hoy = a.isoOffset(0);
+  a.cart = [{ id: 1 }, { id: 3 }];
+  a.orders = [
+    { id:1001, date:a.isoOffset(-9), items:[1], start:a.isoOffset(-8), end:a.isoOffset(-2),
+      delivery:"ship", ret:"home", retAddr:"Av. Siempre Viva 123", pay:"cash",
+      status:"settled", total:40, points:60, pointsCredited:true },
+    { id:1002, date:a.isoOffset(-1), items:[3], start:a.isoOffset(1), end:a.isoOffset(4),
+      delivery:"pickup", ret:"store", retAddr:"", pay:"credit",
+      status:"pending", total:25, points:30, pointsCredited:false },
+    { id:1003, date:a.isoOffset(-5), items:[5], start:a.isoOffset(-4), end:a.isoOffset(-3),
+      delivery:"ship", ret:"home", retAddr:"x", pay:"debit",
+      status:"cancelled", cancelledAt:hoy, total:0, points:0, pointsCredited:false },
+  ];
+  Object.assign(a.profile, { name:"Ana", email:"a@b.com", phone:"0991234567", points:500 });
+  a.setCheckout({ delivery:"ship", address:"Av. Siempre Viva 123", returnMethod:"home",
+    returnAddress:"Av. Siempre Viva 123", payMethod:"credit",
+    card:{ number:"4111111111111111", name:"Ana", expiry:"12/29", cvv:"123" } });
+
+  w.renderGrid(); recoger();
+  w.openDetail(1); recoger();                 // detalle + galería (galPrev/galNext)
+  for (const v of ["cart","checkout","payment","profile","rewards","donate","filters","settings"]) pintar(v);
+
+  w.editProfile(); recoger();                 // formulario de contacto
+  pintar("profile");
+  w.openReturnEditor(1); recoger();           // editor de devolución
+  pintar("profile");
+
+  a.orders[1].start = a.isoOffset(-5);        // pedido vencido: aviso de penalización
+  a.orders[1].end = a.isoOffset(-1);
+  pintar("profile");
+
+  w.activateUserSession({ sub:"u1", name:"Ana", email:"a@b.com" });  // cuenta real: baja de cuenta
+  pintar("settings");
+
+  a.profile.redeemed = [{ id:1, rewardId:1, name:"Envío o retiro gratis", cost:60, date:hoy, usedIn:null }];
+  a.cart = [{ id: 1 }];
+  a.setCheckout({ delivery:"ship", address:"Av. Siempre Viva 123", returnMethod:"home",
+    returnAddress:"Av. Siempre Viva 123", appliedCoupon:1 });
+  pintar("checkout");                         // premio aplicado: quitarlo
+
+  a.orders.push({ id:1004, date:a.isoOffset(-3), items:[7], start:a.isoOffset(-2), end:a.isoOffset(-1),
+    delivery:"pickup", ret:"store", retAddr:"", pay:"cash", status:"settled", total:20,
+    points:20, pointsCredited:true });
+  w.openReview(1004); recoger();              // formulario de reseña
+
+  a.cart = [{ id: 1 }];
+  a.setCheckout({ delivery:"pickup", returnMethod:"store", payMethod:"cash" });
+  w.placeOrder(); recoger();                  // confirmación del pedido
+
+  _accionesDom = [...vistas].sort();
+  return _accionesDom;
+}
+
+/**
+ * Todo lo que la app llega a pintar: la UNIÓN de los dos caminos.
+ * @returns {string[]}
+ */
+function accionesEmitidas() {
+  return [...new Set([...accionesEnFuente(), ...accionesEnDOM()])].sort();
+}
+
 /** Los `case "…"` del switch del despachador. */
 function accionesAtendidas() {
   const main = leer("main.js");
   return [...main.matchAll(/case\s+"([A-Za-z0-9_]+)"/g)].map(m => m[1]);
 }
 
-/**
- * Prefijos de acciones cuyo nombre se ARMA en la plantilla
- * (`data-action="gal${nombre}"`), así que ningún escaneo estático las ve
- * enteras. Se listan a mano para no dar por muerto lo que sí se pinta.
- */
-const PREFIJOS_DINAMICOS = ["gal"];
+/* Ya no hace falta una lista de PREFIJOS_DINAMICOS: las acciones con el nombre
+   armado en la plantilla (`gal…`) las ve el barrido del DOM, que es lo que se
+   pinta de verdad. Una lista a mano de excepciones al escaneo es exactamente lo
+   que envejece mal — nadie la revisa cuando el prefijo cambia. */
 
 /**
  * Cases que hoy no los pinta nadie. HALLAZGO de `feature/tests-cobertura`, no
@@ -83,18 +177,35 @@ test("no aparecen cases huérfanos nuevos", () => {
   const emitidas = accionesEmitidas();
   const huerfanos = accionesAtendidas().filter(a =>
     !emitidas.includes(a) &&
-    !PREFIJOS_DINAMICOS.some(pre => a.startsWith(pre)) &&
     !CASES_MUERTOS_CONOCIDOS.includes(a));
 
   assert.deepEqual(huerfanos, [], "cases nuevos que ya nadie dispara");
 });
 
 test("las acciones de nombre interpolado siguen teniendo case", () => {
-  // `galPrev`/`galNext` se arman en la plantilla, así que el escaneo estático no
-  // las ve: se comprueban a mano para que no se caigan sin ruido.
+  // `galPrev`/`galNext` se arman en la plantilla (`data-action="gal${dir}"`).
+  // El barrido del DOM ya las ve, pero se nombran igual: son las que un escaneo
+  // estático nunca pillará, y conviene que se caigan con un mensaje claro.
   for (const a of ["galPrev", "galNext", "galDot"]) {
     assert.ok(accionesAtendidas().includes(a), `falta el case de ${a}`);
   }
+});
+
+test("el barrido del DOM ve lo que el escaneo del fuente no puede ver", () => {
+  // La razón de ser del barrido. Si esto deja de cumplirse es que la galería
+  // pasó a escribir sus acciones literales — bien, pero entonces el barrido ya
+  // no está demostrando nada y hay que revisarlo.
+  const soloEnDOM = accionesEnDOM().filter(a => !accionesEnFuente().includes(a));
+  assert.ok(soloEnDOM.length > 0,
+    "el barrido no aporta ninguna acción que el fuente no tuviera");
+});
+
+test("el escaneo del fuente ve lo que el barrido no puede pintar", () => {
+  // La otra mitad: `pickLocation` solo existe con clave de Google Maps, que en
+  // las pruebas no hay. Por eso el inventario es la UNIÓN y no el barrido solo.
+  const soloEnFuente = accionesEnFuente().filter(a => !accionesEnDOM().includes(a));
+  assert.ok(soloEnFuente.includes("pickLocation"),
+    `el fuente debería aportar al menos pickLocation; aporta ${JSON.stringify(soloEnFuente)}`);
 });
 
 test("el despachador atiende un número de acciones acorde al catálogo pintado", () => {
