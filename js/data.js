@@ -95,7 +95,12 @@ function cycleCost(p){
 // Porcentaje del valor de la prenda que se cobra el primer día, según calidad.
 // Una prenda gastada se cobra más barata: le quedan menos ciclos y el cliente
 // asume su desgaste visible.
-const DAY1_RATE_BY_STARS = { 5:0.10, 4:0.08, 3:0.06, 2:0.06, 1:0.06 };
+// DAY1_RATE_DEFAULT es la tarifa de la prenda sin calidad reconocible (un
+// `stars` ausente o fuera de 1–5, que puede llegar de la API): se cobra como la
+// más gastada, que es el lado seguro. Va nombrada porque el respaldo se
+// duplicaba a mano en rentalListPrice y podía quedarse en la tarifa vieja.
+const DAY1_RATE_DEFAULT = 0.06;
+const DAY1_RATE_BY_STARS = { 5:0.10, 4:0.08, 3:DAY1_RATE_DEFAULT, 2:DAY1_RATE_DEFAULT, 1:DAY1_RATE_DEFAULT };
 
 // Peso de cada día adicional respecto al primero, por tramos. Alquilar dos
 // semanas no puede costar catorce veces un día: el coste del negocio apenas
@@ -126,7 +131,7 @@ function volumeDiscountRate(itemCount){
  * @returns {number} USD.
  */
 function rentalListPrice(p, days){
-  const day1 = (DAY1_RATE_BY_STARS[p.stars] ?? 0.06) * p.value;
+  const day1 = (DAY1_RATE_BY_STARS[p.stars] ?? DAY1_RATE_DEFAULT) * p.value;
   let total = day1;
   for(let d = 2; d <= days; d++){
     total += day1 * DAY_TRAMOS.find(t => d <= t.hasta).peso;

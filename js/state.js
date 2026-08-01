@@ -78,7 +78,12 @@ let sortBy = "default";              // ordenamiento del catálogo
 // Grupo desplegado del panel de filtros (null = todos plegados). Es estado de
 // presentación, no un filtro: no se persiste ni cuenta en el badge.
 let openFilterGroup = null;
-let view = "cart";                   // cart | checkout | done | detail | profile
+// Vista que pinta el panel deslizante. La lista completa, porque es el
+// conmutador central de renderSheet() y quedarse corta manda a buscar una
+// vista que sí existe:
+//   cart | checkout | payment | done | detail | profile | rewards | review |
+//   donate | filters | settings
+let view = "cart";
 let detailId = null;
 // El detalle se está viendo en la pestaña apilada (sobre el perfil) y no en el
 // panel principal. Lo decide openDetail() y manda en dónde pinta renderDetail()
@@ -349,6 +354,31 @@ function paymentStatusLabel(o){
   if(o.status === "cancelled") return "Anulado";
   return o.status === "settled" ? "Cancelado" : "Pendiente";
 }
+/* ---- Estados de un pedido ----
+   No hay un campo `estado` con estos valores: cada uno se DERIVA de `status`
+   y de las fechas, y las seis funciones de abajo se llaman entre sí. La
+   máquina que forman, escrita de una vez para no tener que reconstruirla
+   leyendo:
+
+     confirmado ──(llega o.start)──▶ entregado ──(pasa o.start)──▶ firme
+          │                                                          │
+          │ isDelivered=false                    countsForRewards=true
+          │ canCancelOrder=true                                      │
+          │                                          (pasa o.end, ya pagado)
+          └──(el cliente anula)──▶ ANULADO                           ▼
+                                   isCancelledOrder              ARCHIVADO
+                                        └──────── isPastOrder ────────┘
+
+   Tres cosas que conviene tener presentes:
+   - `isDelivered` (start ≤ hoy) y `canCancelOrder` (hoy ≤ start) SE SOLAPAN el
+     día de inicio. Por eso "entregado" y "firme" son estados distintos y no
+     uno solo.
+   - `countsForRewards` es la frontera de TODO lo que premia un alquiler
+     (puntos, litros para las metas, poder reseñar). La corrigió fix-metas-agua
+     (#50): premiar dentro de la ventana de anulación era explotable.
+   - `isPastOrder` agrupa los dos finales (archivado y anulado) y es el que
+     decide si la prenda vuelve al catálogo. */
+
 // Un pedido pasa al historial ("Alquileres anteriores") cuando ya fue pagado
 // (Cancelado) Y su período de alquiler terminó (la fecha de fin ya pasó).
 function isArchivedOrder(o){ return o.status === "settled" && o.end < isoOffset(0); }
