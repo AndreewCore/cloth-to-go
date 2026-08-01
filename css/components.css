@@ -1835,6 +1835,22 @@ main::-webkit-scrollbar { display: none; }
   background: var(--bg);
 }
 .pref-head > div:not(.pref-icon) { flex: 1; min-width: 0; }
+/* Baja de cuenta: única fila destructiva de Ajustes. Se separa del resto y se
+   tiñe entera porque es la que no tiene deshacer — mezclada con los toggles de
+   tema se pulsaría por inercia. */
+.danger-row {
+  border-color: var(--danger-line); background: var(--danger-soft);
+  margin-top: 22px;
+}
+.ico-danger { color: var(--danger); }
+.danger-row .ico-danger { background: var(--card); }
+.danger-btn {
+  width: 100%; margin-top: 12px;
+  background: none; border: 1px solid var(--danger); color: var(--danger);
+  border-radius: 12px; padding: 11px;
+  font-family: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+}
+.danger-btn:active { transform: scale(.99); }
 .pref-name { font-size: 14px; font-weight: 700; color: var(--ink); }
 .pref-desc { font-size: 11.5px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
 
