@@ -99,7 +99,10 @@ function clearFilters(){
 /** Qué valor tiene puesto un grupo, para que el cabezal cerrado lo diga. */
 function filterGroupValue(group){
   if(group === "quality")  return qualityFilter === 0 ? "Todas" : conditionLabel(qualityFilter);
-  if(group === "size")     return sizeFilter === "Todas" ? "Todas" : sizeFilter;
+  // La talla de calzado se nombra con su escala: un "39" suelto en el cabezal
+  // no dice si filtra pies o cinturas.
+  if(group === "size")     return sizeFilter === "Todas" ? "Todas"
+                                : sizeScale(sizeFilter) === "calzado" ? `Calzado ${sizeFilter}` : sizeFilter;
   if(group === "material") return materialFilter === "Todos" ? "Todos" : materialLabel(materialFilter);
   return "";
 }
@@ -153,9 +156,19 @@ function renderFilterSheet(){
       `<span class="fs-opt-t">${conditionLabel(n)}</span>${qualityMeter(n)}`, "fs-row")),
   ].join("");
 
+  // Las tallas van por escala: "M" y "39" no son comparables, y en una sola
+  // fila corrida parecían una única regla con un salto raro a la mitad. Una
+  // escala sin prendas no dibuja su bloque (el catálogo puede quedarse sin
+  // calzado, y el filtro debe reflejarlo en vez de ofrecer números vacíos).
   const sOpts = [
-    filterOptHTML("size", "Todas", sizeFilter === "Todas", "Todas"),
-    ...SIZES.map(s => filterOptHTML("size", s, sizeFilter === s, escapeHTML(s))),
+    `<div class="fs-chips">${filterOptHTML("size", "Todas", sizeFilter === "Todas", "Todas")}</div>`,
+    ...SIZE_SCALES.map(e => {
+      const tallas = sizesInScale(e.id);
+      if(!tallas.length) return "";
+      return `<p class="fs-sub">${escapeHTML(e.label)}</p>
+        <div class="fs-chips">${tallas.map(s =>
+          filterOptHTML("size", s, sizeFilter === s, escapeHTML(s))).join("")}</div>`;
+    }),
   ].join("");
 
   // Cada material lleva su icono: cinco filas de solo texto se leen todas
@@ -189,7 +202,7 @@ function renderFilterSheet(){
     <div class="filter-sheet">
       ${filterGroupHTML("quality", "Calidad",
         `<p class="fs-hint">Muestra las prendas de esa calidad o mejor.</p>${qOpts}`)}
-      ${filterGroupHTML("size", "Talla", `<div class="fs-chips">${sOpts}</div>`)}
+      ${filterGroupHTML("size", "Talla", sOpts)}
       ${filterGroupHTML("material", "Material", mOpts)}
       <div class="fs-group fs-static">
         <div class="fs-head-l fs-static-l">Color</div>

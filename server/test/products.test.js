@@ -26,11 +26,11 @@ test("GET /api/health responde ok", async () => {
   assert.deepEqual(res.json(), { status: "ok" });
 });
 
-test("GET /api/products devuelve las 10 prendas sembradas", async () => {
+test("GET /api/products devuelve las 16 prendas sembradas", async () => {
   const res = await app.inject({ method: "GET", url: "/api/products" });
   assert.equal(res.statusCode, 200);
   const products = res.json();
-  assert.equal(products.length, 10);
+  assert.equal(products.length, 16);
 });
 
 test("cada prenda trae los campos que el frontend espera", async () => {
@@ -62,6 +62,18 @@ test("imgs llega como array, no como el JSON que guarda SQLite", async () => {
     assert.ok(Array.isArray(p.imgs), `la prenda ${p.id} debe traer imgs como array`);
     assert.ok(p.imgs.length >= 1, `la prenda ${p.id} debe traer al menos una foto`);
     assert.ok(p.imgs.every(s => typeof s === "string"));
+  }
+});
+
+test("las categorías nuevas vienen sembradas y con foto", async () => {
+  // Disfraces y calzado existen para demostrar amplitud de catálogo: si la API
+  // las sirviera sin foto, la demo enseñaría seis marcos vacíos.
+  const res = await app.inject({ method: "GET", url: "/api/products" });
+  const muestra = res.json().filter(p => ["Disfraces", "Calzado"].includes(p.cat));
+
+  assert.ok(muestra.length >= 6, "deben venir sembradas las dos categorías nuevas");
+  for (const p of muestra) {
+    assert.match(p.imgs[0], /^img\/products\/\d+\.webp$/, `la prenda ${p.id} necesita portada`);
   }
 });
 

@@ -89,6 +89,7 @@ globalThis.__APP__ = {
   },
   get colorFilter(){ return colorFilter; },
   COLORS, COLOR_LABELS, colorLabel, colorSwatch, colorCount,
+  CATS, SIZE_SCALES, SIZES, sizeScale, sizesInScale, garmentWater,
   // Formulario de donación y editor de devolución (también variables let).
   setDonation(p){
     if('donName'   in p) donName   = p.donName;
