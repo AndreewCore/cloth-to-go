@@ -100,6 +100,7 @@ const PROJECT_GLOBALS = [
   // auth.js  (`google` lo aporta el SDK externo de Google Identity)
   "google", "GOOGLE_CLIENT_ID", "currentUser", "authAvailable", "decodeJwt",
   "activateUserSession", "onGoogleCredential", "initGoogleAuth", "renderGoogleButton", "signOut",
+  "deleteAccount", "askDeleteAccount",
   "loginHint", "loginFailed",
   // maps.js  (`google` ya está arriba: lo aporta el mismo SDK)
   "GOOGLE_MAPS_API_KEY", "MAPS_OVERRIDE_KEY", "MAPS_KEY_PARAM",
