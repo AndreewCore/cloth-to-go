@@ -22,7 +22,7 @@ const PROJECT_GLOBALS = [
   "LOCAL", "SHIPPING_FEE", "deliveryFeeFor", "returnFeeFor",
   "LATE_GRACE_DAYS", "LATE_PENALTY",
   "LAUNDRY_BY_MATERIAL", "OVERHEAD_PER_CYCLE", "CYCLES_PER_STAR", "MIN_MARGIN",
-  "garmentCycles", "cycleCost", "DAY1_RATE_BY_STARS", "DAY_TRAMOS",
+  "garmentCycles", "cycleCost", "DAY1_RATE_DEFAULT", "DAY1_RATE_BY_STARS", "DAY_TRAMOS",
   "VOLUME_DISCOUNT_PER_ITEM", "VOLUME_DISCOUNT_MAX", "volumeDiscountRate",
   "rentalListPrice", "rentalFloor", "rentalPrice", "nextDayPrice",
   "DEPOSIT_RATE", "DEPOSIT_MAX", "DEPOSIT_ORDER_MAX", "depositFor", "depositForItems",
