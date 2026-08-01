@@ -21,6 +21,9 @@ model Product {
   cat         String
   value       Float
   stars       Int
+  /// Talla en la escala que le corresponda: letras para la ropa (XS…XXL) y
+  /// número EU para el calzado ("39"). Va como texto por eso mismo — son dos
+  /// escalas distintas, y un Int dejaría fuera la mitad del catálogo.
   size        String
   /// Color dominante, como clave de la paleta cerrada del frontend
   /// (COLOR_ORDER en js/data.js): "negro", "beige", … No es texto libre — el
