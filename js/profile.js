@@ -105,7 +105,7 @@ function orderCardHTML(o, i, archived){
     const voided = isCancelledOrder(o);
     // Un pedido anulado nunca está "vencido": no hay prenda que devolver.
     const late = !archived && !voided && isLate(o);
-    const retLabel = o.ret === "home"
+    const retLabel = o.ret === RETURN_TO.HOME
       ? `${icon("truck", { size: 15 })} Devolución a domicilio`
       : `${icon("store", { size: 15 })} Devolución en local`;
     const stClass  = voided ? "cancelled" : (o.status === "settled" ? "settled" : "pending");
@@ -145,7 +145,7 @@ function orderCardHTML(o, i, archived){
 
       ${voided
         ? `<div class="ci-ret">${icon("x", { size: 14 })} Anulado el ${fmtDate(o.cancelledAt)} · las prendas volvieron al catálogo</div>`
-        : `<div class="ci-ret">${retLabel}${o.ret === "home" && o.retAddr ? ` · <span class="ret-addr">${icon("mapPin", { size: 13 })} ${escapeHTML(o.retAddr)}</span>` : ""}</div>`}
+        : `<div class="ci-ret">${retLabel}${o.ret === RETURN_TO.HOME && o.retAddr ? ` · <span class="ret-addr">${icon("mapPin", { size: 13 })} ${escapeHTML(o.retAddr)}</span>` : ""}</div>`}
       ${!archived ? `
         ${!o.pointsCredited ? `
           <div class="points-pending">${icon("sprout", { size: 14 })} Ganarás ${o.points} pts cuando recibas tus prendas</div>` : ""}
@@ -350,15 +350,15 @@ function returnEditorHTML(i){
   return `
     <div class="ret-editor">
       <div class="ret-editor-title">Al finalizar el alquiler, ¿cómo quieres devolver la prenda?</div>
-      <button type="button" class="ret-opt ${editRet==='store'?'active':''}" data-action="pickReturn" data-value="store" aria-pressed="${editRet==='store'}">
+      <button type="button" class="ret-opt ${editRet===RETURN_TO.STORE?'active':''}" data-action="pickReturn" data-value="${RETURN_TO.STORE}" aria-pressed="${editRet===RETURN_TO.STORE}">
         <span class="ro-head"><span>${icon("store", { size: 15 })} Devolución en el local</span><span class="ro-tag free">Gratis</span></span>
         <small class="ro-desc">Te acercas a nuestro local físico a dejar la prenda.</small>
       </button>
-      <button type="button" class="ret-opt ${editRet==='home'?'active':''}" data-action="pickReturn" data-value="home" aria-pressed="${editRet==='home'}">
+      <button type="button" class="ret-opt ${editRet===RETURN_TO.HOME?'active':''}" data-action="pickReturn" data-value="${RETURN_TO.HOME}" aria-pressed="${editRet===RETURN_TO.HOME}">
         <span class="ro-head"><span>${icon("truck", { size: 15 })} Devolución a domicilio</span><span class="ro-tag fee">+$${SHIPPING_FEE.toFixed(2)}</span></span>
         <small class="ro-desc">Vamos a la dirección que indiques a retirar la prenda (cargo adicional).</small>
       </button>
-      ${editRet==='home' ? `
+      ${editRet===RETURN_TO.HOME ? `
         <input class="ret-addr-input" id="editRetAddr" placeholder="Dirección de retiro…" value="${escapeHTML(editRetAddr)}" aria-label="Dirección de retiro" />` : ``}
       <div class="ret-editor-actions">
         <button type="button" class="ret-cancel" data-action="cancelReturn">Cancelar</button>
@@ -378,14 +378,14 @@ function closeReturnEditor(){
   renderProfile();
 }
 function saveReturn(i){
-  if(editRet === "home" && !isValidAddress(editRetAddr)){
+  if(editRet === RETURN_TO.HOME && !isValidAddress(editRetAddr)){
     toast("Ingresa una dirección de retiro válida");
     return;
   }
   const o = orders[i];
   const apply = ()=>{
     o.ret = editRet;
-    o.retAddr = editRet === "home" ? editRetAddr.trim() : "";
+    o.retAddr = editRet === RETURN_TO.HOME ? editRetAddr.trim() : "";
     o.total = orderTotal(o);   // el cambio de devolución actualiza el total del cobro
     saveState();
     closeReturnEditor();
@@ -395,7 +395,7 @@ function saveReturn(i){
   // si solo cambia la dirección, aplicar directo.
   if(o.ret !== editRet){
     const newTotal = orderTotal({ ...o, ret: editRet }).toFixed(2);
-    const msg = editRet === "home"
+    const msg = editRet === RETURN_TO.HOME
       ? `Cambiarás a Devolución a domicilio.\n\nSe COBRARÁ un adicional de $${SHIPPING_FEE.toFixed(2)} por ir a retirar la prenda. El total del cobro del pedido pasará a $${newTotal}.\n\n¿Confirmar?`
       : `Cambiarás a Devolución en el local.\n\nSe te DESCONTARÁ $${SHIPPING_FEE.toFixed(2)} (ya no haremos el retiro a domicilio). El total del cobro del pedido pasará a $${newTotal}.\n\n¿Confirmar?`;
     confirmDialog(msg, apply);
@@ -428,11 +428,11 @@ function cancelOrder(i){
     <div class="ci-thumb">${imgPlaceholder(p)}</div>`).join("")}</div>`;
   // El reembolso se muestra SIEMPRE, también cuando es $0: que la cifra falte
   // deja al cliente preguntándose si perdió el dinero.
-  const cobrado = o.status === "settled";
+  const cobrado = o.status === ORDER_STATUS.SETTLED;
   const refundHTML = `
     <div class="md-refund${cobrado ? "" : " zero"}">
       <span>${cobrado
-        ? (o.pay === "cash"
+        ? (o.pay === PAY_METHOD.CASH
           ? `${icon("cash", { size: 15 })} Se te devolverá en el local`
           : `${icon("card", { size: 15 })} Reembolso a tu tarjeta`)
         : `${icon("cash", { size: 15 })} No se te ha cobrado nada`}</span>
@@ -759,7 +759,7 @@ function openDonate(){
 
 function donateValid(){
   if(donName.trim().length < 3 || !donMethod) return false;
-  if(donMethod === "home") return isValidAddress(donAddr) && !!donDate;
+  if(donMethod === RETURN_TO.HOME) return isValidAddress(donAddr) && !!donDate;
   return true;   // entrega en local
 }
 
@@ -777,17 +777,17 @@ function renderDonate(){
 
     <div class="section-label">¿Cómo nos las entregas?</div>
     <div class="delivery-opts">
-      ${optionCardHTML({ action:"setDonateMethod", value:"store", active: donMethod==="store",
+      ${optionCardHTML({ action:"setDonateMethod", value:RETURN_TO.STORE, active: donMethod===RETURN_TO.STORE,
         glyph:"store", title:"Donar en el local", note:"Gratis",
         desc:"Acércate a nuestro local físico a dejar la prenda." })}
-      ${optionCardHTML({ action:"setDonateMethod", value:"home", active: donMethod==="home",
+      ${optionCardHTML({ action:"setDonateMethod", value:RETURN_TO.HOME, active: donMethod===RETURN_TO.HOME,
         glyph:"truck", title:"Solicitar retiro a domicilio", note:"Gratis",
         desc:"Agenda una cita y vamos a tu dirección a retirarla." })}
     </div>
 
-    ${donMethod==='store' ? localCardHTML() : ``}
+    ${donMethod===RETURN_TO.STORE ? localCardHTML() : ``}
 
-    ${donMethod==='home' ? `
+    ${donMethod===RETURN_TO.HOME ? `
       <div class="ship-detail">
         ${icon("mapPin", { size: 14 })} Dirección de retiro
         <input id="donAddr" placeholder="Calle, número, ciudad…" value="${escapeHTML(donAddr)}" />
@@ -815,8 +815,8 @@ function renderDonate(){
   let label = "Enviar solicitud de donación";
   if(donName.trim().length < 3)                            label = "Describe la prenda a donar";
   else if(!donMethod)                                      label = "Elige cómo entregarla";
-  else if(donMethod==='home' && !isValidAddress(donAddr))  label = "Ingresa la dirección de retiro";
-  else if(donMethod==='home' && !donDate)                  label = "Elige la fecha de la cita";
+  else if(donMethod===RETURN_TO.HOME && !isValidAddress(donAddr))  label = "Ingresa la dirección de retiro";
+  else if(donMethod===RETURN_TO.HOME && !donDate)                  label = "Elige la fecha de la cita";
   sheetFoot.innerHTML = `<button class="pay-btn" data-action="submitDonation" ${valid?'':'disabled'}>${label}</button>`;
 }
 
@@ -825,8 +825,8 @@ function submitDonation(){
   profile.donations.unshift({
     item: donName.trim(),
     method: donMethod,
-    addr: donMethod === "home" ? donAddr.trim() : "",
-    date: donMethod === "home" ? donDate : "",
+    addr: donMethod === RETURN_TO.HOME ? donAddr.trim() : "",
+    date: donMethod === RETURN_TO.HOME ? donDate : "",
     status: "En revisión",
     points: null
   });

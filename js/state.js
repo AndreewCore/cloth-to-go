@@ -351,8 +351,8 @@ function orderTotal(o){
 //   "Cancelado" = ya pagado/cobrado (status 'settled', sea efectivo o tarjeta).
 //   "Pendiente" = aún por cobrar/pagar.
 function paymentStatusLabel(o){
-  if(o.status === "cancelled") return "Anulado";
-  return o.status === "settled" ? "Cancelado" : "Pendiente";
+  if(o.status === ORDER_STATUS.CANCELLED) return "Anulado";
+  return o.status === ORDER_STATUS.SETTLED ? "Cancelado" : "Pendiente";
 }
 /* ---- Estados de un pedido ----
    No hay un campo `estado` con estos valores: cada uno se DERIVA de `status`
@@ -381,9 +381,9 @@ function paymentStatusLabel(o){
 
 // Un pedido pasa al historial ("Alquileres anteriores") cuando ya fue pagado
 // (Cancelado) Y su período de alquiler terminó (la fecha de fin ya pasó).
-function isArchivedOrder(o){ return o.status === "settled" && o.end < isoOffset(0); }
+function isArchivedOrder(o){ return o.status === ORDER_STATUS.SETTLED && o.end < isoOffset(0); }
 // Pedido anulado por el cliente antes de recibir las prendas.
-function isCancelledOrder(o){ return o.status === "cancelled"; }
+function isCancelledOrder(o){ return o.status === ORDER_STATUS.CANCELLED; }
 // Pedidos que ya NO están en curso: ni retienen prendas del catálogo ni se
 // listan como activos. Agrupa los dos finales posibles (cumplido y anulado).
 function isPastOrder(o){ return isArchivedOrder(o) || isCancelledOrder(o); }
