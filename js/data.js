@@ -229,8 +229,12 @@ const WATER_GOALS = [
   { id: 4, liters: 100000, points: 900, name: "Leyenda circular" },
 ];
 
-/* ---- Categorías para los filtros ---- */
-const CATS = ["Todo", "Formal", "Fiesta", "Casual", "Invierno"];
+/* ---- Categorías para los filtros ----
+   Disfraces y Calzado son categorías DEMOSTRATIVAS: enseñan que el catálogo no
+   se agota en la ropa de vestir, que en la feria hubo que explicar de palabra
+   una y otra vez. El calzado además obliga al catálogo a admitir dos escalas de
+   talla distintas (ver SIZE_SCALES). */
+const CATS = ["Todo", "Formal", "Fiesta", "Casual", "Invierno", "Disfraces", "Calzado"];
 
 /* ---- Catálogo ----
    Las imágenes se sirven localmente desde img/products/ (webp optimizado ~600×800).
@@ -279,11 +283,52 @@ const PRODUCTS = [
     desc:"Sudadera de algodón con bordado, súper cómoda para el día a día." },
   { id:10, name:"Gabardina beige", cat:"Invierno", value:40, stars:4, size:"XL", color:"beige",  disponibles:1, material:"algodon",   weightKg:0.9, imgs:["img/products/10.webp"],
     desc:"Gabardina beige atemporal, perfecta para días de lluvia y entretiempo." },
+  // Disfraces y calzado: piezas de muestra de las dos categorías nuevas. Como
+  // el resto del catálogo, el `color` sale de la FOTO y no del nombre.
+  { id:11, name:"Traje de catrina", cat:"Disfraces", value:30, stars:4, size:"M",  color:"beige",  disponibles:1, material:"sintetico", weightKg:0.6, imgs:["img/products/11.webp"],
+    desc:"Vestido y tocado de catrina, con bordado floral. Para Día de Muertos y fiestas de disfraces." },
+  { id:12, name:"Capa con capucha", cat:"Disfraces", value:18, stars:5, size:"L",  color:"rojo",   disponibles:1, material:"sintetico", weightKg:0.3, imgs:["img/products/12.webp"],
+    desc:"Capa larga con capucha y cierre al cuello. Ligera y de talla generosa; sirve de caperucita, vampiro o cuento a elección." },
+  { id:13, name:"Vestido de época", cat:"Disfraces", value:48, stars:4, size:"S",  color:"blanco", disponibles:1, material:"algodon",   weightKg:0.9, imgs:["img/products/13.webp"],
+    desc:"Vestido largo de inspiración victoriana, con botonadura en la espalda y encaje en puños y cuello." },
+  { id:14, name:"Botines de cuero", cat:"Calzado", value:40, stars:4, size:"39", color:"negro",  disponibles:1, material:"cuero",     weightKg:1.1, imgs:["img/products/14.webp"],
+    desc:"Botines de caña baja en cuero, con cordones y suela de goma. Combinan con todo." },
+  { id:15, name:"Tacones de fiesta", cat:"Calzado", value:25, stars:5, size:"37", color:"negro",  disponibles:1, material:"sintetico", weightKg:0.6, imgs:["img/products/15.webp"],
+    desc:"Tacón de aguja de 8 cm, punta fina. Cómodos para una noche entera de pie." },
+  { id:16, name:"Zapatos oxford", cat:"Calzado", value:35, stars:3, size:"42", color:"negro",  disponibles:1, material:"cuero",     weightKg:1.2, imgs:["img/products/16.webp"],
+    desc:"Oxford clásicos de cuero con acabado pulido. El complemento del traje formal." },
 ];
 
-/* Tallas disponibles en el catálogo, en orden lógico (para el filtro). */
-const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL"];
+/* ---- Tallas ----
+   Dos escalas, no una: el calzado se numera (EU 35–44) y la ropa se letrea, y
+   mezclarlas en una sola lista daría un filtro donde "M" y "39" cuelgan del
+   mismo renglón como si fueran comparables. La escala se deduce de la talla
+   —numérica ⇒ calzado— y no de la categoría: un disfraz puede traer botas, y
+   entonces la prenda manda sobre el estante donde está colgada. */
+const SIZE_SCALES = [
+  { id: "ropa",    label: "Ropa",    order: ["XS", "S", "M", "L", "XL", "XXL"] },
+  { id: "calzado", label: "Calzado", order: ["35", "36", "37", "38", "39", "40", "41", "42", "43", "44"] },
+];
+const SIZE_ORDER = SIZE_SCALES.flatMap(e => e.order);
 const SIZES = SIZE_ORDER.filter(s => PRODUCTS.some(p => p.size === s));
+
+/**
+ * A qué escala pertenece una talla. Devuelve "ropa" para lo que no sea
+ * numérico: es el caso por defecto del catálogo y el que no debe romperse si
+ * llega una talla desconocida de la API.
+ * @param {string} size Talla tal como la declara la prenda.
+ * @returns {string} `ropa` | `calzado`
+ */
+const sizeScale = size => /^\d+$/.test(String(size ?? "")) ? "calzado" : "ropa";
+
+/**
+ * Tallas presentes en el catálogo dentro de una escala, en su orden lógico.
+ * Alimenta los dos bloques del filtro; vacío = esa escala no se dibuja.
+ * @param {string} scale Id de la escala (`ropa`|`calzado`).
+ * @returns {string[]}
+ */
+const sizesInScale = scale =>
+  (SIZE_SCALES.find(e => e.id === scale)?.order || []).filter(s => SIZES.includes(s));
 
 /* Materiales presentes en el catálogo, en orden lógico (para el filtro). */
 const MATERIAL_ORDER = ["algodon", "lana", "lino", "cuero", "sintetico"];
