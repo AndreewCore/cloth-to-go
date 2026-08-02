@@ -18,7 +18,7 @@ alquileres, pagos y envíos llegarán en iteraciones posteriores.
 cd server
 pnpm install            # instala dependencias y genera el cliente Prisma
 cp .env.example .env    # configura DATABASE_URL y PORT
-pnpm db:reset           # crea la base SQLite y siembra las 10 prendas
+pnpm db:reset           # crea la base SQLite y siembra las 16 prendas
 pnpm dev                # levanta el servidor en http://localhost:3000
 ```
 
