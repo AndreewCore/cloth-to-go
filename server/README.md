@@ -29,6 +29,13 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | GET | `/api/health` | Estado del servicio (`{ "status": "ok" }`). |
 | GET | `/api/products` | Catálogo completo, ordenado por `id`. |
 | POST | `/api/auth/google` | Verifica un ID token de Google y registra/actualiza al usuario. |
+| GET | `/api/orders` | Pedidos del usuario autenticado, con su libro de cargos. |
+| POST | `/api/orders` | Crea un pedido y sus cargos iniciales. |
+| PATCH | `/api/orders/:id/return` | Cambia el modo de devolución → **genera un ajuste**. |
+| POST | `/api/orders/:id/cancel` | Anula el pedido y revierte sus cargos. |
+| POST | `/api/orders/:id/settle` | **Solo local**: confirma que el efectivo entró. |
+| POST | `/api/orders/:id/deposit-release` | **Solo local**: libera el depósito. |
+| POST | `/api/orders/:id/late-penalty` | **Solo local**: cobra la devolución fuera de plazo. |
 
 ### `POST /api/auth/google`
 
@@ -43,6 +50,42 @@ ese token (sin comprobar la firma) — esta ruta es la que de verdad autentica.
 - **401** → credential ausente o que no verifica (firma, expiración o
   audience inválidas). El mensaje no expone el motivo interno.
 - **500** → falta `GOOGLE_CLIENT_ID` en el entorno del servidor.
+
+### Pedidos y libro de cargos
+
+Todas las rutas de `/api/orders` exigen el **ID token de Google** en
+`Authorization: Bearer <token>`. No se emite sesión propia: el token de Google
+ya identifica, y añadir un secreto más al servidor solo agrega superficie que
+custodiar. El header (y no una cookie) es también lo que hace que CSRF no
+aplique — el navegador nunca adjunta `Authorization` por su cuenta.
+
+La regla que ordena estas rutas: **el cliente propone, el servidor decide.** El
+checkout manda qué prendas, qué fechas y qué modo de entrega; ningún importe que
+llegue en el cuerpo se usa jamás. Los precios salen de `src/pricing.js` sobre el
+catálogo de la base.
+
+- **No se guarda un `total`.** El pedido guarda líneas inmutables (`charges`) y
+  el total es su suma. Un importe cobrado es un hecho histórico: si mañana sube
+  `SHIPPING_FEE`, un total derivado haría mentir a todos los pedidos pasados.
+- **Cambiar algo añade una línea, no edita la anterior.** Pasar la devolución de
+  local a domicilio deja un `ADJUSTMENT +4.50`, y el historial explica por sí
+  solo por qué el cliente pagó lo que pagó.
+- **El depósito se cobra pero no se gana.** Entra como `DEPOSIT_HOLD` y sale
+  como `DEPOSIT_RELEASE`; la respuesta trae `revenueCents` (sin depósito) aparte
+  de `totalCents` justamente para que nadie facture la garantía.
+- **Confirmar que entró dinero es del negocio.** `settle`, `deposit-release` y
+  `late-penalty` exigen estar en `ADMIN_SUBS`; el cliente no puede darse por
+  cobrado a sí mismo.
+- El estado de pago **se deriva**: un pedido está `settled` cuando no le queda
+  ninguna línea `PENDING`.
+
+Códigos: **400** entrada inválida · **401** sin credencial o expirada · **403**
+hace falta ser del local · **404** no existe o no es tuyo · **409** conflicto de
+estado (prenda ya alquilada, pedido anulado, depósito ya devuelto).
+
+> Cupones y puntos **todavía no**: el pedido aún no acepta `couponId`. Es la §2
+> del plan de backend, y sin el ledger de puntos aceptar un descuento del
+> cliente sería justo el agujero que se quiere cerrar.
 
 ## Scripts
 
@@ -64,6 +107,7 @@ ese token (sin comprobar la firma) — esta ruta es la que de verdad autentica.
 | `PORT` | Puerto del servidor (por defecto `3000`). |
 | `CORS_ORIGINS` | Orígenes autorizados a leer la API, separados por comas: `CORS_ORIGINS="https://clothtogo.app"`. Vacía refleja cualquier origen — cómodo en desarrollo y para abrir el frontend por `file://`. **Con `NODE_ENV=production` es obligatoria: si falta, el servidor no arranca** (#18), para que un despliegue no quede abierto a todos los orígenes sin avisar. |
 | `GOOGLE_CLIENT_ID` | Client ID de Google Cloud Console usado como `audience` al verificar el ID token en `POST /api/auth/google`. Debe coincidir con el `GOOGLE_CLIENT_ID` de `js/auth.js`. Sin esta variable, la ruta responde `500` en vez de arrancar rota. |
+| `ADMIN_SUBS` | `googleSub` del personal del local, separados por comas. Son los únicos que pueden confirmar cobros, liberar depósitos y cobrar atrasos. Va en el entorno y no en una columna `role` a propósito: **no hay endpoint que ascienda a nadie**, así que el permiso no se puede escalar desde la propia API. Vacía = nadie es admin, y esas tres rutas responden `403` a todo el mundo. |
 
 > CORS limita quién puede **leer** la respuesta, no quién puede **enviar** la
 > petición, así que no protege contra CSRF. Cuando se agregue autenticación, la
