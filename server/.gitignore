@@ -1,6 +1,6 @@
 node_modules/
 .env
-# Base SQLite local (se regenera con db:reset)
+# Restos de la etapa SQLite (el motor es Postgres desde el paso a migraciones)
 *.db
 *.db-journal
 *.db-wal
