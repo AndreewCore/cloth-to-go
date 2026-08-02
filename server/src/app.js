@@ -8,6 +8,8 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import prisma from "./db.js";
 import { createGoogleVerifier } from "./googleAuth.js";
+import { createAuthGuards, upsertUser } from "./auth.js";
+import { registerOrderRoutes } from "./orders.js";
 
 /**
  * Resuelve la política de CORS a partir de CORS_ORIGINS.
@@ -144,21 +146,16 @@ export function buildApp(opts = {}) {
       return reply.code(401).send({ error: "Credential de Google inválida." });
     }
 
-    const data = {
-      email: payload.email ?? "",
-      name: payload.name ?? "",
-      picture: payload.picture ?? null,
-    };
-    const user = await prisma.user.upsert({
-      where: { googleSub: payload.sub },
-      update: data,
-      create: { googleSub: payload.sub, ...data },
-    });
+    const user = await upsertUser(payload);
 
     return {
       user: { sub: user.googleSub, name: user.name, email: user.email, picture: user.picture },
     };
   });
+
+  // Pedidos y libro de cargos. Todas exigen credencial; las de confirmar cobro
+  // y liberar depósito, además, ser del personal del local.
+  registerOrderRoutes(app, createAuthGuards(verify));
 
   return app;
 }
