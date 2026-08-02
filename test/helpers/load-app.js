@@ -26,10 +26,13 @@ globalThis.__APP__ = {
   SHIPPING_FEE, DEPOSIT_MAX, DEPOSIT_ORDER_MAX, MIN_MARGIN,
   // --- Helpers puros (data.js) ---
   escapeHTML, fmtDate, daysBetween, starStr, conditionLabel, materialLabel,
+  qualityLevel, qualityMeter, qualityMeterText,
+  productImages, coverImage, imgPlaceholder,
+  REWARDS, rewardById, rewardIssue,
   garmentWater, litersToGallons,
   isValidEmail, isValidPhone, isValidName, isValidAddress,
   isValidCardNumber, isValidExpiry, isValidCvv,
-  PRODUCTS, productById,
+  PRODUCTS, productById, CATS, SIZE_SCALES, SIZE_ORDER, SIZES, sizeScale, sizesInScale,
   // --- Estado y cálculos derivados (state.js) ---
   isoOffset, cents, rentalDays, isLate, isArchivedOrder, isCancelledOrder, isPastOrder,
   canCancelOrder, isDelivered, creditDeliveredPoints, isRented, unitsAvailable, inCart,

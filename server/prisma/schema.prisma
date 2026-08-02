@@ -21,11 +21,22 @@ model Product {
   cat         String
   value       Float
   stars       Int
+  /// Talla en la escala que le corresponda: letras para la ropa (XS…XXL) y
+  /// número EU para el calzado ("39"). Va como texto por eso mismo — son dos
+  /// escalas distintas, y un Int dejaría fuera la mitad del catálogo.
   size        String
+  /// Color dominante, como clave de la paleta cerrada del frontend
+  /// (COLOR_ORDER en js/data.js): "negro", "beige", … No es texto libre — el
+  /// filtro compara por igualdad, y "azul marino" no coincidiría con "azul".
+  color       String
   disponibles Int    @default(1)
   material    String
   weightKg    Float
-  img         String
+  /// Fotos de la prenda como JSON (["img/products/1.webp", …]), de la portada a
+  /// la última. SQLite no tiene listas de escalares y Prisma no las emula, así
+  /// que se guarda serializado y la API lo devuelve ya como array: el formato
+  /// del almacén no debe filtrarse al cliente.
+  imgs        String
   desc        String
 
   @@map("products")

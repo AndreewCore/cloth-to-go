@@ -97,6 +97,51 @@ function signOut(){
 }
 
 /**
+ * Borra los datos de la cuenta activa en este dispositivo y cierra la sesión.
+ *
+ * **Punto único de la baja de cuenta.** Cuando exista el backend, es aquí donde
+ * entra la llamada al endpoint (`deletedAt` + anonimización — ver §3 de
+ * `README-BACKEND-PENDIENTE.md`) y el borrado local pasa a ser el efecto
+ * secundario del cierre de sesión, no *la* acción. Por eso se llama desde un
+ * solo sitio y no se reparte por las vistas.
+ *
+ * Borra EXCLUSIVAMENTE la clave de esta cuenta:
+ * - Las preferencias del dispositivo (`PREFS_KEY`: tema, tamaño de texto,
+ *   contraste) sobreviven — son del aparato, no de la cuenta, y Ajustes promete
+ *   que se mantienen aunque cierres sesión.
+ * - Las claves de otras cuentas del mismo navegador tampoco se tocan: borrar la
+ *   sesión de otro desde la propia cuenta es justo lo que no debe poder pasar.
+ */
+function deleteAccount(){
+  const key = activeStorageKey;   // signOut() lo pone a null: hay que leerlo antes
+  try {
+    if(key) localStorage.removeItem(key);
+  } catch(e){ /* almacenamiento no disponible: la sesión se cierra igual */ }
+  signOut();
+  toast("Datos eliminados de este dispositivo");
+}
+
+/**
+ * Pide confirmación antes de la baja. El diálogo enumera lo que se pierde
+ * porque "eliminar cuenta" no dice nada por sí solo, y es irreversible: no hay
+ * deshacer, que es precisamente lo que significa borrar.
+ *
+ * El texto habla de *este dispositivo* y no de "tu cuenta" a secas: en la demo
+ * no hay cuenta en ningún servidor, y prometer un borrado remoto que no ocurre
+ * sería mentir sobre dónde viven los datos.
+ */
+function askDeleteAccount(){
+  confirmDialog(
+    "Se eliminarán tus datos de este dispositivo y se cerrará tu sesión.\n\n" +
+    "Perderás tu carrito, tus pedidos, tus reseñas, tus puntos y los premios que hayas canjeado.\n\n" +
+    "Esta acción no se puede deshacer.",
+    deleteAccount,
+    "trash",
+    { title: "Eliminar mis datos", okLabel: "Eliminar", danger: true },
+  );
+}
+
+/**
  * Escribe (o borra) el aviso bajo el botón de Google, dentro de la propia
  * tarjeta de bienvenida.
  *
