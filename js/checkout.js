@@ -179,7 +179,7 @@ function renderCart(){
         <div class="ci-thumb">${imgPlaceholder(p)}</div>
         <div class="ci-info">
           <div class="ci-name">${escapeHTML(p.name)}</div>
-          <div class="ci-stars">${starStr(p.stars)} <span style="color:var(--muted)">${conditionLabel(p.stars)} · Talla ${escapeHTML(p.size)}</span></div>
+          <div class="ci-quality">${qualityMeter(p.stars)} <span style="color:var(--muted)">${conditionLabel(p.stars)} · Talla ${escapeHTML(p.size)}</span></div>
           <div class="ci-meta">${days} ${days===1?'día':'días'} · $${(cartItemPrice(p)/days).toFixed(2)}/día · depósito $${depositFor(p)}</div>
         </div>
         <div>
@@ -223,54 +223,29 @@ function renderCheckout(){
   sheetBody.innerHTML = `
     <div class="section-label">¿Cómo quieres recibir tu pedido?</div>
     <div class="delivery-opts">
-      <div class="delivery-opt ${delivery==='ship'?'active':''}" data-action="setDelivery" data-value="ship" role="button" tabindex="0" aria-pressed="${delivery==='ship'}">
-        <div class="do-icon">${icon("truck", { size: 22 })}</div>
-        <div class="do-text">
-          <div class="do-title"><span>Envío a domicilio</span><span style="color:var(--accent)">$${ship.toFixed(2)}</span></div>
-          <div class="do-desc">Recíbelo en 24–48 h en tu dirección.</div>
-        </div>
-        <div class="do-radio"></div>
-      </div>
-      <div class="delivery-opt ${delivery==='pickup'?'active':''}" data-action="setDelivery" data-value="pickup" role="button" tabindex="0" aria-pressed="${delivery==='pickup'}">
-        <div class="do-icon">${icon("store", { size: 22 })}</div>
-        <div class="do-text">
-          <div class="do-title"><span>Retiro en local</span><span style="color:var(--ok)">Gratis</span></div>
-          <div class="do-desc">Recoge en nuestro único local físico.</div>
-        </div>
-        <div class="do-radio"></div>
-      </div>
+      ${optionCardHTML({ action:"setDelivery", value:DELIVERY.SHIP, active: delivery===DELIVERY.SHIP,
+        glyph:"truck", title:"Envío a domicilio", note:`$${ship.toFixed(2)}`, noteVar:"accent",
+        desc:"Recíbelo en 24–48 h en tu dirección." })}
+      ${optionCardHTML({ action:"setDelivery", value:DELIVERY.PICKUP, active: delivery===DELIVERY.PICKUP,
+        glyph:"store", title:"Retiro en local", note:"Gratis",
+        desc:"Recoge en nuestro único local físico." })}
     </div>
-    ${delivery==='ship' ? `
+    ${delivery===DELIVERY.SHIP ? `
       <div class="ship-detail">
         ${addressFieldHTML("ship", "Dirección de envío", address, addressCoords)}
       </div>` : ``}
-    ${delivery==='pickup' ? `
-      <div class="pickup-detail">
-        ${icon("store", { size: 15 })} <b>${LOCAL.nombre}</b><br>
-        ${LOCAL.direccion}<br>
-        <span style="color:var(--muted)">${LOCAL.horario}</span>
-      </div>` : ``}
+    ${delivery===DELIVERY.PICKUP ? localCardHTML() : ``}
 
     <div class="section-label">¿Cómo deseas devolver la ropa al terminar el alquiler?</div>
     <div class="delivery-opts">
-      <div class="delivery-opt ${returnMethod==='store'?'active':''}" data-action="setReturn" data-value="store" role="button" tabindex="0" aria-pressed="${returnMethod==='store'}">
-        <div class="do-icon">${icon("store", { size: 22 })}</div>
-        <div class="do-text">
-          <div class="do-title"><span>Devolver en el local</span><span style="color:var(--ok)">Gratis</span></div>
-          <div class="do-desc">Acércate a nuestro local físico al terminar el alquiler.</div>
-        </div>
-        <div class="do-radio"></div>
-      </div>
-      <div class="delivery-opt ${returnMethod==='home'?'active':''}" data-action="setReturn" data-value="home" role="button" tabindex="0" aria-pressed="${returnMethod==='home'}">
-        <div class="do-icon">${icon("truck", { size: 22 })}</div>
-        <div class="do-text">
-          <div class="do-title"><span>Retiro a domicilio</span><span style="color:var(--accent)">$${ship.toFixed(2)}</span></div>
-          <div class="do-desc">Pasamos por tu dirección a retirar las prendas.</div>
-        </div>
-        <div class="do-radio"></div>
-      </div>
+      ${optionCardHTML({ action:"setReturn", value:RETURN_TO.STORE, active: returnMethod===RETURN_TO.STORE,
+        glyph:"store", title:"Devolver en el local", note:"Gratis",
+        desc:"Acércate a nuestro local físico al terminar el alquiler." })}
+      ${optionCardHTML({ action:"setReturn", value:RETURN_TO.HOME, active: returnMethod===RETURN_TO.HOME,
+        glyph:"truck", title:"Retiro a domicilio", note:`$${ship.toFixed(2)}`, noteVar:"accent",
+        desc:"Pasamos por tu dirección a retirar las prendas." })}
     </div>
-    ${returnMethod==='home' ? `
+    ${returnMethod===RETURN_TO.HOME ? `
       <div class="ship-detail">
         ${addressFieldHTML("return", "Dirección de retiro", returnAddress, returnAddressCoords)}
       </div>` : ``}
@@ -281,8 +256,8 @@ function renderCheckout(){
       <div class="summary-row"><span>Período</span><span>${rentalDays()} ${rentalDays()===1?'día':'días'} · ${fmtDate(rentalStart)} → ${fmtDate(rentalEnd)}</span></div>
       <div class="summary-row"><span>Subtotal alquiler</span><span>$${subtotal().toFixed(2)}</span></div>
       <div class="summary-row deposit"><span>Depósito <span class="refund-tag">reembolsable</span></span><span>$${depositTotal().toFixed(2)}</span></div>
-      <div class="summary-row"><span>Envío</span><span>${delivery==='ship'?'$'+ship.toFixed(2):delivery==='pickup'?'$0.00':'—'}</span></div>
-      <div class="summary-row"><span>Devolución</span><span>${returnMethod==='home'?'$'+ship.toFixed(2):returnMethod==='store'?'$0.00':'—'}</span></div>
+      <div class="summary-row"><span>Envío</span><span>${delivery===DELIVERY.SHIP?'$'+ship.toFixed(2):delivery===DELIVERY.PICKUP?'$0.00':'—'}</span></div>
+      <div class="summary-row"><span>Devolución</span><span>${returnMethod===RETURN_TO.HOME?'$'+ship.toFixed(2):returnMethod===RETURN_TO.STORE?'$0.00':'—'}</span></div>
       ${couponDiscount() > 0 ? `
         <div class="summary-row discount"><span>${icon("ticket", { size: 14 })} ${escapeHTML(couponById(appliedCoupon).name)}</span><span>−$${couponDiscount().toFixed(2)}</span></div>` : ""}
       ${totalRowHTML("Total a pagar", total)}
@@ -294,9 +269,9 @@ function renderCheckout(){
 
   let payLabel = `Continuar al pago ${icon("arrowRight", { size: 16 })}`;
   if(!delivery)                                          payLabel = 'Elige cómo recibir tu pedido';
-  else if(delivery==='ship' && !addressReady(address, addressCoords)) payLabel = mapsAvailable() ? 'Marca la ubicación de envío en el mapa' : 'Ingresa una dirección de envío válida';
+  else if(delivery===DELIVERY.SHIP && !addressReady(address, addressCoords)) payLabel = mapsAvailable() ? 'Marca la ubicación de envío en el mapa' : 'Ingresa una dirección de envío válida';
   else if(!returnMethod)                                 payLabel = 'Elige cómo devolver la ropa';
-  else if(returnMethod==='home' && !addressReady(returnAddress, returnAddressCoords)) payLabel = mapsAvailable() ? 'Marca la ubicación de retiro en el mapa' : 'Ingresa una dirección de retiro válida';
+  else if(returnMethod===RETURN_TO.HOME && !addressReady(returnAddress, returnAddressCoords)) payLabel = mapsAvailable() ? 'Marca la ubicación de retiro en el mapa' : 'Ingresa una dirección de retiro válida';
 
   sheetFoot.innerHTML = `
     <button class="pay-btn" data-action="toPayment" ${valid?'':'disabled'}>${payLabel}</button>`;
@@ -348,23 +323,50 @@ function couponSectionHTML(){
       : ""}`;
 }
 
-// ¿El checkout tiene datos suficientes para pagar?
+/**
+ * ¿Está resuelto CÓMO recibe el cliente el pedido?
+ * Retirar en el local no pide nada más; el envío exige dirección utilizable
+ * (ver addressReady en maps.js: con selector de mapa manda el punto, sin él
+ * manda el texto).
+ * @returns {boolean}
+ */
+function deliveryReady(){
+  if(delivery === DELIVERY.PICKUP) return true;
+  return delivery === DELIVERY.SHIP && addressReady(address, addressCoords);
+}
+
+/**
+ * ¿Está resuelto CÓMO devuelve el cliente las prendas?
+ * @returns {boolean}
+ */
+function returnReady(){
+  if(returnMethod === RETURN_TO.STORE) return true;
+  return returnMethod === RETURN_TO.HOME && addressReady(returnAddress, returnAddressCoords);
+}
+
+/**
+ * ¿El checkout tiene datos suficientes para pagar?
+ *
+ * Devuelve booleano de verdad. Antes empezaba por `delivery && …`, así que sin
+ * entrega elegida respondía `null`: funcionaba porque solo alimenta un
+ * `disabled`, pero es una firma que miente y que el primer `=== false` o el
+ * primer `JSON.stringify` habrían delatado.
+ * @returns {boolean}
+ */
 function checkoutValid(){
-  const deliveryOk = delivery && (delivery==="pickup" || (delivery==="ship" && addressReady(address, addressCoords)));
-  const returnOk = returnMethod && (returnMethod==="store" || (returnMethod==="home" && addressReady(returnAddress, returnAddressCoords)));
-  return deliveryOk && returnOk;
+  return deliveryReady() && returnReady();
 }
 
 /* ---- Pago (método) ---- */
 function renderPayment(){
   sheetTitle.textContent = "Método de pago";
   const total = grandTotal();
-  const isCard = payMethod==="credit" || payMethod==="debit";
+  const isCard = payMethod===PAY_METHOD.CREDIT || payMethod===PAY_METHOD.DEBIT;
 
   sheetBody.innerHTML = `
     <div class="section-label">¿Cómo deseas pagar?</div>
     <div class="delivery-opts">
-      <div class="delivery-opt ${payMethod==='cash'?'active':''}" data-action="setPay" data-value="cash" role="button" tabindex="0" aria-pressed="${payMethod==='cash'}">
+      <div class="delivery-opt ${payMethod===PAY_METHOD.CASH?'active':''}" data-action="setPay" data-value="${PAY_METHOD.CASH}" role="button" tabindex="0" aria-pressed="${payMethod===PAY_METHOD.CASH}">
         <div class="do-icon">${icon("cash", { size: 22 })}</div>
         <div class="do-text">
           <div class="do-title"><span>Efectivo</span></div>
@@ -372,7 +374,7 @@ function renderPayment(){
         </div>
         <div class="do-radio"></div>
       </div>
-      <div class="delivery-opt ${payMethod==='credit'?'active':''}" data-action="setPay" data-value="credit" role="button" tabindex="0" aria-pressed="${payMethod==='credit'}">
+      <div class="delivery-opt ${payMethod===PAY_METHOD.CREDIT?'active':''}" data-action="setPay" data-value="${PAY_METHOD.CREDIT}" role="button" tabindex="0" aria-pressed="${payMethod===PAY_METHOD.CREDIT}">
         <div class="do-icon">${icon("card", { size: 22 })}</div>
         <div class="do-text">
           <div class="do-title"><span>Tarjeta de crédito</span></div>
@@ -380,7 +382,7 @@ function renderPayment(){
         </div>
         <div class="do-radio"></div>
       </div>
-      <div class="delivery-opt ${payMethod==='debit'?'active':''}" data-action="setPay" data-value="debit" role="button" tabindex="0" aria-pressed="${payMethod==='debit'}">
+      <div class="delivery-opt ${payMethod===PAY_METHOD.DEBIT?'active':''}" data-action="setPay" data-value="${PAY_METHOD.DEBIT}" role="button" tabindex="0" aria-pressed="${payMethod===PAY_METHOD.DEBIT}">
         <div class="do-icon">${icon("bank", { size: 22 })}</div>
         <div class="do-text">
           <div class="do-title"><span>Tarjeta de débito</span></div>
@@ -409,7 +411,7 @@ function renderPayment(){
         <p class="pay-note">${icon("lock", { size: 14 })} Demo: los datos de la tarjeta no se procesan ni se guardan. La pasarela de pago se integrará con el backend.</p>
       </div>` : ``}
 
-    ${payMethod==='cash' ? `
+    ${payMethod===PAY_METHOD.CASH ? `
       <div class="pickup-detail">${icon("cash", { size: 15 })} Pagarás <b>$${total.toFixed(2)}</b> en efectivo al recibir o retirar tu pedido.</div>` : ``}
 
     <div class="summary">
@@ -496,8 +498,8 @@ function confirmOrder(){
 
 // ¿El método de pago está completo? (efectivo siempre; tarjeta exige datos válidos)
 function paymentValid(){
-  if(payMethod==="cash") return true;
-  if(payMethod==="credit" || payMethod==="debit"){
+  if(payMethod===PAY_METHOD.CASH) return true;
+  if(payMethod===PAY_METHOD.CREDIT || payMethod===PAY_METHOD.DEBIT){
     return isValidCardNumber(card.number) && isValidName(card.name)
         && isValidExpiry(card.expiry) && isValidCvv(card.cvv);
   }
@@ -517,15 +519,15 @@ function placeOrder(){
     end: rentalEnd,
     delivery,
     ret: returnMethod,
-    retAddr: returnMethod === "home" ? returnAddress.trim() : "",
+    retAddr: returnMethod === RETURN_TO.HOME ? returnAddress.trim() : "",
     // Coordenadas del pedido: lo que de verdad usa el reparto. Se guardan con
     // el pedido y no solo en el checkout, que se limpia al terminar.
-    shipCoords: delivery === "ship" ? addressCoords : null,
-    retCoords: returnMethod === "home" ? returnAddressCoords : null,
+    shipCoords: delivery === DELIVERY.SHIP ? addressCoords : null,
+    retCoords: returnMethod === RETURN_TO.HOME ? returnAddressCoords : null,
     pay: payMethod,
     // Tarjeta: se cobra al confirmar → "settled" (Descontado).
     // Efectivo: se paga al recibir/retirar → "pending" (Cancelado más adelante).
-    status: payMethod === "cash" ? "pending" : "settled",
+    status: payMethod === PAY_METHOD.CASH ? ORDER_STATUS.PENDING : ORDER_STATUS.SETTLED,
     // Premio aplicado: se guarda la referencia al canje, no su importe. El
     // descuento lo recalcula orderDiscount() (el precio no se almacena).
     // Solo se engancha si de verdad rebaja algo en este pedido: así un canje
