@@ -39,6 +39,7 @@ model Product {
   imgs        String
   desc        String
   orderItems  OrderItem[]
+  charges     Charge[]
 
   @@map("products")
 }
@@ -148,7 +149,12 @@ model Charge {
   /// Prenda a la que corresponde la línea, cuando la hay (las RENTAL). El
   /// depósito no la lleva: tiene tope POR PEDIDO, así que no es repartible
   /// entre prendas sin inventarse un reparto.
+  ///
+  /// Va con relación de verdad y no como un Int suelto: un desglose que apunta
+  /// a una prenda inexistente es un cargo que nadie puede explicar, y ese es
+  /// justo el momento en que hace falta poder explicarlo.
   productId   Int?
+  product     Product? @relation(fields: [productId], references: [id])
   /// Por qué existe esta línea, en lenguaje humano: "cambio de devolución:
   /// local → domicilio". Es lo que se le enseña a un cliente que reclama.
   note        String?

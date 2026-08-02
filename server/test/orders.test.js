@@ -452,6 +452,24 @@ test("anular después de liberar el depósito deja igualmente el pedido en cero"
   assert.equal(res.json().depositHeldCents, 0);
 });
 
+test("un cargo no puede señalar a una prenda que no existe", async () => {
+  // La línea RENTAL es el desglose que se le enseña a quien reclama. Si puede
+  // apuntar a una prenda inexistente, es un cargo que nadie sabe explicar
+  // justo cuando hace falta explicarlo. Lo impide la base, no el código.
+  const pedido = await crearPedido();
+  await assert.rejects(() =>
+    prisma.charge.create({
+      data: {
+        orderId: pedido.id,
+        type: "RENTAL",
+        amountCents: 100,
+        status: "SETTLED",
+        productId: 999999,
+      },
+    })
+  );
+});
+
 test("un id de pedido que no es número es 404, no un error del servidor", async () => {
   const res = await como(CLIENTE, { method: "GET", url: "/api/orders" });
   assert.equal(res.statusCode, 200);
