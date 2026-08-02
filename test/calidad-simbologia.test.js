@@ -96,18 +96,32 @@ test("el carrito muestra calidad sin estrellas", () => {
   assert.ok(fila.querySelector(".qmeter"));
 });
 
-test("el filtro de calidad usa el medidor en texto, no estrellas", () => {
+test("el filtro de calidad usa el medidor dibujado, no estrellas", () => {
   app.view = "filters";
   app.renderSheet();
-  const select = doc.getElementById("fQuality");
+  const opciones = [...doc.querySelectorAll('[data-filter="quality"]')];
 
-  sinEstrellas(select, "el filtro de calidad");
-  const opciones = [...select.options].map(o => o.textContent);
-  assert.equal(opciones[0], "Todas");
-  // Pastillas y palabras juntas: si la fuente no trae los glifos, el texto
+  sinEstrellas(doc.querySelector('.fs-group[data-group="quality"]'), "el filtro de calidad");
+  assert.equal(opciones[0].textContent.trim(), "Todas");
+  // Medidor y palabras juntos: si el contraste se come las pastillas, el texto
   // sigue explicando la opción.
-  assert.match(opciones[1], /▰{5}\s+Como nuevo/);
-  assert.match(opciones[2], /▰{4}▱\s+Excelente o más/);
+  assert.match(opciones[1].textContent, /Como nuevo/);
+  assert.equal(opciones[1].querySelectorAll(".qm-seg.on").length, 5);
+  assert.match(opciones[2].textContent, /Excelente/);
+  assert.equal(opciones[2].querySelectorAll(".qm-seg.on").length, 4);
+});
+
+test("el criterio 'o más' se dice una vez, no en cada opción", () => {
+  // Repetirlo en cinco renglones seguidos era ruido; la nota del grupo lo
+  // explica una sola vez.
+  app.view = "filters";
+  app.renderSheet();
+  const grupo = doc.querySelector('.fs-group[data-group="quality"]');
+
+  assert.match(grupo.querySelector(".fs-hint").textContent, /o mejor/);
+  for (const o of grupo.querySelectorAll('[data-filter="quality"]')) {
+    assert.doesNotMatch(o.textContent, /o más/);
+  }
 });
 
 test("el filtro sigue filtrando por calidad después del cambio", () => {

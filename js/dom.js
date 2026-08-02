@@ -108,12 +108,126 @@ function renderSheet(){
   else if(view==="review") renderReview();
 }
 
+/* ---------------- Piezas de marcado compartidas ----------------
+   Las usan varias vistas. Viven aquí y no en una de ellas para que ninguna
+   dependa de otra: checkout no debe cargar profile para pintar una opción. */
+
+/**
+ * Tarjeta de opción seleccionable, del grupo `delivery-opts`.
+ *
+ * Estaba copiada seis veces —envío/retiro del checkout, devolución del checkout
+ * y las dos de la donación—, y en cada copia el valor aparecía TRES veces (la
+ * clase activa, el data-value y el aria-pressed). Tres sitios donde escribirlo
+ * distinto y que el botón dejara de marcarse sin que nada fallara.
+ *
+ * @param {object} o
+ * @param {string} o.action `data-action` que atiende el despachador de main.js.
+ * @param {string} o.value Valor que viaja en `data-value`.
+ * @param {boolean} o.active Si es la opción elegida ahora mismo.
+ * @param {string} o.glyph Nombre del icono en ICON_PATHS.
+ * @param {string} o.title Título de la opción.
+ * @param {string} o.desc Explicación corta bajo el título.
+ * @param {string} [o.note] Coste o etiqueta a la derecha del título.
+ * @param {string} [o.noteVar=ok] Variable CSS del color de la nota (`ok`|`accent`).
+ * @returns {string} HTML de la tarjeta.
+ */
+function optionCardHTML({ action, value, active, glyph, title, desc, note, noteVar = "ok" }){
+  return `
+      <div class="delivery-opt ${active ? "active" : ""}" data-action="${action}" data-value="${value}" role="button" tabindex="0" aria-pressed="${active}">
+        <div class="do-icon">${icon(glyph, { size: 22 })}</div>
+        <div class="do-text">
+          <div class="do-title"><span>${title}</span>${note ? `<span style="color:var(--${noteVar})">${note}</span>` : ""}</div>
+          <div class="do-desc">${desc}</div>
+        </div>
+        <div class="do-radio"></div>
+      </div>`;
+}
+
+/**
+ * Ficha del local físico (nombre, dirección y horario).
+ * La pintan el retiro en local del checkout y la donación en local; es un dato
+ * del negocio, no de una pantalla.
+ * @returns {string} HTML.
+ */
+function localCardHTML(){
+  return `<div class="pickup-detail">
+        ${icon("store", { size: 15 })} <b>${LOCAL.nombre}</b><br>
+        ${LOCAL.direccion}<br>
+        <span style="color:var(--muted)">${LOCAL.horario}</span>
+      </div>`;
+}
+
 /* ---------------- Badge del carrito ---------------- */
 function updateBadge(){
   const badge = document.getElementById("badge");
   const n = cartCount();
   badge.textContent = n;
   badge.style.display = n > 0 ? "grid" : "none";
+}
+
+/**
+ * Sacude el badge para acusar recibo de la prenda que acaba de entrar.
+ * Reinicia la animación quitando y volviendo a poner la clase: agregar dos
+ * prendas seguidas debe dar dos sacudidas, no una sola que ya estaba corriendo.
+ */
+function bumpBadge(){
+  const badge = document.getElementById("badge");
+  if(!badge || shouldReduceMotion()) return;
+  badge.classList.remove("bump");
+  void badge.offsetWidth;   // fuerza el reflujo: sin él el navegador funde ambos cambios de clase en uno
+  badge.classList.add("bump");
+}
+
+/**
+ * Manda una miniatura de la prenda volando desde su tarjeta hasta el carrito.
+ *
+ * Es el acuse de recibo que faltaba: el badge cambia en una esquina que nadie
+ * está mirando cuando pulsa el botón, y en la feria hubo quien pulsó dos veces
+ * por no ver nada. El vuelo une los dos puntos, así que enseña *dónde* quedó la
+ * prenda además de *que* entró.
+ *
+ * Degrada a nada si no hay de dónde salir, si el usuario pidió menos movimiento
+ * o si el entorno no trae la API de animaciones (jsdom, navegadores viejos): el
+ * carrito ya quedó actualizado antes de llamar aquí, esto es solo el adorno.
+ * @param {Element|null} origin Elemento del que sale el vuelo (la miniatura).
+ * @returns {boolean} Si el vuelo llegó a lanzarse.
+ */
+function flyToCart(origin){
+  const target = document.getElementById("openCart");
+  if(!origin || !target || shouldReduceMotion() || typeof origin.animate !== "function") return false;
+
+  const desde = origin.getBoundingClientRect();
+  const hasta = target.getBoundingClientRect();
+  // Sin medidas no hay trayecto que dibujar (elemento oculto, o un DOM sin
+  // layout como el de los tests).
+  if(!desde.width || !hasta.width) return false;
+
+  const ghost = document.createElement("div");
+  ghost.className = "fly-ghost";
+  const img = origin.querySelector("img");
+  // Si la prenda no tiene foto, vuela el color de la marca: un fantasma vacío
+  // parecería un fallo de carga.
+  if(img && img.src && img.style.display !== "none") ghost.style.backgroundImage = `url("${img.src}")`;
+  ghost.style.left   = `${desde.left}px`;
+  ghost.style.top    = `${desde.top}px`;
+  ghost.style.width  = `${desde.width}px`;
+  ghost.style.height = `${desde.height}px`;
+  document.body.appendChild(ghost);
+
+  const dx = (hasta.left + hasta.width / 2) - (desde.left + desde.width / 2);
+  const dy = (hasta.top + hasta.height / 2) - (desde.top + desde.height / 2);
+  const vuelo = ghost.animate([
+    { transform: "translate(0,0) scale(1)", opacity: .95, borderRadius: "14px" },
+    // El punto medio sube un poco: en línea recta el recorrido se lee como un
+    // salto de posición, con la curva se lee como algo que va hacia el carrito.
+    { transform: `translate(${dx * .55}px, ${dy * .35 - 40}px) scale(.5)`, opacity: .9, offset: .55 },
+    { transform: `translate(${dx}px, ${dy}px) scale(.12)`, opacity: .25, borderRadius: "50%" },
+  ], { duration: 540, easing: "cubic-bezier(.4,.05,.4,1)", fill: "forwards" });
+
+  // onfinish y no un setTimeout: si la pestaña se va a segundo plano el vuelo se
+  // congela, y el temporizador dejaría el fantasma clavado sobre la pantalla.
+  vuelo.onfinish = vuelo.oncancel = () => { ghost.remove(); bumpBadge(); };
+  return true;
 }
 
 /* ---------------- Toast ---------------- */

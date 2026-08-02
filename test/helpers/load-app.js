@@ -32,7 +32,7 @@ globalThis.__APP__ = {
   garmentWater, litersToGallons,
   isValidEmail, isValidPhone, isValidName, isValidAddress,
   isValidCardNumber, isValidExpiry, isValidCvv,
-  PRODUCTS, productById,
+  PRODUCTS, productById, CATS, SIZE_SCALES, SIZE_ORDER, SIZES, sizeScale, sizesInScale,
   // --- Estado y cálculos derivados (state.js) ---
   isoOffset, cents, rentalDays, isLate, isArchivedOrder, isCancelledOrder, isPastOrder,
   canCancelOrder, isDelivered, creditDeliveredPoints, isRented, unitsAvailable, inCart,

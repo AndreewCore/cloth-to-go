@@ -26,11 +26,11 @@ test("GET /api/health responde ok", async () => {
   assert.deepEqual(res.json(), { status: "ok" });
 });
 
-test("GET /api/products devuelve las 10 prendas sembradas", async () => {
+test("GET /api/products devuelve las 16 prendas sembradas", async () => {
   const res = await app.inject({ method: "GET", url: "/api/products" });
   assert.equal(res.statusCode, 200);
   const products = res.json();
-  assert.equal(products.length, 10);
+  assert.equal(products.length, 16);
 });
 
 test("cada prenda trae los campos que el frontend espera", async () => {
@@ -38,9 +38,19 @@ test("cada prenda trae los campos que el frontend espera", async () => {
   const [first] = res.json();
   for (const field of [
     "id", "name", "cat", "value", "stars",
-    "size", "disponibles", "material", "weightKg", "imgs", "desc",
+    "size", "color", "disponibles", "material", "weightKg", "imgs", "desc",
   ]) {
     assert.ok(field in first, `falta el campo "${field}"`);
+  }
+});
+
+test("el color es una clave de paleta, no texto libre", async () => {
+  // El filtro del frontend compara por igualdad contra las claves de
+  // COLOR_LABELS (js/data.js): un "Azul marino" sembrado a mano no coincidiría
+  // con ninguna pastilla y la prenda quedaría inalcanzable desde el filtro.
+  const res = await app.inject({ method: "GET", url: "/api/products" });
+  for (const p of res.json()) {
+    assert.match(p.color, /^[a-z]+$/, `la prenda ${p.id} trae un color inválido: "${p.color}"`);
   }
 });
 
@@ -52,6 +62,18 @@ test("imgs llega como array, no como el JSON que guarda SQLite", async () => {
     assert.ok(Array.isArray(p.imgs), `la prenda ${p.id} debe traer imgs como array`);
     assert.ok(p.imgs.length >= 1, `la prenda ${p.id} debe traer al menos una foto`);
     assert.ok(p.imgs.every(s => typeof s === "string"));
+  }
+});
+
+test("las categorías nuevas vienen sembradas y con foto", async () => {
+  // Disfraces y calzado existen para demostrar amplitud de catálogo: si la API
+  // las sirviera sin foto, la demo enseñaría seis marcos vacíos.
+  const res = await app.inject({ method: "GET", url: "/api/products" });
+  const muestra = res.json().filter(p => ["Disfraces", "Calzado"].includes(p.cat));
+
+  assert.ok(muestra.length >= 6, "deben venir sembradas las dos categorías nuevas");
+  for (const p of muestra) {
+    assert.match(p.imgs[0], /^img\/products\/\d+\.webp$/, `la prenda ${p.id} necesita portada`);
   }
 });
 

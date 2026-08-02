@@ -26,6 +26,14 @@ const FILES = [
   "checkout.js", "profile.js", "api.js", "auth.js", "maps.js"
 ];
 
+// `withMain: true` añade main.js al final, que es donde vive TODO el reparto de
+// eventos. Sin él no hay forma de probar la delegación: los tests llaman a las
+// funciones a mano y el `switch` —el sitio donde más barato es olvidar un
+// `case`— nunca se ejecuta. Va detrás de una opción y no por defecto porque
+// arrastra el init de la app (hidratar el catálogo, SDK de Google), ruido para
+// las pruebas que solo quieren una vista.
+const MAIN = "main.js";
+
 // Trailer inyectado al final: corre en el mismo scope léxico, así puede leer y
 // reasignar el estado mutable (cart/orders/…) y tocar el modal (onConfirmCb es
 // un `let` de dom.js, invisible desde fuera del scope).
@@ -53,6 +61,10 @@ globalThis.__APP__ = {
     if('appliedCoupon' in p) appliedCoupon = p.appliedCoupon;
   },
   get appliedCoupon(){ return appliedCoupon; },
+  // Campos del checkout que las pruebas de validación leen tras un reset.
+  get delivery(){ return delivery; },
+  get returnMethod(){ return returnMethod; },
+  get card(){ return card; },
   // Persistencia, para probar la migración de loadState: fija la clave activa
   // (normalmente la pone activateUserSession) y carga lo sembrado en localStorage.
   STORAGE_PREFIX,
@@ -84,8 +96,12 @@ globalThis.__APP__ = {
     if('qualityFilter'  in p) qualityFilter  = p.qualityFilter;
     if('sizeFilter'     in p) sizeFilter     = p.sizeFilter;
     if('materialFilter' in p) materialFilter = p.materialFilter;
+    if('colorFilter'    in p) colorFilter    = p.colorFilter;
     if('sortBy'         in p) sortBy         = p.sortBy;
   },
+  get colorFilter(){ return colorFilter; },
+  COLORS, COLOR_LABELS, colorLabel, colorSwatch, colorCount,
+  CATS, SIZE_SCALES, SIZES, sizeScale, sizesInScale, garmentWater,
   // Formulario de donación y editor de devolución (también variables let).
   setDonation(p){
     if('donName'   in p) donName   = p.donName;
@@ -122,6 +138,7 @@ globalThis.__APP__ = {
   // Compartido por el checkout y el calendario: fechas y derivados de precio.
   // Son variables let del scope común, invisibles desde fuera.
   subtotal, subtotalForDays, depositTotal, couponDiscount, grandTotal,
+  waterSavedForItems, SHIPPING_FEE, rentalPrice,
   rentalDays, renderSheet, fmtDate,
   get rentalStart(){ return rentalStart; },
   get rentalEnd(){ return rentalEnd; },
@@ -133,6 +150,10 @@ globalThis.__APP__ = {
   get modalOpen(){ return modalOverlay.classList.contains("show"); },
   // Detalle desde imagen: pestaña apilada sobre el perfil.
   openDetail, openSheet, closeSheet, closeStackSheet,
+  // Baja de cuenta.
+  deleteAccount, askDeleteAccount, renderSettings, signOut,
+  // Acuse de recibo al agregar al carrito.
+  addToCart, flyToCart, bumpBadge, updateBadge,
   // Reseñas.
   productReviews, productRating, reviewFor, reviewableItems, hasPendingReview,
   openReview, reviewValid, submitReview, deleteReview, DEMO_REVIEWS,
@@ -164,6 +185,7 @@ globalThis.__APP__ = {
  *   - `url`: origen de la página (protocolo/host que ven api.js y auth.js).
  *   - `storage`: pares clave/valor sembrados en localStorage ANTES de ejecutar
  *     los scripts, única forma de probar el override del backend.
+ *   - `withMain`: carga también main.js, con su reparto de eventos y su init.
  * @returns {{window, document, app}} `app` es la API __APP__ del trailer.
  */
 function loadDom(opts = {}) {
@@ -180,8 +202,14 @@ function loadDom(opts = {}) {
     dom.window.localStorage.setItem(k, v);
   }
   const ctx = dom.getInternalVMContext();
+  const archivos = opts.withMain ? [...FILES, MAIN] : FILES;
+  // El init de main.js hidrata el catálogo contra la API. jsdom no trae fetch en
+  // todas las versiones y aquí no hay servidor: se deja uno que siempre rechaza,
+  // que es el camino de degradación real de api.js (sin backend, catálogo
+  // embebido). Sin esto la promesa quedaría suelta y el runner lo reporta.
+  if (opts.withMain && !dom.window.fetch) dom.window.fetch = () => Promise.reject(new Error("sin backend"));
   const source =
-    FILES.map(f => fs.readFileSync(path.join(JS_DIR, f), "utf8")).join("\n") +
+    archivos.map(f => fs.readFileSync(path.join(JS_DIR, f), "utf8")).join("\n") +
     "\n" + EXPORT_TRAILER;
   vm.runInContext(source, ctx, { filename: "app-bundle.js" });
 

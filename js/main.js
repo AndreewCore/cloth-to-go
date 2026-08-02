@@ -88,7 +88,9 @@ filtersEl.addEventListener("click", e=>{
 
 grid.addEventListener("click", e=>{
   const add = e.target.closest("[data-add]");
-  if(add){ addToCart(+add.dataset.add); return; }
+  // La miniatura de la tarjeta es el origen del vuelo al carrito: es lo que el
+  // cliente está mirando cuando pulsa, no el botón.
+  if(add){ addToCart(+add.dataset.add, add.closest(".card")?.querySelector(".thumb")); return; }
   const card = e.target.closest("[data-detail]");
   if(card){ openDetail(+card.dataset.detail); }
 });
@@ -139,7 +141,11 @@ function onSheetClick(e){
                            editingOrder=null; editingProfile=false; view="profile"; renderSheet(); break;
     // renderDetail() sirve para ambas superficies y repinta solo el detalle,
     // que es lo único que cambia al agregar la prenda al carrito.
-    case "addDetail":      addToCart(detailId); renderDetail(); break;
+    // Desde el detalle vuela la foto grande: el botón vive en el pie del panel,
+    // y la galería es lo que ocupa la mirada. `.sheet` acota a la superficie
+    // pulsada — el detalle también se abre apilado sobre el perfil.
+    case "addDetail":      addToCart(detailId, el.closest(".sheet")?.querySelector(".gallery"));
+                           renderDetail(); break;
     case "openReview":     openReview(+el.dataset.order); break;
     case "pickReviewItem": reviewProductId = +el.dataset.id; renderSheet(); break;
     // Segundo toque sobre la misma estrella = quitarla, como el premio aplicado:
@@ -153,6 +159,7 @@ function onSheetClick(e){
     case "galNext":        moveGallery(1); break;
     case "galDot":         showGalleryImage(+el.dataset.i); break;
     case "signOut":        signOut(); break;
+    case "deleteAccount":  askDeleteAccount(); break;
     case "saveProfile":    saveProfile(); break;
     case "editProfile":    editProfile(); break;
     case "cancelProfileEdit": cancelProfileEdit(); break;
@@ -164,7 +171,6 @@ function onSheetClick(e){
     case "redeem":         redeem(+el.dataset.id); break;
     case "openDonate":     openDonate(); break;
     case "openWardrobe":   openWardrobe(); break;
-    case "openSettings":   view="settings"; renderSheet(); break;
     case "setPref":        setPref(el.dataset.pref, el.dataset.value); renderSheet(); break;
     // Los booleanos leen su estado del DOM (aria-checked) en vez de recalcularlo:
     // el botón ya es la fuente de verdad de lo que el usuario está viendo.
@@ -178,6 +184,9 @@ function onSheetClick(e){
     case "cancelOrder":    cancelOrder(+el.dataset.idx); break;
     case "toggleLateInfo": toggleLateInfo(+el.dataset.idx); break;
     case "clearFiltersSheet": clearFilters(); break;
+    case "toggleFilterGroup": toggleFilterGroup(el.dataset.group); break;
+    // Los filtros actualizan en vivo el catálogo de fondo, sin cerrar el panel.
+    case "setFilter":      setFilterValue(el.dataset.filter, el.dataset.value); break;
     case "pickLocation":   openMapPicker(el.dataset.target); break;
     case "closeSheet":     closeSheet(); break;
   }
@@ -252,10 +261,6 @@ sheet.addEventListener("change", e=>{
   } else if(t.id === "donDate"){
     donDate = t.value; renderSheet();
   }
-  // Selects del panel de filtros: actualizan en vivo el catálogo de fondo.
-  else if(t.id === "fQuality"){ qualityFilter = +t.value; renderGrid(); renderFilterSheet(); }
-  else if(t.id === "fSize"){ sizeFilter = t.value; renderGrid(); renderFilterSheet(); }
-  else if(t.id === "fMaterial"){ materialFilter = t.value; renderGrid(); renderFilterSheet(); }
 });
 
 // Al salir de una dirección o de un campo de tarjeta, re-render para revalidar el botón.
