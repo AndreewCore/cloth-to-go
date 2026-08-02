@@ -54,9 +54,10 @@ test("el color es una clave de paleta, no texto libre", async () => {
   }
 });
 
-test("imgs llega como array, no como el JSON que guarda SQLite", async () => {
-  // El formato del almacén no debe filtrarse al cliente: si esto se rompe, el
-  // frontend recibe una cadena y la galería la recorre carácter a carácter.
+test("imgs llega como array de rutas", async () => {
+  // En Postgres ya es una lista en la base, así que no hay traducción que se
+  // pueda romper; la prueba se queda porque el contrato con el frontend sigue
+  // siendo ese: si llega una cadena, la galería la recorre carácter a carácter.
   const res = await app.inject({ method: "GET", url: "/api/products" });
   for (const p of res.json()) {
     assert.ok(Array.isArray(p.imgs), `la prenda ${p.id} debe traer imgs como array`);

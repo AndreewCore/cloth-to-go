@@ -64,9 +64,23 @@ jobs:
   test-server:
     name: Tests del servidor (API)
     runs-on: ubuntu-latest
-    # SQLite de archivo: basta un DATABASE_URL de CI, no persiste entre runs.
+    # Postgres de verdad, el mismo motor que producción: probar sobre SQLite
+    # dejaría las migraciones sin ejercitar y los enums sin comprobar.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: clothtogo
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports: ["5432:5432"]
     env:
-      DATABASE_URL: "file:./dev.db"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/clothtogo"
+      DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/clothtogo"
     steps:
       - uses: actions/checkout@v7
 
@@ -82,11 +96,14 @@ jobs:
         working-directory: server
         run: pnpm install
 
-      # db push crea el esquema; db:reset además borra y siembra el catálogo
-      # que los tests esperan encontrar (ver server/README.md).
-      - name: Preparar base SQLite (esquema + seed)
+      # `migrate deploy` aplica el historial commiteado tal cual, sin generarlo:
+      # si una migración no aplica sobre una base limpia, CI lo dice aquí y no
+      # el día del despliegue. El seed deja el catálogo que los tests esperan.
+      - name: Preparar base Postgres (migraciones + seed)
         working-directory: server
-        run: pnpm db:reset
+        run: |
+          pnpm db:deploy
+          pnpm db:seed
 
       - name: Ejecutar tests
         working-directory: server

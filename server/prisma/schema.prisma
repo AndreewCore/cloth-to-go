@@ -1,14 +1,50 @@
 // Esquema de la base de CLOTH TO GO.
-// SQLite en desarrollo/testeo; para producción se cambia el provider a
-// "postgresql" y la DATABASE_URL, sin tocar el código de la app.
+//
+// Postgres en los TRES sitios (desarrollo, CI y producción). Se descartó dejar
+// SQLite para probar: dos motores significan que las migraciones solo valen
+// para uno y que las pruebas no ejercitan el motor real — la misma divergencia
+// silenciosa que ya obligó a poner un guardarraíl al catálogo duplicado.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider = "postgresql"
+  // Conexión de la app. Con Supabase apunta al pooler (pgbouncer, puerto 6543).
+  url       = env("DATABASE_URL")
+  // Conexión directa (puerto 5432), obligatoria para las migraciones: el pooler
+  // no admite las sentencias preparadas que usa `prisma migrate`, y sin esto
+  // falla con un error que no explica de dónde viene.
+  directUrl = env("DIRECT_URL")
+}
+
+/// Tipos de línea del ledger. Son `enum` de verdad desde el paso a Postgres:
+/// mientras la base fue SQLite iban como String porque Prisma no soporta enums
+/// sobre ese motor, y la única defensa era el código. Ahora un tipo inventado
+/// no entra ni por una consulta a mano.
+enum ChargeType {
+  RENTAL
+  SHIPPING
+  RETURN
+  DEPOSIT_HOLD
+  DEPOSIT_RELEASE
+  LATE_PENALTY
+  DISCOUNT
+  ADJUSTMENT
+}
+
+/// Estado de cobro de una línea. VOID = anulada, no cuenta para nada.
+enum ChargeStatus {
+  PENDING
+  SETTLED
+  VOID
+}
+
+/// Cómo se movió el dinero de la línea.
+enum ChargeMethod {
+  CASH
+  CARD
 }
 
 /// Prenda del catálogo. Refleja los campos que ya usa el frontend (js/data.js).
@@ -32,11 +68,10 @@ model Product {
   disponibles Int    @default(1)
   material    String
   weightKg    Float
-  /// Fotos de la prenda como JSON (["img/products/1.webp", …]), de la portada a
-  /// la última. SQLite no tiene listas de escalares y Prisma no las emula, así
-  /// que se guarda serializado y la API lo devuelve ya como array: el formato
-  /// del almacén no debe filtrarse al cliente.
-  imgs        String
+  /// Fotos de la prenda (["img/products/1.webp", …]), de la portada a la
+  /// última. Lista de verdad desde el paso a Postgres: con SQLite se guardaba
+  /// serializado como JSON y la API tenía que deshacerlo en cada respuesta.
+  imgs        String[]
   desc        String
   orderItems  OrderItem[]
   charges     Charge[]
@@ -131,21 +166,19 @@ model OrderItem {
 /// js/state.js: sumar en float arrastra un centavo de deriva, y en la base ese
 /// error queda escrito. Negativo = a favor del cliente.
 ///
-/// `type` y `status` van como String porque Prisma **no soporta `enum` sobre
-/// SQLite**. Los valores válidos son CHARGE_TYPE / CHARGE_STATUS en
-/// src/ledger.js, que es también quien los valida al escribir.
+/// `type`, `status` y `method` son enums de la base. Las constantes
+/// CHARGE_TYPE / CHARGE_STATUS / CHARGE_METHOD de src/ledger.js siguen siendo
+/// el vocabulario del código, pero ya no son la única defensa: la base rechaza
+/// cualquier valor fuera de la lista.
 model Charge {
   id          Int      @id @default(autoincrement())
   orderId     Int
   order       Order    @relation(fields: [orderId], references: [id])
-  /// RENTAL | SHIPPING | RETURN | DEPOSIT_HOLD | DEPOSIT_RELEASE |
-  /// LATE_PENALTY | DISCOUNT | ADJUSTMENT
-  type        String
+  type        ChargeType
   amountCents Int
-  /// PENDING | SETTLED | VOID
-  status      String
-  /// CASH | CARD, o null en las líneas que no mueven dinero por sí solas.
-  method      String?
+  status      ChargeStatus
+  /// Null en las líneas que no mueven dinero por sí solas.
+  method      ChargeMethod?
   /// Prenda a la que corresponde la línea, cuando la hay (las RENTAL). El
   /// depósito no la lleva: tiene tope POR PEDIDO, así que no es repartible
   /// entre prendas sin inventarse un reparto.

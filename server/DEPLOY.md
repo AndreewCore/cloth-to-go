@@ -22,9 +22,15 @@ en este orden por dependencia.
       preferible un despliegue que no levanta a uno abierto a todos los
       orígenes en silencio. Fuera de producción, vacío sigue reflejando
       cualquier origen, que es lo cómodo en desarrollo.
-- [ ] **`DATABASE_URL`** apuntando a la base de producción (Postgres), con el
-      `provider` del `schema.prisma` cambiado a `postgresql` y las migraciones
-      aplicadas.
+- [x] **Provider y migraciones.** `schema.prisma` ya es `postgresql` y el
+      historial vive en `prisma/migrations/`, commiteado. Esta casilla daba por
+      hecho algo que no existía hasta la rama de migraciones.
+- [ ] **`DATABASE_URL`** apuntando a la base de producción (el *pooler* si es
+      Supabase, puerto 6543) y **`DIRECT_URL`** a la conexión directa (5432).
+      Sin la segunda, `prisma migrate deploy` no puede aplicar nada.
+- [ ] **Migraciones aplicadas en producción**: `pnpm db:deploy` (nunca
+      `migrate dev`, que puede reescribir el historial) y después `pnpm db:seed`
+      la primera vez.
 
 ## Configuración del frontend
 
