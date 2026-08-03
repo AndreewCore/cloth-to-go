@@ -628,6 +628,68 @@ function escapeHTML(s){
 const isValidEmail   = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim());
 const isValidPhone   = v => /^[0-9]{7,15}$/.test(String(v).trim());   // solo dígitos, 7–15
 const isValidName    = v => String(v).trim().length >= 2;
+
+/* ---- Contacto: proveedores de correo aceptados ----
+   Solo se admiten buzones de proveedor conocido. El motivo no es capricho: la
+   cuenta se verifica por correo y por SMS, y un dominio propio o desechable deja
+   sin destinatario real la recuperación de cuenta y las notificaciones del
+   alquiler. Las variantes regionales (.es, .com.ec) entran porque en Ecuador
+   hotmail.es y outlook.es son buzones corrientes, no rarezas.
+   Es una LISTA, no un patrón: aceptar un proveedor nuevo es añadir una línea. */
+const ALLOWED_EMAIL_DOMAINS = [
+  "gmail.com",
+  "outlook.com", "outlook.es", "outlook.com.ec",
+  "hotmail.com", "hotmail.es", "hotmail.com.ec",
+  "yahoo.com",   "yahoo.es",   "yahoo.com.ec",
+  "live.com"
+];
+
+/** Dominio de un correo, en minúsculas y sin espacios. "" si no hay arroba. */
+const emailDomain = v => String(v).trim().toLowerCase().split("@")[1] || "";
+
+/** ¿El correo es de un proveedor de la lista blanca? */
+const isAllowedEmailDomain = v => ALLOWED_EMAIL_DOMAINS.includes(emailDomain(v));
+
+/**
+ * Correo de contacto: bien formado **y** de un proveedor aceptado.
+ * Se separa de isValidEmail() a propósito — el formulario necesita distinguir
+ * "esto no es un correo" de "este proveedor no nos sirve", que son dos errores
+ * con dos arreglos distintos para quien los lee.
+ */
+const isValidContactEmail = v => isValidEmail(v) && isAllowedEmailDomain(v);
+
+/* ---- Contacto: celular de Ecuador ---- */
+
+// Prefijo país. Es fijo y no editable: la app opera solo en Guayaquil.
+const PHONE_COUNTRY_CODE = "+593";
+const PHONE_NATIONAL_LEN = 10;
+
+/**
+ * Celular ecuatoriano en formato nacional: `09` + 8 dígitos, 10 en total.
+ *
+ * "Empieza con 0 y tiene 10 dígitos" solo puede ser un móvil: los fijos de
+ * Ecuador son 9 dígitos (`0[2-7]` + 7), así que exigir el `9` no restringe nada
+ * legítimo y sí atrapa el error habitual de escribir el fijo en el campo de
+ * celular. El `0` es un prefijo de marcación nacional y no viaja al extranjero
+ * (ver phoneToE164).
+ */
+const isValidEcPhone = v => /^09\d{8}$/.test(String(v).trim());
+
+/**
+ * Celular nacional → E.164 para el SMS de verificación (`+5939XXXXXXXX`).
+ * El `0` inicial se cae: es prefijo de marcación interna, no parte del número.
+ * @returns {string} Número internacional, o "" si el nacional no es válido.
+ */
+function phoneToE164(v){
+  const s = String(v).trim();
+  return isValidEcPhone(s) ? PHONE_COUNTRY_CODE + s.slice(1) : "";
+}
+
+/* ---- Contacto: enfriamiento del cambio de nombre ----
+   El nombre viaja en los pedidos y es lo que ve quien entrega la prenda:
+   cambiarlo a diario convierte la entrega en una discusión de identidad. Se
+   permite fijarlo al registrarse y después una vez por semana. */
+const NAME_CHANGE_DAYS = 7;
 const isValidAddress = v => String(v).trim().length >= 6;             // calle + número, etc.
 const isValidCardNumber = v => /^[0-9]{13,19}$/.test(String(v).replace(/\s+/g, ""));  // 13–19 dígitos
 const isValidExpiry  = v => /^(0[1-9]|1[0-2])\/\d{2}$/.test(String(v).trim());        // MM/AA
