@@ -93,6 +93,28 @@ test("entrar como invitado descarta los datos de la cuenta anterior", () => {
   assert.equal(app.profile.name, "");
 });
 
+/* ---- El home refleja la sesión que está abierta ---- */
+test("cambiar de cuenta repinta la parrilla y el contador del carrito", () => {
+  // activateUserSession() cambia el estado entero, pero el home solo se pinta
+  // al arrancar: sin repintar aquí, el catálogo y el badge se quedaban con los
+  // datos de la sesión anterior hasta recargar la página.
+  win.activateUserSession(ANA);
+  app.cart = [{ id: 7 }];
+  app.orders = [{ id: 1, date: "2026-08-01", items: [1], start: "2026-08-01",
+                  end: "2999-12-31", delivery: "pickup", ret: "store",
+                  pay: "cash", status: "settled" }];
+  win.saveState();
+  win.renderGrid();
+  win.updateBadge();
+
+  win.activateUserSession(LUIS);   // Luis no tiene ni carrito ni pedidos
+
+  const doc = win.document;
+  assert.equal(doc.getElementById("badge").textContent, "0");
+  assert.doesNotMatch(doc.getElementById("grid").innerHTML, /No disponible/,
+    "la prenda que retenía Ana está libre para Luis");
+});
+
 /* ---- Puesta al día de puntos al abrir sesión ---- */
 test("al abrir sesión se acreditan los puntos de lo entregado entre visitas", () => {
   win.activateUserSession(ANA);
