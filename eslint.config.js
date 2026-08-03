@@ -36,6 +36,8 @@ const PROJECT_GLOBALS = [
   "productImages", "coverImage",
   "MESES_LARGOS", "addDaysISO", "monthOf", "shiftMonth", "monthLabel", "monthGrid",
   "isValidEmail", "isValidPhone", "isValidName", "isValidAddress",
+  "ALLOWED_EMAIL_DOMAINS", "emailDomain", "isAllowedEmailDomain", "isValidContactEmail",
+  "PHONE_COUNTRY_CODE", "PHONE_NATIONAL_LEN", "isValidEcPhone", "phoneToE164", "NAME_CHANGE_DAYS",
   "isValidCardNumber", "isValidExpiry", "isValidCvv",
   "WATER_PER_KG", "LITERS_PER_GALLON", "garmentWater", "litersToGallons", "fmtLiters",
   "WATER_GOALS", "DEMO_REVIEWS",
@@ -65,6 +67,7 @@ const PROJECT_GLOBALS = [
   "saveReview", "deleteReview",
   "countsForRewards", "creditDeliveredPoints", "revokeOrderPoints", "reclaimPointsUpTo", "nextOrderId",
   "STORAGE_PREFIX", "activeStorageKey", "defaultProfile", "storageKeyFor",
+  "daysUntilNameChange", "canChangeName", "emailIsManaged",
   "resetStateToDefaults", "saveState", "loadState", "migrateOrders", "migrateRedeemed",
   // dom.js
   "grid", "noResults", "resultsBar", "filtersEl", "overlay", "sheet", "sheetBody",
@@ -86,7 +89,7 @@ const PROJECT_GLOBALS = [
   "confirmItemsHTML", "confirmDetailHTML", "confirmOrder",
   "resetCheckoutState", "finishOrder", "goToOrders",
   // profile.js
-  "renderProfile", "PAY_LABELS", "profileHeadHTML", "contactInfoHTML", "orderCardHTML", "waterGoalHTML", "saveProfile", "editProfile", "cancelProfileEdit", "toggleLateInfo",
+  "renderProfile", "PAY_LABELS", "profileHeadHTML", "contactInfoHTML", "orderCardHTML", "waterGoalHTML", "saveProfile", "editProfile", "cancelProfileEdit", "phoneVerifyHTML", "verifyPhone", "toggleLateInfo",
   "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn", "cancelOrder",
   "renderRewards", "couponListHTML", "redeem",
   "prefOptionsHTML", "prefToggleHTML", "renderSettings",
