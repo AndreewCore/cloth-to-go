@@ -58,25 +58,52 @@ function profileHeadHTML(){
  */
 function contactInfoHTML(){
   const esc = escapeHTML;   // escape anti-XSS (contenido y atributos)
-  if(editingProfile) return `
+  if(editingProfile){
+    const nameLocked  = !canChangeName();
+    const waitDays    = daysUntilNameChange();
+    const emailLocked = emailIsManaged();
+    // Campo bloqueado con `readonly` y no `disabled`: un disabled se salta con
+    // el tabulador y no lo anuncia el lector de pantalla, así que el usuario no
+    // llega a leer POR QUÉ no puede escribir ahí.
+    const lockAttrs = 'readonly aria-readonly="true" class="is-locked"';
+    return `
     <div class="profile-form">
       <label class="pf-fld">Nombre
-        <input id="pfName" value="${esc(profile.name)}" placeholder="Tu nombre" />
+        <input id="pfName" value="${esc(profile.name)}" placeholder="Tu nombre"
+               ${nameLocked ? lockAttrs : ""} />
       </label>
+      ${nameLocked
+        ? `<small class="pf-hint">${icon("lock", { size: 12 })} Podrás cambiar tu nombre en ${waitDays} ${waitDays === 1 ? "día" : "días"}.</small>`
+        : `<small class="pf-hint">Solo puedes cambiar tu nombre una vez cada ${NAME_CHANGE_DAYS} días.</small>`}
       <small class="pf-error" id="errName" style="display:none"></small>
+
       <label class="pf-fld">Correo
-        <input id="pfEmail" type="email" value="${esc(profile.email)}" placeholder="tucorreo@ejemplo.com" />
+        <input id="pfEmail" type="email" value="${esc(profile.email)}" placeholder="tucorreo@gmail.com"
+               ${emailLocked ? lockAttrs : ""} />
       </label>
+      ${emailLocked
+        ? `<small class="pf-hint">${icon("lock", { size: 12 })} Tu correo lo gestiona tu cuenta de Google y no se puede cambiar aquí.</small>`
+        : `<small class="pf-hint">Aceptamos Gmail, Outlook, Hotmail y Yahoo.</small>`}
       <small class="pf-error" id="errEmail" style="display:none"></small>
+
       <label class="pf-fld">Celular
-        <input id="pfPhone" type="tel" inputmode="numeric" value="${esc(profile.phone)}" placeholder="09xxxxxxxx" />
+        <span class="pf-phone">
+          <span class="pf-cc" aria-hidden="true">${PHONE_COUNTRY_CODE}</span>
+          <input id="pfPhone" type="tel" inputmode="numeric" maxlength="${PHONE_NATIONAL_LEN}"
+                 value="${esc(profile.phone)}" placeholder="09xxxxxxxx"
+                 aria-label="Celular, ${PHONE_COUNTRY_CODE}, diez dígitos empezando por 09" />
+        </span>
       </label>
+      <small class="pf-hint">Ecuador (${PHONE_COUNTRY_CODE}) · 10 dígitos, empieza por 09.</small>
       <small class="pf-error" id="errPhone" style="display:none"></small>
+      ${phoneVerifyHTML()}
+
       <div class="pf-actions">
         <button class="ret-cancel" data-action="cancelProfileEdit">Cancelar</button>
         <button class="save-btn" data-action="saveProfile">Guardar cambios</button>
       </div>
     </div>`;
+  }
 
   return `
     <div class="profile-info">
@@ -84,6 +111,25 @@ function contactInfoHTML(){
       <div class="pi-row"><span class="pi-k">Correo</span><span class="pi-v">${esc(profile.email) || "—"}</span></div>
       <div class="pi-row"><span class="pi-k">Celular</span><span class="pi-v">${esc(profile.phone) || "—"}</span></div>
       <button class="edit-info-btn" data-action="editProfile">${icon("pencil", { size: 15 })} Modificar información</button>
+    </div>`;
+}
+
+/**
+ * Fila de verificación del celular dentro del formulario de contacto.
+ *
+ * El estado es siempre "sin verificar" y no se guarda en ninguna parte: mandar
+ * el SMS y comprobar el código es trabajo de servidor y todavía no existe.
+ * Guardar un `phoneVerified` que nada puede poner en true sería un campo que
+ * miente, así que aquí se anuncia la función y se dice que está pendiente.
+ * @returns {string} HTML.
+ */
+function phoneVerifyHTML(){
+  return `
+    <div class="pf-verify">
+      <span class="pf-vbadge">${icon("alert", { size: 13 })} Sin verificar</span>
+      <button type="button" class="pf-vbtn" data-action="verifyPhone">
+        ${icon("shield", { size: 14 })} Verificar por SMS
+      </button>
     </div>`;
 }
 
@@ -318,25 +364,73 @@ function waterGoalHTML(){
 
 /* ---- Acciones del perfil (invocadas por la delegación en main.js) ---- */
 
-// Guardar contacto con validación de correo y celular.
+/**
+ * Guarda la información de contacto tras validarla.
+ *
+ * Los campos bloqueados (nombre en enfriamiento, correo de Google) se leen del
+ * perfil y NO del DOM: un `readonly` es una ayuda visual, no una defensa —
+ * quitarlo desde las herramientas del navegador es un clic.
+ */
 function saveProfile(){
-  const nameV  = document.getElementById("pfName").value.trim();
-  const emailV = document.getElementById("pfEmail").value.trim();
+  const nameLocked  = !canChangeName();
+  const emailLocked = emailIsManaged();
+  const nameV  = nameLocked  ? profile.name  : document.getElementById("pfName").value.trim();
+  const emailV = emailLocked ? profile.email : document.getElementById("pfEmail").value.trim();
   const phoneV = document.getElementById("pfPhone").value.trim();
+
   const nameOk  = isValidName(nameV);
-  const emailOk = isValidEmail(emailV);
-  const phoneOk = isValidPhone(phoneV);
+  // Dos errores distintos con dos arreglos distintos: "esto no es un correo" se
+  // corrige escribiendo bien; "este proveedor no nos sirve" exige otro buzón.
+  const emailFormatOk = isValidEmail(emailV);
+  const emailOk = emailFormatOk && isAllowedEmailDomain(emailV);
+  const phoneOk = isValidEcPhone(phoneV);
+
   const setErr = (id,msg)=>{ const e=document.getElementById(id); e.textContent=msg; e.style.display=msg?"block":"none"; };
   setErr("errName",  nameOk  ? "" : "Ingresa tu nombre (mínimo 2 caracteres).");
-  setErr("errEmail", emailOk ? "" : "Ingresa un correo válido (ej: nombre@dominio.com).");
-  setErr("errPhone", phoneOk ? "" : "Ingresa solo números (7 a 15 dígitos).");
+  setErr("errEmail", emailOk ? "" : (emailFormatOk
+    ? "Solo aceptamos correos de Gmail, Outlook, Hotmail o Yahoo."
+    : "Ingresa un correo válido (ej: nombre@gmail.com)."));
+  setErr("errPhone", phoneOk ? "" : "Ingresa un celular de Ecuador: 10 dígitos que empiecen por 09.");
   if(!nameOk || !emailOk || !phoneOk){ toast("Revisa los datos de contacto"); return; }
+
+  // El reloj de los 7 días arranca solo si el nombre cambió de verdad: guardar
+  // el formulario sin tocarlo no debe costar una semana de espera.
+  if(nameV !== profile.name) profile.nameChangedAt = isoOffset();
   profile.name = nameV; profile.email = emailV; profile.phone = phoneV;
   editingProfile = false;
   saveState();
   if(profile.name) greeting.textContent = `Hola, ${profile.name}`;
   renderProfile();
   toast("Perfil actualizado");
+}
+
+/* ---- Verificación del celular por SMS (anuncio, aún sin implementar) ----
+   Mandar el código y comprobarlo exige una pasarela de SMS y estado en el
+   servidor (intentos, caducidad, límite de reenvíos). Nada de eso existe, y un
+   botón que dijera "verificado" sin haber verificado nada sería peor que no
+   ofrecerlo: daría por buena una identidad que nadie comprobó. */
+function verifyPhone(){
+  const phoneV = document.getElementById("pfPhone");
+  const raw = phoneV ? phoneV.value.trim() : profile.phone;
+  const e164 = phoneToE164(raw);
+  confirmDialog(
+    "",
+    ()=>{},
+    "shield",
+    {
+      title: "Verificación por SMS",
+      okLabel: "Entendido",
+      infoOnly: true,
+      detailHTML: e164
+        ? `<p class="soon-text">Enviaremos un código de 6 dígitos a
+           <b>${escapeHTML(e164)}</b> para confirmar que el número es tuyo.</p>
+           <p class="soon-note">Función pendiente: el envío del SMS se hace desde
+           el servidor y todavía no está implementado.</p>`
+        : `<p class="soon-text">Primero ingresa un celular válido de Ecuador:
+           10 dígitos que empiecen por <b>09</b>.</p>
+           <p class="soon-note">Después podrás pedir el código de verificación.</p>`
+    }
+  );
 }
 
 // Entrar / salir del modo edición de la información de contacto.

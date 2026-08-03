@@ -71,7 +71,10 @@ function activateUserSession(user){
   celebrateWaterGoals(goalsHit);
   // La identidad de Google rellena el perfil (el usuario puede editar el resto).
   if(user){
-    if(user.name)    profile.name    = user.name;
+    // El nombre de Google solo se impone mientras el usuario no haya elegido el
+    // suyo. Si no, cada inicio de sesión desharía su cambio y el enfriamiento de
+    // 7 días protegería un nombre que ya no está — la espera sin el efecto.
+    if(user.name && !profile.nameChangedAt) profile.name = user.name;
     if(user.email)   profile.email   = user.email;
     if(user.picture) profile.picture = user.picture;
     saveState();
