@@ -38,6 +38,8 @@ model Product {
   /// del almacén no debe filtrarse al cliente.
   imgs        String
   desc        String
+  orderItems  OrderItem[]
+  charges     Charge[]
 
   @@map("products")
 }
@@ -53,6 +55,111 @@ model User {
   name      String
   picture   String?
   createdAt DateTime @default(now())
+  orders    Order[]
 
   @@map("users")
+}
+
+/// Alquiler confirmado.
+///
+/// NO guarda `total`. El importe cobrado es un hecho histórico y no puede
+/// recalcularse cuando cambian las reglas: si mañana sube SHIPPING_FEE, un
+/// `total` derivado haría mentir a todos los pedidos pasados. El dinero vive
+/// entero en `charges`, y el total es su suma.
+///
+/// Tampoco guarda el estado de pago (el `settled`/`pending` del frontend): eso
+/// también se deriva del ledger — un pedido está saldado cuando no le queda
+/// ninguna línea PENDING. Lo único que sí es un hecho propio del pedido y no de
+/// una línea es la anulación, y por eso `cancelledAt` sí existe.
+///
+/// Las fechas van como texto `YYYY-MM-DD` a propósito, igual que en el
+/// frontend: son días de calendario locales de Guayaquil, no instantes. Un
+/// DateTime las convertiría a UTC y en UTC−5 el alquiler empezaría el día
+/// anterior.
+model Order {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id])
+  /// Primer día del alquiler (`YYYY-MM-DD`).
+  start       String
+  /// Día de devolución (`YYYY-MM-DD`).
+  end         String
+  /// Cómo lo recibe: `ship` | `pickup` (DELIVERY en pricing.js).
+  delivery    String
+  /// Cómo lo devuelve: `home` | `store` (RETURN_TO en pricing.js).
+  ret         String
+  /// Dirección de envío; null cuando se retira en el local.
+  shipAddr    String?
+  /// Dirección de retiro; null cuando se devuelve en el local.
+  retAddr     String?
+  /// Método de pago: `cash` | `credit` | `debit` (PAY_METHOD del frontend).
+  pay         String
+  createdAt   DateTime  @default(now())
+  cancelledAt DateTime?
+  items       OrderItem[]
+  charges     Charge[]
+
+  @@index([userId])
+  @@map("orders")
+}
+
+/// Qué prendas lleva el pedido. Sin importes: el dinero de cada prenda es su
+/// línea RENTAL en `charges`, y duplicarlo aquí sería tener dos precios para lo
+/// mismo — exactamente lo que el ledger viene a evitar.
+///
+/// Una prenda es única (`disponibles` = 1), así que no hay cantidad: la misma
+/// prenda no puede aparecer dos veces en el mismo pedido, y el índice único lo
+/// impone en la base en vez de confiarlo al código.
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@unique([orderId, productId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+/// Línea del libro de cargos. **Inmutable**: cambiar el modo de devolución no
+/// edita la línea anterior, añade un ADJUSTMENT. Así el historial explica por
+/// sí solo por qué el cliente pagó lo que pagó, que es justo lo que hace falta
+/// cuando alguien reclama.
+///
+/// `amountCents` en centavos ENTEROS, misma decisión que `cents()` en
+/// js/state.js: sumar en float arrastra un centavo de deriva, y en la base ese
+/// error queda escrito. Negativo = a favor del cliente.
+///
+/// `type` y `status` van como String porque Prisma **no soporta `enum` sobre
+/// SQLite**. Los valores válidos son CHARGE_TYPE / CHARGE_STATUS en
+/// src/ledger.js, que es también quien los valida al escribir.
+model Charge {
+  id          Int      @id @default(autoincrement())
+  orderId     Int
+  order       Order    @relation(fields: [orderId], references: [id])
+  /// RENTAL | SHIPPING | RETURN | DEPOSIT_HOLD | DEPOSIT_RELEASE |
+  /// LATE_PENALTY | DISCOUNT | ADJUSTMENT
+  type        String
+  amountCents Int
+  /// PENDING | SETTLED | VOID
+  status      String
+  /// CASH | CARD, o null en las líneas que no mueven dinero por sí solas.
+  method      String?
+  /// Prenda a la que corresponde la línea, cuando la hay (las RENTAL). El
+  /// depósito no la lleva: tiene tope POR PEDIDO, así que no es repartible
+  /// entre prendas sin inventarse un reparto.
+  ///
+  /// Va con relación de verdad y no como un Int suelto: un desglose que apunta
+  /// a una prenda inexistente es un cargo que nadie puede explicar, y ese es
+  /// justo el momento en que hace falta poder explicarlo.
+  productId   Int?
+  product     Product? @relation(fields: [productId], references: [id])
+  /// Por qué existe esta línea, en lenguaje humano: "cambio de devolución:
+  /// local → domicilio". Es lo que se le enseña a un cliente que reclama.
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@index([orderId])
+  @@map("charges")
 }
