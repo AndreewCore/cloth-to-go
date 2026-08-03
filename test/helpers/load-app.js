@@ -31,6 +31,8 @@ globalThis.__APP__ = {
   REWARDS, rewardById, rewardIssue,
   garmentWater, litersToGallons,
   isValidEmail, isValidPhone, isValidName, isValidAddress,
+  ALLOWED_EMAIL_DOMAINS, emailDomain, isAllowedEmailDomain, isValidContactEmail,
+  PHONE_COUNTRY_CODE, PHONE_NATIONAL_LEN, isValidEcPhone, phoneToE164, NAME_CHANGE_DAYS,
   isValidCardNumber, isValidExpiry, isValidCvv,
   PRODUCTS, productById, CATS, SIZE_SCALES, SIZE_ORDER, SIZES, sizeScale, sizesInScale,
   // --- Estado y cálculos derivados (state.js) ---
