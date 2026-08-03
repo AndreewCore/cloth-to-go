@@ -163,6 +163,7 @@ function onSheetClick(e){
     case "saveProfile":    saveProfile(); break;
     case "editProfile":    editProfile(); break;
     case "cancelProfileEdit": cancelProfileEdit(); break;
+    case "verifyPhone":    verifyPhone(); break;
     case "pickDay":        pickCalendarDay(el.dataset.iso); break;
     case "calPrev":        shiftCalendar(-1); break;
     case "calNext":        shiftCalendar(1); break;
@@ -225,7 +226,9 @@ sheet.addEventListener("input", e=>{
   // Sin re-render: repintar el formulario en cada tecla vaciaría el textarea
   // y perdería el cursor. El botón se habilita con las estrellas, no con esto.
   else if(t.id === "revText"){  reviewText = t.value; }
-  else if(t.id === "pfPhone")  t.value = t.value.replace(/[^0-9]/g, ""); // solo números
+  // Celular: solo dígitos y nunca más de los 10 del formato nacional. El corte
+  // en vivo evita que se pegue un número con el +593 delante y quede de 13.
+  else if(t.id === "pfPhone")  t.value = t.value.replace(/[^0-9]/g, "").slice(0, PHONE_NATIONAL_LEN);
   // Datos de tarjeta (formateo en vivo)
   else if(t.id === "cardNumber"){ t.value = t.value.replace(/[^0-9 ]/g, ""); card.number = t.value; }
   else if(t.id === "cardName"){   card.name = t.value; }
