@@ -1519,6 +1519,51 @@ main::-webkit-scrollbar { display: none; }
 .save-btn:active { transform: scale(.99); }
 
 .pf-error { display: block; color: var(--danger); font-size: 11px; margin: -6px 0 2px; }
+/* Pista permanente bajo el campo: dice la regla ANTES de escribir. El error
+   llega tarde y culpa; la pista llega a tiempo y solo informa. */
+.pf-hint {
+  display: flex; align-items: center; gap: 5px;
+  color: var(--muted); font-size: 11px; font-weight: 500; margin: -8px 0 0;
+}
+.pf-hint svg { flex: none; }
+
+/* Campo bloqueado (nombre en enfriamiento, correo de Google). Se ve inerte pero
+   sigue siendo enfocable y seleccionable: el usuario debe poder copiar su
+   correo aunque no pueda editarlo. */
+.pf-fld input.is-locked {
+  background: var(--disabled-bg);
+  color: var(--disabled-ink); cursor: not-allowed;
+}
+.pf-fld input.is-locked:focus { border-color: var(--line); }
+
+/* Celular: el +593 es texto fijo dentro del mismo marco que el input, para que
+   se lea como un solo número y no como dos campos independientes. */
+.pf-phone {
+  display: flex; align-items: stretch; margin-top: 5px;
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+}
+.pf-phone:focus-within { border-color: var(--accent); }
+.pf-cc {
+  display: flex; align-items: center; padding: 0 10px;
+  background: var(--neutral-bg); color: var(--neutral-ink);
+  font-size: 14px; font-weight: 700; border-right: 1px solid var(--line);
+}
+.pf-phone input { margin-top: 0; border: none; border-radius: 0; }
+.pf-phone input:focus { border-color: transparent; }
+
+.pf-verify { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: -4px; }
+.pf-vbadge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--warn-bg); color: var(--warn-ink);
+  border-radius: 999px; padding: 4px 9px; font-size: 11px; font-weight: 700;
+}
+.pf-vbtn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--accent-soft); color: var(--accent);
+  border: none; border-radius: 999px; padding: 6px 12px;
+  font-size: 12px; font-weight: 700; font-family: inherit; cursor: pointer;
+}
+.pf-vbtn:active { transform: scale(.98); }
 
 .cart-item.rental { align-items: flex-start; }
 .ci-ret { font-size: 11px; color: var(--muted); margin-top: 3px; }

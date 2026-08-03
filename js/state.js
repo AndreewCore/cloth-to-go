@@ -594,7 +594,37 @@ let activeStorageKey = null;          // null = invitado (sin persistencia)
 // waterGoals: ids de las metas de agua que YA pagaron sus puntos. Object.assign
 // en loadState da la migración gratis: un perfil viejo entra con la lista vacía
 // y cobra de una vez las metas que ya tenía ganadas.
-function defaultProfile(){ return { name:"", email:"", phone:"", picture:"", points:0, redeemed:[], donations:[], waterGoals:[] }; }
+// nameChangedAt: fecha ISO del último cambio de nombre HECHO POR EL USUARIO, o
+// "" si nunca lo tocó. Vacío = tiene su cambio libre, y eso cubre gratis dos
+// casos a la vez: el registro (aún no eligió nombre) y los perfiles guardados
+// antes de que existiera la regla, que no deben quedar bloqueados por algo que
+// no podían saber. Es estado, no derivado: no hay forma de deducir cuándo se
+// cambió un nombre mirando el nombre.
+function defaultProfile(){ return { name:"", email:"", phone:"", picture:"", nameChangedAt:"", points:0, redeemed:[], donations:[], waterGoals:[] }; }
+
+/**
+ * Días que faltan para poder volver a cambiar el nombre.
+ * @returns {number} 0 si se puede cambiar ahora.
+ */
+function daysUntilNameChange(){
+  if(!profile.nameChangedAt) return 0;
+  const unlock = addDaysISO(profile.nameChangedAt, NAME_CHANGE_DAYS);
+  const today = isoOffset();
+  if(today >= unlock) return 0;   // "YYYY-MM-DD" ordena igual como texto que como fecha
+  return daysBetween(today, unlock);
+}
+
+/** ¿El usuario puede cambiar su nombre hoy? */
+function canChangeName(){ return daysUntilNameChange() === 0; }
+
+/**
+ * ¿El correo lo manda la cuenta de Google y por tanto no se edita aquí?
+ * Con sesión de Google el correo ES la identidad con la que se inició sesión;
+ * dejarlo editar crearía un perfil que dice un correo y una sesión que dice
+ * otro, y el de la sesión ganaría en el siguiente inicio. El invitado sí lo
+ * escribe: no tiene ninguna otra fuente.
+ */
+function emailIsManaged(){ return !!currentUser; }
 
 // Clave de almacenamiento de un usuario, o null para el invitado (efímero).
 function storageKeyFor(user){ return user && user.sub ? STORAGE_PREFIX + user.sub : null; }
