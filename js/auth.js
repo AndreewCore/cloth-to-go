@@ -76,6 +76,13 @@ function activateUserSession(user){
     if(user.picture) profile.picture = user.picture;
     saveState();
   }
+  // El estado se cambió ENTERO, y el home no se repinta solo: la parrilla y el
+  // contador del carrito seguirían mostrando la sesión anterior hasta recargar
+  // la página. Se vio al borrar los datos —las prendas que estaban alquiladas
+  // se quedaban en «No disponible» sin pedido que las retuviera— y afecta igual
+  // al entrar, al salir y al cambiar de cuenta.
+  renderGrid();
+  updateBadge();
 }
 
 /**

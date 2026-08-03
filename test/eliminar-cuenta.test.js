@@ -101,6 +101,35 @@ test("volver a entrar con esa cuenta la encuentra vacía, no restaurada", () => 
   assert.equal(app.cart.length, 0);
 });
 
+test("el catálogo suelta las prendas alquiladas sin recargar la página", () => {
+  // El home no se repinta solo. Sin repintar, las prendas del pedido borrado
+  // seguían marcadas «No disponible» —retenidas por un pedido que ya no
+  // existe— hasta que el usuario recargaba, que es justo lo que nadie hace.
+  sesionConDatos(ANA);
+  app.orders = [{ id: 1, date: "2026-08-01", items: [1], start: "2026-08-01",
+                  end: "2999-12-31", delivery: "pickup", ret: "store",
+                  pay: "cash", status: "settled" }];
+  win.saveState();
+  win.renderGrid();
+  assert.match(doc.getElementById("grid").innerHTML, /No disponible/,
+    "precondición: la prenda del pedido sale como alquilada");
+
+  win.deleteAccount();
+
+  assert.doesNotMatch(doc.getElementById("grid").innerHTML, /No disponible/);
+  assert.equal(win.isRented(1), false);
+});
+
+test("el contador del carrito queda en cero a la vista", () => {
+  sesionConDatos(ANA);          // deja una prenda en el carrito
+  win.updateBadge();
+  assert.equal(doc.getElementById("badge").textContent, "1");
+
+  win.deleteAccount();
+
+  assert.equal(doc.getElementById("badge").textContent, "0");
+});
+
 /* ---- La acción es deliberada ---- */
 test("el diálogo avisa de lo que se pierde y no borra por sí solo", () => {
   sesionConDatos(ANA);
