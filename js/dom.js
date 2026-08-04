@@ -24,7 +24,13 @@ const backBtn = document.getElementById("backBtn");
 
 /* ---------------- Panel deslizante (sheet) ---------------- */
 function openSheet(){ overlay.classList.add("show"); sheet.classList.add("show"); }
-function closeSheet(){ overlay.classList.remove("show"); sheet.classList.remove("show"); }
+function closeSheet(){
+  overlay.classList.remove("show");
+  sheet.classList.remove("show");
+  // El pop-up de devolución vive fuera del panel: sin esto se quedaría flotando
+  // sobre el catálogo, editando un pedido que ya no se ve.
+  if(editingOrder !== null) closeReturnEditor();
+}
 
 /* ---------------- Pestaña de detalle apilada ----------------
    Segunda hoja, independiente del panel principal, para abrir el detalle de

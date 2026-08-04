@@ -167,13 +167,22 @@ header {
 .sort-inline select {
   appearance: none; -webkit-appearance: none;
   width: 100%;
-  border: none; background: transparent; color: var(--ink);
+  border: none; background: var(--card); color: var(--ink);
   padding: 9px 18px 9px 0;
   font-size: 13px; font-family: inherit; font-weight: 600; cursor: pointer;
   background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237d8a76' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right center; background-size: 12px;
 }
 .sort-inline select:focus { outline: none; }
+/* La lista desplegable la pinta el sistema, no el CSS del panel: hereda el
+   fondo del <select>, y con `background: transparent` resolvía a blanco mientras
+   el texto seguía siendo el `--ink` claro del tema oscuro → blanco sobre blanco.
+   Solo se veía en escritorio; en la laptop el tema oscuro del sistema lo tapaba.
+   Los <option> se pintan explícitos porque no heredan del padre en Windows. */
+.sort-inline select option {
+  background: var(--card);
+  color: var(--ink);
+}
 
 /* ---- Filtros ---- */
 .filters {
@@ -1591,11 +1600,18 @@ main::-webkit-scrollbar { display: none; }
 .water-pending svg { color: var(--ico-sky); vertical-align: -2px; }
 .water-pending b { color: var(--ico-sky); }
 
-/* ---- Editor in-line del modo de devolución ---- */
+/* ---- Editor del modo de devolución (dentro de #retOverlay) ---- */
 .ret-editor {
-  background: var(--bg); border: 1px solid var(--line);
-  border-radius: 12px; padding: 10px; margin: 8px 0 2px;
   display: flex; flex-direction: column; gap: 8px;
+  text-align: left;   /* el .modal centra su contenido; aquí es un formulario */
+}
+/* El pop-up es más alto que el modal de confirmar: lleva dos opciones, la ficha
+   del local o el mapa, y los botones. Se le deja crecer y desplazarse dentro en
+   vez de desbordar la pantalla del teléfono. */
+.ret-modal {
+  max-width: 330px;
+  max-height: 100%;
+  overflow-y: auto;
 }
 .ret-editor-title { font-size: 12px; font-weight: 700; color: var(--ink); }
 .ret-opt {
@@ -1610,11 +1626,6 @@ main::-webkit-scrollbar { display: none; }
 .ro-tag { font-size: 11px; font-weight: 700; }
 .ro-tag.free { color: var(--ok); }
 .ro-tag.fee { color: var(--accent); }
-.ret-addr-input {
-  width: 100%; border: 1px solid var(--line); border-radius: 8px;
-  padding: 9px 10px; font-size: 13px; font-family: inherit;
-}
-.ret-addr-input:focus { outline: none; border-color: var(--accent); }
 .ret-editor-actions { display: flex; gap: 8px; }
 .ret-cancel, .ret-save {
   flex: 1; border: none; border-radius: 10px; padding: 9px;
@@ -1943,7 +1954,6 @@ main::-webkit-scrollbar { display: none; }
 .donate-input,
 .don-date-label input,
 .pf-fld input,
-.ret-addr-input,
 .addr-picked {
   background: var(--field);
   color: var(--ink);
@@ -1952,7 +1962,6 @@ main::-webkit-scrollbar { display: none; }
 .fld input::placeholder,
 .donate-input::placeholder,
 .pf-fld input::placeholder,
-.ret-addr-input::placeholder,
 .search input::placeholder {
   color: var(--muted);
   opacity: 1;              /* Firefox lo aclara por su cuenta y lo vuelve ilegible */
