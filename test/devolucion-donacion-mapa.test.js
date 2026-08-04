@@ -227,6 +227,54 @@ test("volver al local borra el punto de retiro del pedido", () => {
 });
 
 /* ============================================================
+   3-bis. Diálogos apilados sobre el pop-up
+   Cambiar de modo abre la confirmación del cargo ENCIMA del editor. Es el único
+   pop-up de la app que puede tener otro diálogo encima, y cuando quedó debajo
+   la app se veía colgada: la confirmación no se podía ni aceptar ni cancelar.
+   ============================================================ */
+test("al confirmar el cargo, el pop-up sigue abierto debajo del diálogo", () => {
+  app.orders = [pedidoActivo()];
+  app.openReturnEditor(0);
+  app.setReturnEdit({ editRet: "home", editRetAddr: "Av. Segunda 456 y Tercera" });
+  app.saveReturn(0);
+
+  assert.equal(app.modalOpen, true, "cambiar de método pide confirmar el cargo");
+  assert.equal(app.retEditorOpen, true, "y el editor espera debajo, por si se cancela");
+  assert.match(app.modalMessage, /Devolución a domicilio/);
+});
+
+test("cancelar la confirmación devuelve al editor sin tocar el pedido", () => {
+  app.orders = [pedidoActivo()];
+  app.openReturnEditor(0);
+  app.setReturnEdit({ editRet: "home", editRetAddr: "Av. Segunda 456 y Tercera" });
+  app.saveReturn(0);
+  app.closeModal();
+
+  assert.equal(app.modalOpen, false);
+  assert.equal(app.retEditorOpen, true, "se vuelve a editar, no se pierde lo elegido");
+  assert.equal(app.orders[0].ret, "store");
+});
+
+test("el pop-up se apila por debajo del modal y del toast", () => {
+  // jsdom no aplica la hoja de estilos, así que el orden se comprueba en la
+  // fuente. Es el bug reportado: empatados a 90, mandaba el orden del DOM y la
+  // confirmación salía DEBAJO del editor, sin forma de aceptarla ni cerrarla.
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const css = fs.readFileSync(path.join(__dirname, "..", "css", "components.css"), "utf8");
+  const z = (selector) => {
+    const re = new RegExp(`${selector}\\s*\\{[^}]*?z-index:\\s*(\\d+)`, "s");
+    const m = css.match(re);
+    assert.ok(m, `no se encontró el z-index de ${selector}`);
+    return Number(m[1]);
+  };
+  const popup = z("#retOverlay");
+  assert.ok(popup < z("\\.modal-overlay"), "la confirmación del cargo debe quedar por encima");
+  assert.ok(popup < z("\\.toast"), "el aviso de 'marca la ubicación' se pinta sobre el pop-up");
+  assert.ok(popup < z("\\.map-overlay"), "el mapa se abre desde el pop-up: va encima");
+});
+
+/* ============================================================
    4. La donación usa el mapa
    ============================================================ */
 test("con mapa, la donación a domicilio ofrece el selector", () => {
