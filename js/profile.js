@@ -198,7 +198,6 @@ function orderCardHTML(o, i, archived){
         <div class="water-pending">${icon("droplet", { size: 14 })} ${o.pointsCredited ? "Ahorraste" : "Ahorrarás"}
           <b>${fmtLiters(waterSavedForItems(o.items))} L</b> de agua${o.pointsCredited ? "" : ", que sumarán a tus metas"}</div>
         <button class="ret-edit" data-action="editReturn" data-idx="${i}">${icon("pencil", { size: 14 })} Cambiar modo de devolución</button>
-        ${editingOrder === i ? returnEditorHTML(i) : ""}
         ${canCancelOrder(o) ? `
           <button class="order-cancel" data-action="cancelOrder" data-idx="${i}">${icon("trash", { size: 14 })} Anular pedido</button>` : ""}
         ${late ? `
@@ -437,9 +436,14 @@ function verifyPhone(){
 function editProfile(){ editingProfile = true; renderProfile(); }
 function cancelProfileEdit(){ editingProfile = false; renderProfile(); }
 
-/* ---- Editor in-line del modo de devolución ----
+/* ---- Editor del modo de devolución (pop-up) ----
    Permite elegir entre devolver en el local o a domicilio (con cargo
-   adicional). Si es a domicilio, pide la dirección de retiro. */
+   adicional). Si es a domicilio, pide dónde retiramos la prenda: por el mapa
+   cuando está disponible, y por texto solo si no lo está.
+
+   Vive en su propio diálogo (#retOverlay) y no dentro de la tarjeta del pedido:
+   ahí crecía el alto de la tarjeta y empujaba la lista, así que el editor salía
+   de la vista justo al abrirlo. */
 function returnEditorHTML(i){
   return `
     <div class="ret-editor">
@@ -448,12 +452,15 @@ function returnEditorHTML(i){
         <span class="ro-head"><span>${icon("store", { size: 15 })} Devolución en el local</span><span class="ro-tag free">Gratis</span></span>
         <small class="ro-desc">Te acercas a nuestro local físico a dejar la prenda.</small>
       </button>
+      ${editRet===RETURN_TO.STORE ? localCardHTML() : ``}
       <button type="button" class="ret-opt ${editRet===RETURN_TO.HOME?'active':''}" data-action="pickReturn" data-value="${RETURN_TO.HOME}" aria-pressed="${editRet===RETURN_TO.HOME}">
         <span class="ro-head"><span>${icon("truck", { size: 15 })} Devolución a domicilio</span><span class="ro-tag fee">+$${SHIPPING_FEE.toFixed(2)}</span></span>
         <small class="ro-desc">Vamos a la dirección que indiques a retirar la prenda (cargo adicional).</small>
       </button>
       ${editRet===RETURN_TO.HOME ? `
-        <input class="ret-addr-input" id="editRetAddr" placeholder="Dirección de retiro…" value="${escapeHTML(editRetAddr)}" aria-label="Dirección de retiro" />` : ``}
+        <div class="ship-detail">
+          ${addressFieldHTML("orderRet", "Dirección de retiro", editRetAddr, editRetCoords)}
+        </div>` : ``}
       <div class="ret-editor-actions">
         <button type="button" class="ret-cancel" data-action="cancelReturn">Cancelar</button>
         <button type="button" class="ret-save" data-action="saveReturn" data-idx="${i}">Guardar</button>
@@ -461,25 +468,52 @@ function returnEditorHTML(i){
     </div>`;
 }
 
+/**
+ * Pinta el pop-up con el editor del pedido en curso, o lo cierra si ya no hay
+ * ninguno en edición. Es el único sitio que toca `#retOverlay`, así que abrir,
+ * repintar tras elegir una opción y cerrar pasan todos por aquí.
+ */
+function renderReturnEditor(){
+  const overlay = document.getElementById("retOverlay");
+  if(!overlay) return;
+  if(editingOrder === null || !orders[editingOrder]){
+    overlay.classList.remove("show");
+    return;
+  }
+  document.getElementById("retModalBody").innerHTML = returnEditorHTML(editingOrder);
+  overlay.classList.add("show");
+}
+
 function openReturnEditor(i){
   editingOrder = i;
   editRet = orders[i].ret;
   editRetAddr = orders[i].retAddr || "";
-  renderProfile();
+  editRetCoords = orders[i].retCoords || null;
+  renderReturnEditor();
 }
 function closeReturnEditor(){
-  editingOrder = null; editRet = null; editRetAddr = "";
-  renderProfile();
+  editingOrder = null; editRet = null; editRetAddr = ""; editRetCoords = null;
+  renderReturnEditor();
+  // La tarjeta del pedido debe reflejar el modo recién guardado, pero solo si
+  // el perfil sigue siendo lo que se ve: al cerrar el panel entero, repintarlo
+  // escribiría el perfil encima de la vista a la que se vuelve.
+  if(view === "profile") renderProfile();
 }
 function saveReturn(i){
-  if(editRet === RETURN_TO.HOME && !isValidAddress(editRetAddr)){
-    toast("Ingresa una dirección de retiro válida");
+  // Misma regla que el checkout: con mapa disponible el punto es obligatorio, y
+  // sin él basta la dirección escrita. Comprobarlo con addressReady() y no con
+  // isValidAddress() evita que este editor acepte lo que el checkout rechaza.
+  if(editRet === RETURN_TO.HOME && !addressReady(editRetAddr, editRetCoords)){
+    toast(mapsAvailable() ? "Marca en el mapa dónde retiramos la prenda" : "Ingresa una dirección de retiro válida");
     return;
   }
   const o = orders[i];
   const apply = ()=>{
     o.ret = editRet;
     o.retAddr = editRet === RETURN_TO.HOME ? editRetAddr.trim() : "";
+    // El punto viaja con la dirección: si se guardara solo el texto, el reparto
+    // volvería a guiarse por "casa verde" en cuanto el pedido se edita.
+    o.retCoords = editRet === RETURN_TO.HOME ? editRetCoords : null;
     o.total = orderTotal(o);   // el cambio de devolución actualiza el total del cobro
     saveState();
     closeReturnEditor();
@@ -550,7 +584,8 @@ function cancelOrder(i){
       }
       // El editor de devolución guarda un índice: dejarlo abierto sobre un
       // pedido que ya no se muestra como activo lo dejaría huérfano.
-      editingOrder = null; editRet = null; editRetAddr = "";
+      editingOrder = null; editRet = null; editRetAddr = ""; editRetCoords = null;
+      renderReturnEditor();     // baja el pop-up si estaba abierto sobre este pedido
       saveState();
       renderProfile();
       renderGrid();             // las prendas reaparecen en el catálogo al instante
@@ -847,13 +882,15 @@ function redeem(id){
    retiro a domicilio, ambos sin costo). Los puntos NO se otorgan aquí: se
    determinan al recibir y evaluar la prenda (queda "En revisión"). */
 function openDonate(){
-  donName = ""; donMethod = null; donAddr = ""; donDate = "";
+  donName = ""; donMethod = null; donAddr = ""; donCoords = null; donDate = "";
   view = "donate"; renderSheet();
 }
 
 function donateValid(){
   if(donName.trim().length < 3 || !donMethod) return false;
-  if(donMethod === RETURN_TO.HOME) return isValidAddress(donAddr) && !!donDate;
+  // Con mapa disponible exige el punto, igual que el checkout: quien va a
+  // retirar la donación necesita saber a qué puerta llegar, no una calle.
+  if(donMethod === RETURN_TO.HOME) return addressReady(donAddr, donCoords) && !!donDate;
   return true;   // entrega en local
 }
 
@@ -883,8 +920,7 @@ function renderDonate(){
 
     ${donMethod===RETURN_TO.HOME ? `
       <div class="ship-detail">
-        ${icon("mapPin", { size: 14 })} Dirección de retiro
-        <input id="donAddr" placeholder="Calle, número, ciudad…" value="${escapeHTML(donAddr)}" />
+        ${addressFieldHTML("donate", "Dirección de retiro", donAddr, donCoords)}
         <label class="don-date-label">${icon("calendar", { size: 14 })} Fecha de la cita
           <input type="date" id="donDate" min="${isoOffset(0)}" value="${donDate}" />
         </label>
@@ -909,7 +945,8 @@ function renderDonate(){
   let label = "Enviar solicitud de donación";
   if(donName.trim().length < 3)                            label = "Describe la prenda a donar";
   else if(!donMethod)                                      label = "Elige cómo entregarla";
-  else if(donMethod===RETURN_TO.HOME && !isValidAddress(donAddr))  label = "Ingresa la dirección de retiro";
+  else if(donMethod===RETURN_TO.HOME && !addressReady(donAddr, donCoords))
+    label = mapsAvailable() ? "Marca en el mapa dónde retiramos la donación" : "Ingresa la dirección de retiro";
   else if(donMethod===RETURN_TO.HOME && !donDate)                  label = "Elige la fecha de la cita";
   sheetFoot.innerHTML = `<button class="pay-btn" data-action="submitDonation" ${valid?'':'disabled'}>${label}</button>`;
 }
@@ -920,12 +957,15 @@ function submitDonation(){
     item: donName.trim(),
     method: donMethod,
     addr: donMethod === RETURN_TO.HOME ? donAddr.trim() : "",
+    // Igual que en el pedido: el punto acompaña al texto, que por sí solo no
+    // basta para que el retiro encuentre la puerta.
+    coords: donMethod === RETURN_TO.HOME ? donCoords : null,
     date: donMethod === RETURN_TO.HOME ? donDate : "",
     status: "En revisión",
     points: null
   });
   saveState();
-  donName = ""; donMethod = null; donAddr = ""; donDate = "";
+  donName = ""; donMethod = null; donAddr = ""; donCoords = null; donDate = "";
   renderDonate();
   toast("Solicitud de donación enviada");
 }
