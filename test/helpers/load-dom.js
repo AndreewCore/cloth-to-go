@@ -85,6 +85,7 @@ globalThis.__APP__ = {
   // de "nada de claves commiteadas". La efectiva sale de mapsApiKey().
   get hardcodedMapsKey(){ return GOOGLE_MAPS_API_KEY; },
   mapsApiKey, adoptMapsKeyFromUrl, MAPS_OVERRIDE_KEY, addressReady, addressFieldHTML,
+  ADDRESS_FIELDS, addressField, addressFieldByInput,
   // Premios: el catálogo y los derivados del canje aplicado.
   REWARDS, SHIPPING_FEE, rewardById, rewardDiscount, rewardIssue,
   couponById, availableCoupons, couponDiscount, couponIssue, cartRewardCtx, orderDiscount,
@@ -102,17 +103,31 @@ globalThis.__APP__ = {
   get colorFilter(){ return colorFilter; },
   COLORS, COLOR_LABELS, colorLabel, colorSwatch, colorCount,
   CATS, SIZE_SCALES, SIZES, sizeScale, sizesInScale, garmentWater,
+  LOCAL, localCardHTML,
   // Formulario de donación y editor de devolución (también variables let).
   setDonation(p){
     if('donName'   in p) donName   = p.donName;
     if('donMethod' in p) donMethod = p.donMethod;
     if('donAddr'   in p) donAddr   = p.donAddr;
+    if('donCoords' in p) donCoords = p.donCoords;
     if('donDate'   in p) donDate   = p.donDate;
   },
+  get donAddr(){ return donAddr; },
+  get donCoords(){ return donCoords; },
+  donateValid, renderDonate, submitDonation, openDonate,
   setReturnEdit(p){
-    if('editRet'     in p) editRet     = p.editRet;
-    if('editRetAddr' in p) editRetAddr = p.editRetAddr;
+    if('editRet'       in p) editRet       = p.editRet;
+    if('editRetAddr'   in p) editRetAddr   = p.editRetAddr;
+    if('editRetCoords' in p) editRetCoords = p.editRetCoords;
   },
+  get editRet(){ return editRet; },
+  get editRetAddr(){ return editRetAddr; },
+  get editRetCoords(){ return editRetCoords; },
+  // Pop-up del modo de devolución: vive fuera del panel, así que su estado
+  // abierto/cerrado no se lee del sheet como el resto de las vistas.
+  openReturnEditor, closeReturnEditor, saveReturn, renderReturnEditor, returnEditorHTML,
+  get retEditorOpen(){ return document.getElementById("retOverlay").classList.contains("show"); },
+  get retEditorHTML(){ return document.getElementById("retModalBody").innerHTML; },
   get editingOrder(){ return editingOrder; },
   get backend(){ return backend; },
   get productCount(){ return PRODUCTS.length; },

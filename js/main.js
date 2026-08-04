@@ -179,7 +179,8 @@ function onSheetClick(e){
     case "setDonateMethod": donMethod = el.dataset.value; renderSheet(); break;
     case "submitDonation": submitDonation(); break;
     case "editReturn":     openReturnEditor(+el.dataset.idx); break;
-    case "pickReturn":     editRet = el.dataset.value; renderProfile(); break;
+    // Repinta el pop-up, no el perfil: el editor ya no vive dentro de la tarjeta.
+    case "pickReturn":     editRet = el.dataset.value; renderReturnEditor(); break;
     case "saveReturn":     saveReturn(+el.dataset.idx); break;
     case "cancelReturn":   closeReturnEditor(); break;
     case "cancelOrder":    cancelOrder(+el.dataset.idx); break;
@@ -194,6 +195,16 @@ function onSheetClick(e){
 }
 sheet.addEventListener("click", onSheetClick);
 sheetStack.addEventListener("click", onSheetClick);
+/* El pop-up del modo de devolución comparte el despachador: sus botones
+   (pickReturn/saveReturn/cancelReturn/pickLocation) son los mismos que ya
+   existen, y una segunda lista sería una copia que mantener sincronizada.
+   Pulsar el fondo cierra, como en cualquier diálogo; se compara contra el
+   propio overlay para no cerrarlo al pulsar dentro de la tarjeta. */
+const retOverlay = document.getElementById("retOverlay");
+retOverlay.addEventListener("click", e => {
+  if(e.target === retOverlay){ closeReturnEditor(); return; }
+  onSheetClick(e);
+});
 
 /* Deslizar la galería con el dedo. Es como se navegan las fotos en el móvil, y
    sin esto las flechas serían el único camino en la superficie donde menos se
@@ -217,15 +228,17 @@ for(const sup of [sheet, sheetStack]){
 }
 
 // Inputs del panel: actualizan estado sin re-render (para no perder el foco).
-sheet.addEventListener("input", e=>{
+function onFieldInput(e){
   const t = e.target;
-  // Escribir a mano invalida el punto del mapa: el texto y las coordenadas
-  // dejarían de referirse al mismo sitio, y mandaríamos el reparto al viejo.
-  if(t.id === "addr"){          address = t.value; clearPickedLocation("ship"); }
-  else if(t.id === "retAddr"){  returnAddress = t.value; clearPickedLocation("return"); }
+  // Cualquier campo de dirección (envío, retiro, devolución de un pedido o
+  // donación) se resuelve por la tabla de maps.js. Escribir a mano invalida el
+  // punto del mapa: el texto y las coordenadas dejarían de referirse al mismo
+  // sitio, y mandaríamos el reparto al viejo.
+  const campo = addressFieldByInput(t.id);
+  if(campo){ campo[1].set(t.value, null); return; }
   // Sin re-render: repintar el formulario en cada tecla vaciaría el textarea
   // y perdería el cursor. El botón se habilita con las estrellas, no con esto.
-  else if(t.id === "revText"){  reviewText = t.value; }
+  if(t.id === "revText"){  reviewText = t.value; }
   // Celular: solo dígitos y nunca más de los 10 del formato nacional. El corte
   // en vivo evita que se pegue un número con el +593 delante y quede de 13.
   else if(t.id === "pfPhone")  t.value = t.value.replace(/[^0-9]/g, "").slice(0, PHONE_NATIONAL_LEN);
@@ -237,12 +250,13 @@ sheet.addEventListener("input", e=>{
     card.expiry = t.value;
   }
   else if(t.id === "cardCvv"){ t.value = t.value.replace(/[^0-9]/g, ""); card.cvv = t.value; }
-  // Dirección de retiro al editar la devolución de un alquiler
-  else if(t.id === "editRetAddr"){ editRetAddr = t.value; }
   // Formulario de donación
   else if(t.id === "donName"){ donName = t.value; }
-  else if(t.id === "donAddr"){ donAddr = t.value; }
-});
+}
+sheet.addEventListener("input", onFieldInput);
+// El pop-up de devolución está fuera del panel: sin esto, su campo de texto de
+// respaldo (el que sale cuando no hay mapa) no llegaría al estado.
+retOverlay.addEventListener("input", onFieldInput);
 
 // Cambios de fecha: actualizan estado y re-renderizan.
 sheet.addEventListener("change", e=>{
@@ -266,10 +280,20 @@ sheet.addEventListener("change", e=>{
   }
 });
 
-// Al salir de una dirección o de un campo de tarjeta, re-render para revalidar el botón.
-sheet.addEventListener("focusout", e=>{
-  if(["addr","retAddr","cardNumber","cardName","cardExpiry","cardCvv","donName","donAddr"].includes(e.target.id)) renderSheet();
-});
+/* Al salir de una dirección o de un campo de tarjeta, re-render para revalidar
+   el botón. Cada superficie repinta la suya: el pop-up de devolución no se
+   repinta con renderSheet(), que solo conoce el panel. */
+function onFieldBlur(e){
+  const campo = addressFieldByInput(e.target.id);
+  if(campo){
+    const refresh = campo[1].refresh || renderSheet;
+    refresh();
+    return;
+  }
+  if(["cardNumber","cardName","cardExpiry","cardCvv","donName"].includes(e.target.id)) renderSheet();
+}
+sheet.addEventListener("focusout", onFieldBlur);
+retOverlay.addEventListener("focusout", onFieldBlur);
 
 // Teclado: Enter/Espacio activa los controles con role="button" (divs no nativos).
 sheet.addEventListener("keydown", e=>{
