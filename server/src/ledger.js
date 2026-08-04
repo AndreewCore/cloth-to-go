@@ -25,9 +25,9 @@ import {
 /**
  * Tipos de línea del ledger.
  *
- * Van como String en la base porque Prisma no soporta `enum` sobre SQLite (ver
- * el esquema); esta constante es la fuente de verdad y `assertChargeType` la
- * hace valer al escribir, que es donde importa.
+ * Es el vocabulario del código; desde el paso a Postgres la base los declara
+ * como `enum`, así que un tipo inventado tampoco entra por una consulta a mano.
+ * Mientras el motor fue SQLite —sin enums— esta constante era la única defensa.
  */
 export const CHARGE_TYPE = Object.freeze({
   RENTAL: "RENTAL",
@@ -75,19 +75,6 @@ export function settlementFor(pay) {
   return pay === PAY_METHOD.CASH
     ? { status: CHARGE_STATUS.PENDING, method: CHARGE_METHOD.CASH }
     : { status: CHARGE_STATUS.SETTLED, method: CHARGE_METHOD.CARD };
-}
-
-/**
- * Valida un tipo de línea contra CHARGE_TYPE.
- * @param {string} type Tipo a comprobar.
- * @returns {string} El mismo tipo, ya validado.
- * @throws {Error} Si no es uno de los tipos conocidos.
- */
-export function assertChargeType(type) {
-  if (!Object.hasOwn(CHARGE_TYPE, type)) {
-    throw new Error(`Tipo de cargo desconocido: ${type}`);
-  }
-  return type;
 }
 
 /**

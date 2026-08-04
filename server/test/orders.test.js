@@ -411,6 +411,41 @@ test("la penalización por atraso se cobra de verdad y queda pendiente", async (
   assert.equal(penalizado.status, "pending");
 });
 
+test("la misma penalización no se cobra dos veces por dos clics", async () => {
+  // Las otras rutas del local ya eran idempotentes (settle, deposit-release y
+  // cancel dan 409 al repetir); esta no, y el precio de la distracción eran $30
+  // donde había $15, en dos líneas idénticas que nadie sabría separar después.
+  const pedido = await crearPedido();
+  const url = `/api/orders/${pedido.id}/late-penalty`;
+
+  assert.equal((await como(ADMIN, { method: "POST", url })).statusCode, 200);
+  const repetida = await como(ADMIN, { method: "POST", url });
+  assert.equal(repetida.statusCode, 409);
+
+  // Se lee como CLIENTE: `GET /api/orders` devuelve los pedidos de quien
+  // pregunta, y el pedido es suyo, no del local.
+  const estado = (await como(CLIENTE, { method: "GET", url: "/api/orders" })).json();
+  const multas = estado[0].charges.filter((c) => c.type === "LATE_PENALTY");
+  assert.equal(multas.length, 1, "solo puede quedar una línea de multa");
+});
+
+test("un atraso distinto sí se puede cobrar aparte, si trae su propia nota", async () => {
+  // La guarda es contra el clic repetido, no contra dos hechos distintos: una
+  // prórroga puede volver a devolverse tarde, y esa multa tiene que poder
+  // explicarse por sí sola, con su motivo escrito.
+  const pedido = await crearPedido();
+  const url = `/api/orders/${pedido.id}/late-penalty`;
+
+  await como(ADMIN, { method: "POST", url, payload: { note: "Primera devolución, 2 días tarde" } });
+  const segunda = await como(ADMIN, {
+    method: "POST",
+    url,
+    payload: { note: "Prórroga devuelta 3 días tarde" },
+  });
+  assert.equal(segunda.statusCode, 200);
+  assert.equal(segunda.json().charges.filter((c) => c.type === "LATE_PENALTY").length, 2);
+});
+
 /* ---- Anulación ---- */
 
 test("anular deja el pedido en cero sin borrar una sola línea", async () => {
