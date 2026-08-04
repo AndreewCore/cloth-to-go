@@ -61,9 +61,14 @@ document.getElementById("mapOverlay").onclick = e=>{
   if(e.target === document.getElementById("mapOverlay")) closeMapPicker();
 };
 modalOverlay.onclick = e=>{ if(e.target === modalOverlay) closeModal(); };
+// Escape cierra el diálogo de MÁS ARRIBA, no todos: sobre el pop-up de
+// devolución pueden apilarse el mapa y la confirmación del cargo, y cerrar el
+// de abajo dejaría al de arriba flotando sobre una pantalla que ya no existe.
 document.addEventListener("keydown", e=>{
-  if(e.key === "Escape" && modalOverlay.classList.contains("show")) closeModal();
-  else if(e.key === "Escape" && document.getElementById("mapOverlay").classList.contains("show")) closeMapPicker();
+  if(e.key !== "Escape") return;
+  if(document.getElementById("mapOverlay").classList.contains("show")) closeMapPicker();
+  else if(modalOverlay.classList.contains("show")) closeModal();
+  else if(document.getElementById("retOverlay").classList.contains("show")) closeReturnEditor();
 });
 
 
