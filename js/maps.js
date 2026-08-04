@@ -70,8 +70,72 @@ const MAP_DEFAULT_ZOOM = 15;
 let mapsSdkPromise = null;   // promesa única de carga del SDK (evita duplicarla)
 let pickerMap = null;        // instancia de google.maps.Map, reutilizada
 let pickerGeocoder = null;
-let pickerTarget = null;     // "ship" | "return" — a qué campo vuelve el resultado
+let pickerTarget = null;     // clave de ADDRESS_FIELDS — a qué campo vuelve el resultado
 let pickerPlace = null;      // { lat, lng, address } elegido ahora mismo
+
+/* ---- Campos de dirección que puede rellenar el mapa ----
+   Cada uno dice de qué par de variables globales lee y escribe, con qué id sale
+   su <input> de respaldo y qué hay que repintar al confirmar. Antes el objetivo
+   era un `if (target === "ship") … else …` repartido por cuatro funciones, así
+   que sumar un tercer campo obligaba a encontrarlos todos y el que se olvidara
+   escribía la ubicación en el campo equivocado (o en ninguno) sin fallar.
+
+   `refresh` sale de aquí porque no todos viven en el panel: el modo de
+   devolución de un pedido se edita en un pop-up que renderSheet() no toca. */
+const ADDRESS_FIELDS = {
+  ship: {
+    inputId: "addr",
+    hint: "Marca en el mapa dónde quieres que te entreguemos las prendas.",
+    text:   () => address,
+    coords: () => addressCoords,
+    set: (texto, punto) => { address = texto; addressCoords = punto; }
+  },
+  return: {
+    inputId: "retAddr",
+    hint: "Marca en el mapa dónde quieres que retiremos las prendas.",
+    text:   () => returnAddress,
+    coords: () => returnAddressCoords,
+    set: (texto, punto) => { returnAddress = texto; returnAddressCoords = punto; }
+  },
+  orderRet: {
+    inputId: "editRetAddr",
+    hint: "Marca en el mapa dónde quieres que retiremos la prenda.",
+    text:   () => editRetAddr,
+    coords: () => editRetCoords,
+    set: (texto, punto) => { editRetAddr = texto; editRetCoords = punto; },
+    refresh: () => renderReturnEditor()
+  },
+  donate: {
+    inputId: "donAddr",
+    hint: "Marca en el mapa dónde pasamos a retirar las prendas que donas.",
+    text:   () => donAddr,
+    coords: () => donCoords,
+    set: (texto, punto) => { donAddr = texto; donCoords = punto; }
+  }
+};
+
+/**
+ * Campo de dirección por su clave, o `null` si no existe.
+ * Se consulta en vez de indexar a pelo para que una clave mal escrita no acabe
+ * en un `undefined.set is not a function` a mitad de la confirmación.
+ * @param {string} target
+ * @returns {object|null}
+ */
+function addressField(target){
+  return Object.prototype.hasOwnProperty.call(ADDRESS_FIELDS, target) ? ADDRESS_FIELDS[target] : null;
+}
+
+/**
+ * Campo de dirección al que pertenece un `<input>` por su id.
+ * Lo usa la delegación de `input` en main.js: escribir a mano tiene que invalidar
+ * el punto del mapa sea cual sea el campo.
+ * @param {string} inputId
+ * @returns {[string, object]|null} Par [clave, campo].
+ */
+function addressFieldByInput(inputId){
+  const par = Object.entries(ADDRESS_FIELDS).find(([, f]) => f.inputId === inputId);
+  return par || null;
+}
 
 /**
  * Indica si el selector de mapa puede ofrecerse.
@@ -108,7 +172,7 @@ function loadMapsSdk(){
 
 /**
  * Abre el selector de ubicación para el campo indicado.
- * @param {"ship"|"return"} target Campo del checkout que recibirá la ubicación.
+ * @param {string} target Clave de ADDRESS_FIELDS que recibirá la ubicación.
  */
 function openMapPicker(target){
   pickerTarget = target;
@@ -133,11 +197,12 @@ function openMapPicker(target){
  * El pin va FIJO en el centro de la pantalla y lo que se mueve es el mapa: en
  * un teléfono arrastrar un marcador diminuto con el dedo es incómodo y el
  * propio dedo tapa el punto que intentas afinar.
- * @param {"ship"|"return"} target
+ * @param {string} target Clave de ADDRESS_FIELDS.
  */
 function setUpPickerMap(target){
   const el = document.getElementById("mapCanvas");
-  const previo = target === "ship" ? addressCoords : returnAddressCoords;
+  const campo = addressField(target);
+  const previo = campo && campo.coords();
   const centro = previo || MAP_DEFAULT_CENTER;
 
   if(!pickerMap){
@@ -199,31 +264,31 @@ function useMyLocation(){
   );
 }
 
-/** Guarda la ubicación elegida en el campo del checkout que la pidió. */
+/** Guarda la ubicación elegida en el campo que la pidió y repinta su pantalla. */
 function confirmMapPicker(){
   if(!pickerPlace) return;
+  const campo = addressField(pickerTarget);
   applyPickedLocation(pickerTarget, pickerPlace);
   closeMapPicker();
-  renderSheet();
+  // El pop-up del modo de devolución vive fuera del panel: repintar solo el
+  // panel dejaría el punto guardado sin aparecer en la pantalla que lo pidió.
+  if(campo && campo.refresh) campo.refresh();
+  else renderSheet();
   toast("Ubicación guardada");
 }
 
 /**
- * Vuelca una ubicación en el campo correspondiente del checkout.
+ * Vuelca una ubicación en el campo de dirección correspondiente.
  * Separado de confirmMapPicker() para poder probar el efecto sobre el estado
  * sin depender del SDK de Google, que no existe en el entorno de pruebas.
- * @param {"ship"|"return"} target
+ * @param {string} target Clave de ADDRESS_FIELDS.
  * @param {{lat:number, lng:number, address:string}} place
  */
 function applyPickedLocation(target, place){
+  const campo = addressField(target);
+  if(!campo) return;
   const texto = place.address || `Ubicación ${place.lat.toFixed(5)}, ${place.lng.toFixed(5)}`;
-  if(target === "ship"){
-    address = texto;
-    addressCoords = { lat: place.lat, lng: place.lng };
-  } else {
-    returnAddress = texto;
-    returnAddressCoords = { lat: place.lat, lng: place.lng };
-  }
+  campo.set(texto, { lat: place.lat, lng: place.lng });
   saveState();
 }
 
@@ -233,11 +298,11 @@ function applyPickedLocation(target, place){
  * Se llama cuando el usuario escribe la dirección a mano: si se conservara el
  * punto, el texto y las coordenadas apuntarían a sitios distintos y el reparto
  * iría a la ubicación vieja, que es justo el error que este selector evita.
- * @param {"ship"|"return"} target
+ * @param {string} target Clave de ADDRESS_FIELDS.
  */
 function clearPickedLocation(target){
-  if(target === "ship") addressCoords = null;
-  else returnAddressCoords = null;
+  const campo = addressField(target);
+  if(campo) campo.set(campo.text(), null);
 }
 
 /** Cierra el selector sin guardar nada. */
@@ -250,7 +315,7 @@ function closeMapPicker(){
  * Botón "Elegir en el mapa" para un campo de dirección.
  * Devuelve vacío cuando el mapa no está disponible: el campo de texto sigue
  * siendo la vía completa, así que un botón muerto solo estorbaría.
- * @param {"ship"|"return"} target
+ * @param {string} target Clave de ADDRESS_FIELDS.
  * @param {{lat:number,lng:number}|null} coords Ubicación ya elegida, si la hay.
  * @returns {string} HTML.
  */
@@ -275,18 +340,18 @@ function mapPickerButtonHTML(target, coords){
  * única forma de terminar un pedido, y dejarlo bloqueado rompería la demo que
  * tiene que abrirse con doble clic.
  *
- * @param {"ship"|"return"} target
+ * @param {string} target Clave de ADDRESS_FIELDS.
  * @param {string} label Rótulo del campo.
  * @param {string} addr Dirección actual (texto).
  * @param {{lat:number,lng:number}|null} coords Punto elegido, si lo hay.
  * @returns {string} HTML.
  */
 function addressFieldHTML(target, label, addr, coords){
+  const campo = addressField(target);
   const head = `${icon("mapPin", { size: 14 })} ${label}`;
   if(!mapsAvailable()){
-    const id = target === "ship" ? "addr" : "retAddr";
     return `${head}
-      <input id="${id}" placeholder="Calle, número, ciudad…" value="${escapeHTML(addr)}" />
+      <input id="${campo ? campo.inputId : "addr"}" placeholder="Calle, número, ciudad…" value="${escapeHTML(addr)}" />
       ${mapPickerButtonHTML(target, coords)}`;
   }
   const cuerpo = coords
@@ -294,7 +359,7 @@ function addressFieldHTML(target, label, addr, coords){
          <div class="ap-text">${escapeHTML(addr)}</div>
          <div class="ap-coords">${icon("check", { size: 13 })} Punto exacto guardado (${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)})</div>
        </div>`
-    : `<div class="addr-empty">Marca en el mapa dónde quieres que ${target === "ship" ? "te entreguemos" : "retiremos"} las prendas.</div>`;
+    : `<div class="addr-empty">${campo ? campo.hint : ""}</div>`;
   return `${head}${cuerpo}${mapPickerButtonHTML(target, coords)}`;
 }
 

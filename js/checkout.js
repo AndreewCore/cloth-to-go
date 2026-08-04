@@ -249,6 +249,11 @@ function renderCheckout(){
       <div class="ship-detail">
         ${addressFieldHTML("return", "Dirección de retiro", returnAddress, returnAddressCoords)}
       </div>` : ``}
+    ${/* Elegir "devolver en el local" sin ver CUÁL local deja al cliente
+          aceptando ir a una dirección que nadie le dijo. El retiro (arriba) sí
+          la mostraba, así que la misma pantalla informaba de un modo y no del
+          otro. */""}
+    ${returnMethod===RETURN_TO.STORE ? localCardHTML() : ``}
 
     ${couponSectionHTML()}
 

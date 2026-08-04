@@ -145,6 +145,18 @@
     </div>
   </div>
 
+  <!-- Pop-up del modo de devolución de un pedido. Es un diálogo y no un bloque
+       dentro de la tarjeta del pedido porque allí empujaba hacia abajo el resto
+       de la lista: el editor se abría fuera de la vista y el pedido que se
+       estaba editando dejaba de verse. Lo llena renderReturnEditor() en
+       profile.js y reutiliza el estilo del modal de confirmación. -->
+  <div class="modal-overlay" id="retOverlay">
+    <div class="modal ret-modal" role="dialog" aria-modal="true" aria-labelledby="retModalTitle">
+      <h3 class="modal-title" id="retModalTitle">Cambiar modo de devolución</h3>
+      <div id="retModalBody"></div>
+    </div>
+  </div>
+
   <!-- Selector de ubicación (Google Maps). Vive fuera del panel deslizante
        porque necesita toda la pantalla del teléfono. El pin va fijo en el
        centro y lo que se arrastra es el mapa: en móvil el dedo taparía
