@@ -35,7 +35,7 @@ const SEED = path.join(ROOT, "server", "prisma", "seed.js");
  * `seed.js` es un módulo ESM que abre una conexión de Prisma al cargarse; se
  * evalúa solo el literal del catálogo para no arrastrar la base a una prueba
  * que no la necesita.
- * @returns {object[]} Prendas tal como se siembran (con `imgs` serializado).
+ * @returns {object[]} Prendas tal como se siembran.
  */
 function seedProducts() {
   const src = fs.readFileSync(SEED, "utf8");
@@ -76,16 +76,19 @@ test("cada prenda coincide campo por campo", () => {
 });
 
 test("las fotos coinciden, incluidas las secundarias", () => {
-  // `imgs` se guarda serializado porque SQLite no tiene listas de escalares
-  // (ver el esquema). La comparación es contra el JSON, que es lo que la API
-  // luego reconstruye como array.
+  // `imgs` es una lista de verdad en la base desde el paso a Postgres, así que
+  // la comparación es array contra array. Con SQLite iba serializado y había
+  // que comparar contra el JSON.
   const front = loadApp().PRODUCTS;
   const porId = new Map(seedProducts().map((p) => [p.id, p]));
 
   for (const f of front) {
     const s = porId.get(f.id);
     if (!s) continue;
-    assert.equal(s.imgs, JSON.stringify(f.imgs),
+    // Los dos arrays vienen de contextos `vm` distintos (la semilla y la app),
+    // con el prototipo de SU realm: deepEqual es estricto con los prototipos y
+    // los rechazaría aunque el contenido coincida. Copiarlos los hace comparables.
+    assert.deepEqual([...s.imgs], [...f.imgs],
       `prenda ${f.id} (${f.name}): las fotos difieren entre data.js y la semilla`);
   }
 });

@@ -19,6 +19,7 @@ import {
   paymentStatus,
   returnChangeAdjustment,
   CHARGE_STATUS,
+  CHARGE_TYPE,
   heldDepositCents,
   revenueCents,
   totalCents,
@@ -319,7 +320,23 @@ export function registerOrderRoutes(app, { requireUser, requireAdmin }) {
     const order = await findOrderFor(id, req.user, true);
     if (order.cancelledAt) throw httpError(409, "El pedido está anulado.");
 
-    await prisma.charge.create({ data: { ...latePenaltyCharge(req.body?.note), orderId: id } });
+    // Dos clics del mostrador no son dos atrasos: son $30 donde había $15, en
+    // dos líneas idénticas que nadie sabría distinguir después. Un segundo
+    // atraso real existe —la prenda vuelve tarde dos veces si se prorroga— pero
+    // entonces trae su propia nota, y eso sí se puede explicar a un cliente.
+    // Se compara contra la línea que se iba a crear, no contra el cuerpo: sin
+    // nota, `latePenaltyCharge` pone la suya por defecto, así que mirar el
+    // cuerpo dejaría pasar el caso más común —dos clics sin nota ninguna—.
+    const linea = latePenaltyCharge(req.body?.note);
+    const yaCobrada = order.charges.some(
+      (c) =>
+        c.type === CHARGE_TYPE.LATE_PENALTY &&
+        c.status !== CHARGE_STATUS.VOID &&
+        c.note === linea.note,
+    );
+    if (yaCobrada) throw httpError(409, "Esa penalización ya está cobrada en el pedido.");
+
+    await prisma.charge.create({ data: { ...linea, orderId: id } });
     return orderToApi(await findOrderFor(id, req.user, true));
   });
 

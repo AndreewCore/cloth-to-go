@@ -46,34 +46,6 @@ function corsOrigin() {
 }
 
 /**
- * Convierte una fila de `products` en la prenda que ve el cliente.
- *
- * Lo único que traduce es `imgs`: se guarda serializado porque SQLite no tiene
- * listas de escalares (ver el esquema) y sale como array, porque **el formato
- * del almacén no debe filtrarse al cliente** — el día que la base sea Postgres
- * y el campo sea un array de verdad, esta función desaparece y nadie más se
- * entera.
- *
- * Un `imgs` corrupto deja la prenda SIN FOTOS en lugar de tumbar el catálogo
- * entero: el frontend ya pinta un placeholder para ese caso, así que degradar
- * es preferible a un 500 que deja la tienda vacía.
- *
- * @param {object} row Fila tal como la devuelve Prisma.
- * @param {{warn: Function}} log Logger, para dejar constancia del JSON inválido.
- * @returns {object} Prenda con `imgs` ya como array de rutas.
- */
-function productToApi({ imgs, ...p }, log) {
-  let lista = [];
-  try {
-    const parsed = JSON.parse(imgs);
-    if (Array.isArray(parsed)) lista = parsed.filter((s) => typeof s === "string");
-  } catch {
-    log.warn({ id: p.id }, "imgs no es JSON válido; la prenda va sin fotos");
-  }
-  return { ...p, imgs: lista };
-}
-
-/**
  * Crea y configura la app.
  *
  * `verifyGoogleToken` se separa del resto de opciones (que van a Fastify tal
@@ -116,10 +88,10 @@ export function buildApp(opts = {}) {
   app.get("/api/health", async () => ({ status: "ok" }));
 
   // Catálogo completo, ordenado por id. Solo lectura por ahora.
-  app.get("/api/products", async () => {
-    const items = await prisma.product.findMany({ orderBy: { id: "asc" } });
-    return items.map((row) => productToApi(row, app.log));
-  });
+  // La fila sale tal cual: `imgs` ya es una lista en la base, así que no queda
+  // nada que traducir entre el almacén y el cliente (con SQLite había que
+  // deshacer un JSON serializado en cada respuesta).
+  app.get("/api/products", async () => prisma.product.findMany({ orderBy: { id: "asc" } }));
 
   // Verifica el ID token de Google en el servidor (el frontend solo lo
   // decodifica, sin comprobar firma) y registra/actualiza al usuario.
