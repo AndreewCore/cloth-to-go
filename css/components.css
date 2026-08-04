@@ -1605,6 +1605,13 @@ main::-webkit-scrollbar { display: none; }
   display: flex; flex-direction: column; gap: 8px;
   text-align: left;   /* el .modal centra su contenido; aquí es un formulario */
 }
+/* Este pop-up es el ÚNICO que puede tener otro diálogo encima: cambiar de modo
+   abre la confirmación del cargo. Con el z-index de .modal-overlay (90) los dos
+   empataban y mandaba el orden del DOM, así que la confirmación quedaba DEBAJO
+   y no se podía ni aceptar ni cancelar: la app parecía colgada. Va por debajo
+   del modal (90) y también del toast (85), que es como avisa de sus propios
+   errores ("marca la ubicación en el mapa"). */
+#retOverlay { z-index: 84; }
 /* El pop-up es más alto que el modal de confirmar: lleva dos opciones, la ficha
    del local o el mapa, y los botones. Se le deja crecer y desplazarse dentro en
    vez de desbordar la pantalla del teléfono. */
