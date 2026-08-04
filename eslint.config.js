@@ -48,8 +48,8 @@ const PROJECT_GLOBALS = [
   "qualityFilter", "sizeFilter", "materialFilter", "colorFilter", "sortBy", "openFilterGroup", "view", "detailId", "stackedDetail", "delivery", "address",
   "returnMethod", "returnAddress", "payMethod", "card", "appliedCoupon",
   "addressCoords", "returnAddressCoords",
-  "detailImg", "editingOrder", "editRet", "editRetAddr", "lastEarnedPoints", "lastWaterSaved", "lastWaterGoals", "lastOrder", "editingProfile",
-  "donName", "donMethod", "donAddr", "donDate",
+  "detailImg", "editingOrder", "editRet", "editRetAddr", "editRetCoords", "lastEarnedPoints", "lastWaterSaved", "lastWaterGoals", "lastOrder", "editingProfile",
+  "donName", "donMethod", "donAddr", "donCoords", "donDate",
   "rentalStart", "rentalEnd", "calMonth", "calPendingStart",
   "subtotalForDays", "dayMarginalCost",
   "rentalDays", "isLate", "inCart", "isRented", "unitsAvailable", "cartCount", "cents", "subtotal",
@@ -90,7 +90,7 @@ const PROJECT_GLOBALS = [
   "resetCheckoutState", "finishOrder", "goToOrders",
   // profile.js
   "renderProfile", "PAY_LABELS", "profileHeadHTML", "contactInfoHTML", "orderCardHTML", "waterGoalHTML", "saveProfile", "editProfile", "cancelProfileEdit", "phoneVerifyHTML", "verifyPhone", "toggleLateInfo",
-  "returnEditorHTML", "openReturnEditor", "closeReturnEditor", "saveReturn", "cancelOrder",
+  "returnEditorHTML", "renderReturnEditor", "openReturnEditor", "closeReturnEditor", "saveReturn", "cancelOrder",
   "renderRewards", "couponListHTML", "redeem",
   "prefOptionsHTML", "prefToggleHTML", "renderSettings",
   "openDonate", "donateValid", "renderDonate", "submitDonation", "openWardrobe",
@@ -113,6 +113,7 @@ const PROJECT_GLOBALS = [
   "mapsApiKey", "adoptMapsKeyFromUrl",
   "MAP_DEFAULT_CENTER", "MAP_DEFAULT_ZOOM",
   "mapsSdkPromise", "pickerMap", "pickerGeocoder", "pickerTarget", "pickerPlace",
+  "ADDRESS_FIELDS", "addressField", "addressFieldByInput",
   "mapsAvailable", "loadMapsSdk", "openMapPicker", "setUpPickerMap", "readMapCenter",
   "useMyLocation", "confirmMapPicker", "applyPickedLocation", "clearPickedLocation", "closeMapPicker",
   "mapPickerButtonHTML", "addressFieldHTML", "addressReady"
