@@ -99,7 +99,7 @@ estado (prenda ya alquilada, pedido anulado, depósito ya devuelto).
 | `pnpm dev` | Arranca el servidor (con logs). |
 | `pnpm db:migrate` | Crea una migración nueva a partir del cambio en el esquema (desarrollo). |
 | `pnpm db:deploy` | Aplica el historial de migraciones tal cual (CI y producción). |
-| `pnpm db:seed` | Siembra el catálogo. |
+| `pnpm db:seed` | Siembra el catálogo. **Idempotente**: inserta lo que falte, actualiza lo que ya esté y no borra nada, así que puede correrse sobre una base con pedidos vivos. Avisa de las prendas de la base que ya no están en la lista, sin tocarlas. |
 | `pnpm db:reset` | Recrea la base desde cero y siembra (**borra datos**). |
 | `pnpm test` | Corre las pruebas (`node:test`) contra la app en memoria. |
 
