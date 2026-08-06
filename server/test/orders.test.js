@@ -319,7 +319,14 @@ test("ir y volver deja las dos líneas y el total como al principio", async () =
   const pedido = await crearPedido({ ret: "store" });
   const antes = pedido.totalCents;
 
-  await como(CLIENTE, { method: "PATCH", url: `/api/orders/${pedido.id}/return`, payload: { ret: "home" } });
+  // La dirección es obligatoria al pasar a domicilio (ver
+  // validacion-entradas.test.js): un envío sin dirección genera el cargo y no
+  // deja dónde llevarlo.
+  await como(CLIENTE, {
+    method: "PATCH",
+    url: `/api/orders/${pedido.id}/return`,
+    payload: { ret: "home", retAddr: "Av. Principal 123 y Segunda" },
+  });
   const vuelta = await como(CLIENTE, {
     method: "PATCH",
     url: `/api/orders/${pedido.id}/return`,
