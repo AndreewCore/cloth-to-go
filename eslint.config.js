@@ -117,7 +117,7 @@ const PROJECT_GLOBALS = [
   "mapsAvailable", "loadMapsSdk", "openMapPicker", "setUpPickerMap", "readMapCenter",
   "useMyLocation", "confirmMapPicker", "applyPickedLocation", "clearPickedLocation", "closeMapPicker",
   "mapPickerButtonHTML", "addressFieldHTML", "addressReady",
-  "fallbackAddress", "addressLabel", "staticMapHTML"
+  "fallbackAddress", "hasStreetName"
 ];
 
 const projectGlobals = Object.fromEntries(PROJECT_GLOBALS.map(n => [n, "writable"]));

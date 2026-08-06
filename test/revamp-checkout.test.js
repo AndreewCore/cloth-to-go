@@ -125,20 +125,25 @@ test("el punto guardado no enseña las coordenadas dos veces", () => {
     "las cifras crudas ya no se leen en la tarjeta: no le dicen nada al cliente y salían dos veces");
 });
 
-test("sin calle, se dice con palabras en vez de enseñar la coordenada disfrazada", () => {
+test("sin calle, una sola línea: ni coordenadas ni la misma idea dos veces", () => {
   const env = loadDom(CON_MAPA);
   // Es exactamente lo que guarda readMapCenter() cuando la geocodificación
-  // inversa no responde OK.
-  const html = checkoutCon({
+  // inversa no responde OK — el caso NORMAL con una clave sin facturación.
+  checkoutCon({
     delivery: "ship",
     address: `Ubicación ${COORDS.lat.toFixed(5)}, ${COORDS.lng.toFixed(5)}`,
     addressCoords: COORDS,
     returnMethod: "store",
   }, { win: env.window, doc: env.document, app: env.app });
 
-  assert.ok(html.includes("Ubicación marcada en el mapa"));
-  assert.ok(!html.includes(`Ubicación ${COORDS.lat.toFixed(5)}`),
+  const tarjeta = env.document.querySelector(".addr-picked");
+  const visible = tarjeta.textContent.trim();
+  assert.ok(visible.includes("Ubicación marcada en el mapa"));
+  assert.ok(!visible.includes(COORDS.lat.toFixed(5)),
     "una coordenada con formato de dirección sigue sin ser una dirección");
+  assert.ok(!visible.includes("Punto exacto guardado"),
+    "sin calle, 'ubicación marcada' y 'punto guardado' dicen lo mismo: sobra una");
+  assert.equal(tarjeta.children.length, 1, "una sola línea, no dos apiladas");
 });
 
 test("con calle de verdad, se muestra la calle", () => {
@@ -153,31 +158,21 @@ test("con calle de verdad, se muestra la calle", () => {
   assert.ok(html.includes("Av. 9 de Octubre 1234, Guayaquil"));
 });
 
-test("la miniatura del mapa se pinta con el punto y se quita sola si falla", () => {
+test("la tarjeta no pide ninguna imagen ni mapa a Google", () => {
+  // Decisión de coste, no de estilo: la cuenta no tiene Maps Static API, y un
+  // mapa incrustado se recrearía —y se facturaría— en cada clic del checkout,
+  // porque la hoja se repinta entera con innerHTML.
   const env = loadDom(CON_MAPA);
-  checkoutCon({
+  const html = checkoutCon({
     delivery: "ship",
     address: "Av. 9 de Octubre 1234, Guayaquil",
     addressCoords: COORDS,
     returnMethod: "store",
   }, { win: env.window, doc: env.document, app: env.app });
 
-  const img = env.document.querySelector(".ap-map");
-  assert.ok(img, "debe haber miniatura cuando hay clave y punto");
-  assert.ok(img.getAttribute("src").includes(`${COORDS.lat},${COORDS.lng}`),
-    "la miniatura debe apuntar al punto elegido, no a un centro cualquiera");
-  assert.ok(img.getAttribute("onerror").includes("remove"),
-    "sin Maps Static API habilitada la imagen no carga: debe desaparecer, no dejar el hueco roto");
-});
-
-test("sin clave no hay miniatura y la app sigue funcionando", () => {
-  // Es el caso de `file://` y el de la demo sin configurar: la degradación
-  // silenciosa es la regla de la casa.
-  const html = checkoutCon({
-    delivery: "ship", address: "Av. Principal 123 y Segunda", returnMethod: "store",
-  });
-  assert.ok(!html.includes("staticmap"), "sin clave no se pide ninguna imagen a Google");
-  assert.ok(html.includes("Dirección de envío"), "y el campo sigue estando");
+  assert.ok(!html.includes("staticmap"), "nada de Maps Static API: no está habilitada");
+  assert.equal(env.document.querySelectorAll(".addr-picked img, .addr-picked iframe").length, 0,
+    "ni imagen ni iframe: cada carga de mapa se cobra");
 });
 
 /* ============================================================

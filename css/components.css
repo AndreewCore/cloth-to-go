@@ -1499,13 +1499,6 @@ main::-webkit-scrollbar { display: none; }
 }
 .ap-text { font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.35; }
 .ap-coords { font-size: 11px; color: var(--ok); margin-top: 4px; font-weight: 700; }
-/* Miniatura del punto. Se recorta a la caja y va apaisada porque ocupa el ancho
-   de la tarjeta; si la imagen no carga, el <img> se quita solo y no queda
-   hueco. */
-.ap-map {
-  display: block; width: 100%; height: 92px; object-fit: cover;
-  border-radius: 8px; margin-bottom: 8px; border: 1px solid var(--line);
-}
 /* Sin punto todavía: caja punteada, para que se lea como un hueco por llenar
    y no como un dato ya resuelto. */
 .addr-empty {
