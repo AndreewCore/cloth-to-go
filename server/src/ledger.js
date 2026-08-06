@@ -329,3 +329,51 @@ export function validateOrderVocabulary({ delivery, ret, pay }) {
   if (!Object.values(PAY_METHOD).includes(pay)) return "Método de pago no válido.";
   return null;
 }
+
+/// Mínimo de una dirección: mismo umbral que `isValidAddress()` en js/data.js
+/// ("calle + número"). Si los dos números divergen, el checkout deja escribir
+/// algo que la API luego rechaza, y el cliente no entiende por qué.
+export const ADDRESS_MIN = 6;
+/// Máximo. El frontend hoy no tiene tope, así que este es el único: sin él, el
+/// cuerpo de la petición manda lo que quiera y la base lo guarda entero.
+export const ADDRESS_MAX = 200;
+
+/**
+ * Valida una dirección que el pedido SÍ necesita.
+ *
+ * Se comprueba el tipo antes que la longitud a propósito: sin esto, un valor
+ * que no es texto llega hasta Prisma y sale como error 500 —una caída del
+ * servidor— en vez de como un rechazo de entrada.
+ * @param {unknown} valor Lo que vino en el cuerpo.
+ * @param {string} campo Nombre del campo, para el mensaje.
+ * @returns {string|null} Mensaje de error para el cliente, o null si es válida.
+ */
+function validateAddress(valor, campo) {
+  if (typeof valor !== "string") return `${campo} debe ser texto.`;
+  const limpia = valor.trim();
+  if (limpia.length < ADDRESS_MIN) return `${campo} está incompleta.`;
+  if (limpia.length > ADDRESS_MAX) return `${campo} no puede pasar de ${ADDRESS_MAX} caracteres.`;
+  return null;
+}
+
+/**
+ * Valida las direcciones que el modo elegido exige.
+ *
+ * Solo se exige la que hace falta: quien retira en el local no tiene por qué
+ * decir dónde vive, y pedir un dato personal que no se necesita es una fuga
+ * esperando a que alguien la lea. La que no hace falta se ignora, no se valida:
+ * la ruta la descarta después.
+ * @param {object} datos Modos y direcciones del cuerpo.
+ * @returns {string|null} Mensaje de error para el cliente, o null si son válidas.
+ */
+export function validateOrderAddresses({ delivery, ret, shipAddr, retAddr }) {
+  if (delivery === DELIVERY.SHIP) {
+    const error = validateAddress(shipAddr, "La dirección de envío");
+    if (error) return error;
+  }
+  if (ret === RETURN_TO.HOME) {
+    const error = validateAddress(retAddr, "La dirección de retiro");
+    if (error) return error;
+  }
+  return null;
+}

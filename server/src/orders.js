@@ -24,6 +24,7 @@ import {
   revenueCents,
   totalCents,
   validateOrderVocabulary,
+  validateOrderAddresses,
 } from "./ledger.js";
 import { DELIVERY, RETURN_TO, rentalDays } from "./pricing.js";
 import { isAdmin } from "./auth.js";
@@ -140,6 +141,14 @@ function parseOrderBody(body) {
   const vocabulario = validateOrderVocabulary({ delivery, ret, pay });
   if (vocabulario) throw httpError(400, vocabulario);
 
+  const direcciones = validateOrderAddresses({
+    delivery,
+    ret,
+    shipAddr: body?.shipAddr,
+    retAddr: body?.retAddr,
+  });
+  if (direcciones) throw httpError(400, direcciones);
+
   if (!ISO_DATE.test(start ?? "") || !ISO_DATE.test(end ?? "")) {
     throw httpError(400, "Las fechas deben venir como YYYY-MM-DD.");
   }
@@ -169,8 +178,10 @@ function parseOrderBody(body) {
     // La dirección solo se guarda cuando el modo la necesita: retirar en el
     // local no requiere saber dónde vive el cliente, y guardar un dato personal
     // que no hace falta es una fuga esperando a que alguien la lea.
-    shipAddr: delivery === DELIVERY.SHIP ? (body?.shipAddr ?? null) : null,
-    retAddr: ret === RETURN_TO.HOME ? (body?.retAddr ?? null) : null,
+    // Se guardan recortadas: los espacios de los extremos no son parte de la
+    // dirección, y sin recortar "  " pasaría por dirección de dos caracteres.
+    shipAddr: delivery === DELIVERY.SHIP ? body.shipAddr.trim() : null,
+    retAddr: ret === RETURN_TO.HOME ? body.retAddr.trim() : null,
   };
 }
 
@@ -268,12 +279,20 @@ export function registerOrderRoutes(app, { requireUser, requireAdmin }) {
       throw httpError(400, "Modo de devolución no válido.");
     }
 
+    // La dirección puede venir en la petición o heredarse de la que ya tenía el
+    // pedido; se valida la que va a quedar guardada, no la que llegó. Sin esto,
+    // pasar a domicilio un pedido que se retiraba en el local dejaba un envío
+    // sin dirección: el modo cambia, el cargo se genera y no hay dónde llevarlo.
+    const retAddr = ret === RETURN_TO.HOME ? (req.body.retAddr ?? order.retAddr) : null;
+    const errorAddr = validateOrderAddresses({ ret, retAddr });
+    if (errorAddr) throw httpError(400, errorAddr);
+
     const ajuste = returnChangeAdjustment(order.ret, ret, order.pay);
     const actualizado = await prisma.order.update({
       where: { id },
       data: {
         ret,
-        retAddr: ret === RETURN_TO.HOME ? (req.body.retAddr ?? order.retAddr) : null,
+        retAddr: retAddr === null ? null : retAddr.trim(),
         ...(ajuste ? { charges: { create: ajuste } } : {}),
       },
       include: CON_LINEAS,
