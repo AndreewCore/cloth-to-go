@@ -222,6 +222,19 @@ function setUpPickerMap(target){
   readMapCenter();
 }
 
+/**
+ * Sustituto cuando la geocodificación inversa no da una calle.
+ *
+ * Existe como función y no como plantilla suelta porque `addressLabel()` tiene
+ * que reconocer esta cadena para no enseñarla: si las dos se escriben aparte,
+ * cambiar una deja a la otra comparando contra un texto que ya no se genera.
+ * @param {{lat:number,lng:number}} punto Coordenadas elegidas.
+ * @returns {string} Texto sustituto.
+ */
+function fallbackAddress(punto){
+  return `Ubicación ${punto.lat.toFixed(5)}, ${punto.lng.toFixed(5)}`;
+}
+
 /** Lee el centro del mapa y lo traduce a una dirección legible. */
 function readMapCenter(){
   if(!pickerMap) return;
@@ -240,9 +253,14 @@ function readMapCenter(){
     // Puede haber llegado otro "idle" mientras tanto: si el punto cambió, este
     // resultado ya es viejo y pisarlo mostraría una dirección que no toca.
     if(!pickerPlace || pickerPlace.lat !== punto.lat || pickerPlace.lng !== punto.lng) return;
-    const texto = (status === "OK" && res && res[0])
-      ? res[0].formatted_address
-      : `Ubicación ${punto.lat.toFixed(5)}, ${punto.lng.toFixed(5)}`;
+    const ok = status === "OK" && res && res[0];
+    if(!ok){
+      // El motivo se descartaba, y sin él "sale una coordenada en vez de la
+      // calle" no se puede diagnosticar: REQUEST_DENIED (clave o facturación),
+      // OVER_QUERY_LIMIT y ZERO_RESULTS se ven exactamente igual desde fuera.
+      console.warn(`[maps] geocodificación inversa sin resultado: ${status}`);
+    }
+    const texto = ok ? res[0].formatted_address : fallbackAddress(punto);
     pickerPlace.address = texto;
     addrEl.textContent = texto;
   });
@@ -328,6 +346,46 @@ function mapPickerButtonHTML(target, coords){
 }
 
 /**
+ * Texto con el que se anuncia un punto ya elegido.
+ *
+ * Cuando la geocodificación inversa no responde, `readMapCenter()` guarda como
+ * dirección un "Ubicación -2.16396, -79.89318". Eso es una coordenada disfrazada
+ * de dirección: no le dice nada al cliente y encima se leía junto a las mismas
+ * cifras repetidas debajo. Aquí se cambia por una frase honesta — el punto vale,
+ * lo que falta es su nombre — y las cifras quedan solo en el título, al alcance
+ * de quien las necesite.
+ * @param {string} addr Dirección guardada (puede ser el sustituto).
+ * @param {{lat:number,lng:number}} coords Punto elegido.
+ * @returns {string} Texto para mostrar.
+ */
+function addressLabel(addr, coords){
+  const texto = String(addr ?? "").trim();
+  return (!texto || texto === fallbackAddress(coords)) ? "Ubicación marcada en el mapa" : texto;
+}
+
+/**
+ * Miniatura estática del punto elegido.
+ *
+ * Degrada igual que el resto del módulo: sin clave no se pinta nada, y si la
+ * imagen no carga —Maps Static API sin habilitar en la clave, sin red— se
+ * esconde en vez de dejar el hueco roto. El punto sigue guardado: la miniatura
+ * confirma, no decide.
+ * @param {{lat:number,lng:number}} coords Punto a dibujar.
+ * @returns {string} HTML de la miniatura, o cadena vacía.
+ */
+function staticMapHTML(coords){
+  const key = mapsApiKey();
+  if(!key) return "";
+  const punto = `${coords.lat},${coords.lng}`;
+  // scale=2 para que no se vea borrosa en pantallas densas, que son todas las
+  // de móvil. El tamaño es apaisado porque va en el ancho de la tarjeta.
+  const src = `https://maps.googleapis.com/maps/api/staticmap?center=${punto}&zoom=16&size=320x110&scale=2`
+    + `&markers=color:0x2e9e5b%7C${punto}&language=es&region=EC&key=${encodeURIComponent(key)}`;
+  return `<img class="ap-map" src="${escapeHTML(src)}" alt="Mapa del punto elegido" loading="lazy"
+            onerror="this.remove()" />`;
+}
+
+/**
  * Campo de dirección del checkout.
  *
  * Con el mapa disponible NO se ofrece campo de texto: la dirección se fija
@@ -356,8 +414,9 @@ function addressFieldHTML(target, label, addr, coords){
   }
   const cuerpo = coords
     ? `<div class="addr-picked">
-         <div class="ap-text">${escapeHTML(addr)}</div>
-         <div class="ap-coords">${icon("check", { size: 13 })} Punto exacto guardado (${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)})</div>
+         ${staticMapHTML(coords)}
+         <div class="ap-text">${escapeHTML(addressLabel(addr, coords))}</div>
+         <div class="ap-coords">${icon("check", { size: 13 })} Punto exacto guardado</div>
        </div>`
     : `<div class="addr-empty">${campo ? campo.hint : ""}</div>`;
   return `${head}${cuerpo}${mapPickerButtonHTML(target, coords)}`;

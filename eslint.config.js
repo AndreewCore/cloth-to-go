@@ -116,7 +116,8 @@ const PROJECT_GLOBALS = [
   "ADDRESS_FIELDS", "addressField", "addressFieldByInput",
   "mapsAvailable", "loadMapsSdk", "openMapPicker", "setUpPickerMap", "readMapCenter",
   "useMyLocation", "confirmMapPicker", "applyPickedLocation", "clearPickedLocation", "closeMapPicker",
-  "mapPickerButtonHTML", "addressFieldHTML", "addressReady"
+  "mapPickerButtonHTML", "addressFieldHTML", "addressReady",
+  "fallbackAddress", "addressLabel", "staticMapHTML"
 ];
 
 const projectGlobals = Object.fromEntries(PROJECT_GLOBALS.map(n => [n, "writable"]));
