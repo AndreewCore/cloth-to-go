@@ -29,8 +29,9 @@ en este orden por dependencia.
       Supabase, puerto 6543) y **`DIRECT_URL`** a la conexión directa (5432).
       Sin la segunda, `prisma migrate deploy` no puede aplicar nada.
 - [ ] **Migraciones aplicadas en producción**: `pnpm db:deploy` (nunca
-      `migrate dev`, que puede reescribir el historial) y después `pnpm db:seed`
-      la primera vez.
+      `migrate dev`, que puede reescribir el historial) y después `pnpm db:seed`.
+      La semilla ya no es solo «la primera vez»: no borra nada y puede volver a
+      correrse sobre una base con pedidos para propagar un cambio de catálogo.
 
 ## Configuración del frontend
 

@@ -1,20 +1,27 @@
 /**
  * Siembra el catálogo inicial en la base.
  *
- * Estas 10 prendas son las mismas que el frontend traía embebidas en
- * `js/data.js`; aquí la base pasa a ser la fuente de verdad. Las rutas de
- * `imgs` son relativas (img/products/N.webp) y las sirve el frontend: el
- * navegador las resuelve contra la página, no contra la API, así que siguen
- * siendo locales.
+ * Estas prendas son las mismas que el frontend trae embebidas en `js/data.js`;
+ * aquí la base pasa a ser la fuente de verdad. Las rutas de `imgs` son
+ * relativas (img/products/N.webp) y las sirve el frontend: el navegador las
+ * resuelve contra la página, no contra la API, así que siguen siendo locales.
  *
  * `imgs` es una lista de verdad en la base (Postgres). Con SQLite iba
  * serializado como JSON y la API tenía que deshacerlo en cada respuesta.
+ *
+ * **No borra nada.** La versión anterior empezaba con `deleteMany()`, y eso
+ * hacía que la semilla dejara de funcionar en cuanto existía un pedido: un
+ * `OrderItem` o un `Charge` apuntando a una prenda impiden borrarla. La guía de
+ * despliegue manda ejecutar esto en producción, así que el fallo llegaba justo
+ * donde más caro es. Y si la clave foránea no lo hubiera impedido, habría sido
+ * peor: `Charge.productId` es opcional, así que borrar una prenda dejaría
+ * cargos sin prenda — un importe que ya nadie puede explicar, que es
+ * exactamente lo que el libro de cargos existe para evitar.
  */
 import { PrismaClient } from "@prisma/client";
+import { pathToFileURL } from "node:url";
 
-const prisma = new PrismaClient();
-
-const PRODUCTS = [
+export const PRODUCTS = [
   { id: 1,  name: "Blazer de lino",    cat: "Formal",   value: 35, stars: 5, size: "M",  color: "negro",  material: "lino",      weightKg: 0.5, imgs: ["img/products/1.webp", "img/products/1-2.webp", "img/products/1-3.webp"],  desc: "Blazer de lino fresco, corte recto. Ideal para eventos formales y de oficina." },
   { id: 2,  name: "Vestido de gala",   cat: "Fiesta",   value: 45, stars: 4, size: "S",  color: "blanco", material: "sintetico", weightKg: 0.4, imgs: ["img/products/2.webp", "img/products/2-2.webp", "img/products/2-3.webp"],  desc: "Vestido largo de gala con caída elegante. Perfecto para bodas y galas." },
   { id: 3,  name: "Jeans vintage",     cat: "Casual",   value: 15, stars: 3, size: "M",  color: "azul",   material: "algodon",   weightKg: 0.8, imgs: ["img/products/3.webp"],  desc: "Jeans de tiro alto estilo retro. Cómodos para el día a día." },
@@ -33,18 +40,67 @@ const PRODUCTS = [
   { id: 16, name: "Zapatos oxford",     cat: "Calzado",   value: 35, stars: 3, size: "42", color: "negro",  material: "cuero",     weightKg: 1.2, imgs: ["img/products/16.webp"], desc: "Oxford clásicos de cuero con acabado pulido. El complemento del traje formal." },
 ];
 
-/** Vacía la tabla y reinserta el catálogo; idempotente entre corridas. */
-async function main() {
-  await prisma.product.deleteMany();
+/**
+ * Inserta las prendas que falten y actualiza las que ya estén, sin borrar.
+ *
+ * Se puede correr tantas veces como haga falta y sobre una base con pedidos
+ * vivos. Recibe el cliente en vez de crearlo para que las pruebas usen el mismo
+ * de `src/db.js` y no abran una segunda conexión.
+ * @param {import("@prisma/client").PrismaClient} db Cliente de Prisma.
+ * @returns {Promise<{creadas: number, actualizadas: number, sobrantes: {id: number, name: string}[]}>}
+ *   Recuento de la corrida y prendas de la base que ya no están en la lista.
+ */
+export async function seedCatalog(db) {
+  let creadas = 0;
+  let actualizadas = 0;
+
   for (const p of PRODUCTS) {
-    await prisma.product.create({ data: p });
+    // `id` es fijo en el catálogo (no autoincremental), así que sirve de clave
+    // natural para el upsert: la misma prenda conserva su id entre corridas y
+    // los pedidos que la referencian siguen apuntando a donde apuntaban.
+    const { id, ...campos } = p;
+    const previa = await db.product.findUnique({ where: { id }, select: { id: true } });
+    await db.product.upsert({ where: { id }, create: p, update: campos });
+    if (previa) actualizadas++;
+    else creadas++;
   }
-  console.log(`Sembradas ${PRODUCTS.length} prendas.`);
+
+  // Las prendas que ya no figuran en la lista NO se borran: pueden tener
+  // pedidos e historial contable colgando. Retirar una prenda del catálogo es
+  // un cambio de estado del ejemplar, no un DELETE, y eso llega con la
+  // separación modelo/ejemplar. Aquí solo se avisa de que están.
+  const sobrantes = await db.product.findMany({
+    where: { id: { notIn: PRODUCTS.map((p) => p.id) } },
+    select: { id: true, name: true },
+    orderBy: { id: "asc" },
+  });
+
+  return { creadas, actualizadas, sobrantes };
 }
 
-main()
-  .catch((e) => {
+/** Punto de entrada de `pnpm db:seed`: siembra e informa de lo que hizo. */
+async function main() {
+  const db = new PrismaClient();
+  try {
+    const { creadas, actualizadas, sobrantes } = await seedCatalog(db);
+    console.log(`Catálogo sembrado: ${creadas} creadas, ${actualizadas} actualizadas.`);
+    if (sobrantes.length > 0) {
+      console.warn(
+        `Aviso: ${sobrantes.length} prenda(s) en la base fuera de la lista de la semilla ` +
+          "(no se tocan; pueden tener pedidos asociados):",
+      );
+      for (const s of sobrantes) console.warn(`  · ${s.id} — ${s.name}`);
+    }
+  } finally {
+    await db.$disconnect();
+  }
+}
+
+// Solo siembra cuando se ejecuta el archivo; importarlo (las pruebas, el
+// guardarraíl del catálogo) no debe tocar la base ni abrir una conexión.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((e) => {
     console.error(e);
     process.exitCode = 1;
-  })
-  .finally(() => prisma.$disconnect());
+  });
+}
