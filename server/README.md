@@ -84,6 +84,17 @@ catálogo de la base.
 - El estado de pago **se deriva**: un pedido está `settled` cuando no le queda
   ninguna línea `PENDING`.
 
+**Nada de lo que llega en el cuerpo se cree sin comprobar.** `delivery`, `ret` y
+`pay` se validan contra su lista cerrada (editar el HTML del navegador para
+mandar un valor inventado da 400, no un pedido raro); los ids de prenda deben
+ser enteros existentes y sin repetir; las fechas, `YYYY-MM-DD` y no en el
+pasado. Las **direcciones** son texto libre pero acotado: obligatorias solo
+cuando el modo las necesita, de 6 a 200 caracteres y se guardan recortadas. Un
+valor que no es texto da **400**, no 500 — un error de entrada no puede parecer
+una caída del servidor. Lo que el servidor **no** hace es sanear marcado: el
+XSS se ataja escapando al pintar (`escapeHTML()`), que es la única defensa que
+vale para todos los destinos, y un filtro aquí rompería direcciones legítimas.
+
 Códigos: **400** entrada inválida · **401** sin credencial o expirada · **403**
 hace falta ser del local · **404** no existe o no es tuyo · **409** conflicto de
 estado (prenda ya alquilada, pedido anulado, depósito ya devuelto).
