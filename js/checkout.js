@@ -201,7 +201,12 @@ function renderCart(){
       <div class="summary-row deposit"><span>Depósito <span class="refund-tag">reembolsable</span></span><span>$${depositTotal().toFixed(2)}</span></div>
       ${totalRowHTML("Total", subtotal()+depositTotal())}
     </div>
-    <p class="summary-note">${icon("bulb", { size: 14 })} El depósito se devuelve al regresar las prendas en buen estado.${savings > 0 ? ` <b>¡Ahorras $${savings.toFixed(2)} por alquilar varias prendas a la vez!</b>` : ` Mientras más días alquiles, más barato sale cada día; y llevando varias prendas ahorras hasta un ${Math.round(VOLUME_DISCOUNT_MAX*100)}%.`}</p>`;
+    ${/* La frase del depósito se fue: el propio total ya dice "$X se te
+          devuelve", y repetirlo debajo era decir dos veces lo mismo. Lo que
+          queda es el ahorro ya conseguido, que es un número concreto y no
+          aparece en ninguna otra parte; el consejo genérico sobre tarifas
+          también se fue, porque no informaba de este carrito sino del modelo. */""}
+    ${savings > 0 ? `<p class="summary-note"><b>¡Ahorras $${savings.toFixed(2)} por alquilar varias prendas a la vez!</b></p>` : ""}`;
 
   sheetFoot.innerHTML = `<button class="pay-btn" data-action="toCheckout">Continuar a entrega ${icon("arrowRight", { size: 16 })}</button>`;
 }
@@ -226,34 +231,36 @@ function renderCheckout(){
       ${optionCardHTML({ action:"setDelivery", value:DELIVERY.SHIP, active: delivery===DELIVERY.SHIP,
         glyph:"truck", title:"Envío a domicilio", note:`$${ship.toFixed(2)}`, noteVar:"accent",
         desc:"Recíbelo en 24–48 h en tu dirección." })}
+      ${/* El detalle va PEGADO a la opción elegida, dentro de la lista. Colgado
+            debajo de las dos, la dirección parecía referirse a la última tarjeta
+            —o a ninguna— y había que deducir a cuál pertenecía. */""}
+      ${delivery===DELIVERY.SHIP ? `
+        <div class="opt-detail">
+          ${addressFieldHTML("ship", "Dirección de envío", address, addressCoords)}
+        </div>` : ``}
       ${optionCardHTML({ action:"setDelivery", value:DELIVERY.PICKUP, active: delivery===DELIVERY.PICKUP,
         glyph:"store", title:"Retiro en local", note:"Gratis",
         desc:"Recoge en nuestro único local físico." })}
+      ${delivery===DELIVERY.PICKUP ? `<div class="opt-detail">${localCardHTML()}</div>` : ``}
     </div>
-    ${delivery===DELIVERY.SHIP ? `
-      <div class="ship-detail">
-        ${addressFieldHTML("ship", "Dirección de envío", address, addressCoords)}
-      </div>` : ``}
-    ${delivery===DELIVERY.PICKUP ? localCardHTML() : ``}
 
     <div class="section-label">¿Cómo deseas devolver la ropa al terminar el alquiler?</div>
     <div class="delivery-opts">
       ${optionCardHTML({ action:"setReturn", value:RETURN_TO.STORE, active: returnMethod===RETURN_TO.STORE,
         glyph:"store", title:"Devolver en el local", note:"Gratis",
         desc:"Acércate a nuestro local físico al terminar el alquiler." })}
+      ${/* Elegir "devolver en el local" sin ver CUÁL local deja al cliente
+            aceptando ir a una dirección que nadie le dijo. Va pegada a su
+            opción, no debajo de las dos. */""}
+      ${returnMethod===RETURN_TO.STORE ? `<div class="opt-detail">${localCardHTML()}</div>` : ``}
       ${optionCardHTML({ action:"setReturn", value:RETURN_TO.HOME, active: returnMethod===RETURN_TO.HOME,
         glyph:"truck", title:"Retiro a domicilio", note:`$${ship.toFixed(2)}`, noteVar:"accent",
         desc:"Pasamos por tu dirección a retirar las prendas." })}
+      ${returnMethod===RETURN_TO.HOME ? `
+        <div class="opt-detail">
+          ${addressFieldHTML("return", "Dirección de retiro", returnAddress, returnAddressCoords)}
+        </div>` : ``}
     </div>
-    ${returnMethod===RETURN_TO.HOME ? `
-      <div class="ship-detail">
-        ${addressFieldHTML("return", "Dirección de retiro", returnAddress, returnAddressCoords)}
-      </div>` : ``}
-    ${/* Elegir "devolver en el local" sin ver CUÁL local deja al cliente
-          aceptando ir a una dirección que nadie le dijo. El retiro (arriba) sí
-          la mostraba, así que la misma pantalla informaba de un modo y no del
-          otro. */""}
-    ${returnMethod===RETURN_TO.STORE ? localCardHTML() : ``}
 
     ${couponSectionHTML()}
 
@@ -267,7 +274,6 @@ function renderCheckout(){
         <div class="summary-row discount"><span>${icon("ticket", { size: 14 })} ${escapeHTML(couponById(appliedCoupon).name)}</span><span>−$${couponDiscount().toFixed(2)}</span></div>` : ""}
       ${totalRowHTML("Total a pagar", total)}
     </div>
-    <p class="summary-note">${icon("bulb", { size: 14 })} El depósito se devuelve al regresar las prendas en buen estado.</p>
   `;
 
   const valid = checkoutValid();
@@ -424,7 +430,6 @@ function renderPayment(){
         <div class="summary-row discount"><span>${icon("ticket", { size: 14 })} ${escapeHTML(couponById(appliedCoupon).name)}</span><span>−$${couponDiscount().toFixed(2)}</span></div>` : ""}
       ${totalRowHTML("Total a pagar", total)}
     </div>
-    <p class="summary-note">${icon("bulb", { size: 14 })} El depósito se devuelve al regresar las prendas en buen estado.</p>
   `;
 
   const valid = paymentValid();
