@@ -1,0 +1,62 @@
+# Blueprint de Render para la API de CLOTH TO GO.
+#
+# Render aloja el servidor Fastify; la base vive en Supabase (§10.1 de las
+# decisiones de backend). El orden es siempre navegador → Fastify → Supabase:
+# el navegador nunca habla con la base y las credenciales no salen de aquí.
+#
+# Este archivo describe el servicio, NO los secretos: las variables marcadas
+# con `sync: false` se escriben a mano en el panel de Render y nunca se
+# commitean. Un blueprint es público; una cadena de conexión, no.
+services:
+  - type: web
+    name: cloth-to-go-api
+    runtime: node
+    plan: free
+    # La misma región (o la más cercana) que el proyecto de Supabase. Server y
+    # base separados por un océano añaden latencia a CADA consulta, y el ledger
+    # hace varias por pedido. Si el plan gratuito no ofrece esta región, usar
+    # `ohio` y crear Supabase en East US.
+    region: virginia
+    # El repositorio es uno solo (frontend + server); a Render solo le compete
+    # el subdirectorio del servidor.
+    rootDir: server
+    # Sigue a `main`, igual que el despliegue de GitHub Pages: así lo publicado
+    # en el navegador y lo publicado en la API salen siempre del mismo commit.
+    branch: main
+    autoDeploy: true
+
+    # `corepack` fija pnpm 11 desde el campo `packageManager` del package.json,
+    # que es la única fuente de verdad de la versión (igual que en CI).
+    #
+    # `prisma generate` va explícito y no confiado al postinstall: el cliente
+    # generado es lo que la app importa, y si falta el arranque muere con un
+    # error que no dice que faltó generar.
+    #
+    # Las MIGRACIONES NO se aplican aquí a propósito: «migraciones automáticas
+    # al desplegar» es una decisión aplazada (§10.1). Un `migrate deploy` en el
+    # build corre sin nadie mirando y sobre la única base que existe; por ahora
+    # se ejecuta a mano desde local contra DIRECT_URL (ver server/DEPLOY.md).
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm exec prisma generate
+    startCommand: pnpm start
+
+    # Render reinicia el servicio si esta ruta deja de responder.
+    healthCheckPath: /api/health
+
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Activa la exigencia de CORS_ORIGINS: sin ella el servidor arrancaría
+      # con la política permisiva de desarrollo (#18).
+      - key: NODE_ENV
+        value: production
+      # Render inyecta su propio PORT; server.js ya lo lee.
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: ADMIN_SUBS
+        sync: false
