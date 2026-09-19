@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Esta página no existe · CLOTH TO GO</title>
+<link rel="stylesheet" href="css/web.css" />
+<style>
+/* ============================================================
+   Página 404. Toma los colores y los botones de la hoja del sitio; lo
+   único propio es esta composición.
+
+   El logotipo, el código, qué pasó y por dónde salir. No hay cabecera, ni
+   pie, ni catálogo: en una página que no existe, cada cosa añadida es una
+   salida falsa más que leer. El logo va suelto —el PNG ya trae fondo
+   transparente— y grande, porque aquí hace de marca: es lo único que dice
+   de quién es esta página.
+   ============================================================ */
+.lost {
+  min-height: 100vh; min-height: 100svh;
+  display: grid; place-items: center; text-align: center;
+  padding: 40px 24px;
+}
+.lost-logo {
+  width: clamp(120px, 22vw, 210px); height: auto;
+  margin: 0 auto 18px; display: block;
+}
+.code {
+  font-size: clamp(72px, 16vw, 168px); font-weight: 800; font-style: italic;
+  letter-spacing: -4px; line-height: 1; color: var(--accent); margin: 0;
+}
+.lost h1 { font-size: clamp(22px, 3.4vw, 30px); margin: 12px 0 10px; }
+.lost p { color: var(--muted); margin: 0 auto; max-width: 46ch; }
+.lost .btn-solid { margin-top: 28px; }
+</style>
+</head>
+<body>
+<main class="lost">
+  <div>
+    <img class="lost-logo" src="../img/logo.webp" alt="CLOTH TO GO" />
+    <p class="code">404</p>
+    <h1>Esta página no existe</h1>
+    <p>El enlace está roto o la página se movió de sitio.</p>
+    <a class="btn-solid" href="index.html">Volver al inicio</a>
+  </div>
+</main>
+</body>
+</html>
