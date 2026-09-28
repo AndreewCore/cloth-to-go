@@ -646,6 +646,16 @@ main::-webkit-scrollbar { display: none; }
   background: var(--card); border-radius: 12px; padding: 12px 14px;
   margin: -2px 0 6px; border: 1px solid var(--line);
 }
+/* Detalle colgado de la opción elegida. Va sangrado y sin separación arriba
+   para que se lea como parte de esa tarjeta y no como un bloque suelto: la
+   pertenencia la dice la posición, no un rótulo. */
+.opt-detail {
+  margin: -4px 0 2px 12px;
+  padding-left: 10px;
+  border-left: 2px solid var(--accent);
+}
+.opt-detail .pickup-detail,
+.opt-detail .ship-detail { margin: 0; }
 .pickup-detail b { color: var(--accent); }
 .ship-detail input {
   width: 100%; border: 1px solid var(--line); border-radius: 8px;
