@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Propuesta 4 · El agua · CLOTH TO GO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PROPUESTA 4 · EL AGUA
+   De dónde sale: del dato más fuerte que tiene el negocio y que hoy está
+   escondido en una línea del detalle. Fabricar una camiseta de algodón se
+   bebe 2.500 litros. Alquilar una prenda que ya existe no gasta ninguno.
+
+   Qué carga la personalidad: el nivel de agua. Sube una sola vez al
+   cargar —un movimiento, no cinco— y deja el número dentro del líquido.
+   El resto de la página es editorial y quieta: serif para leer despacio,
+   mucho aire, cifras alineadas.
+
+   Tipografía: Newsreader (serif de lectura, con tamaños ópticos) para los
+   titulares y el cuerpo largo; Work Sans para datos y botones.
+   Color: el verde de la marca manda; el azul del agua (--water, el mismo
+   de la app) solo aparece donde hay litros de por medio.
+   ============================================================ */
+
+:root {
+  --bg: #f1f4ec; --surface: #ffffff; --ink: #1f2a1c; --muted: #5e6a57;
+  --accent: #356b31; --soft: #e3efdc; --line: #dde8d3; --cta: #2d8438;
+  --water: #2b8cd1; --water-deep: #1d6ca3; --water-soft: rgba(43,140,209,.12);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #161a14; --surface: #1f251d; --ink: #e8eee4; --muted: #a3b09c;
+  --accent: #8fd18a; --soft: #24301f; --line: #303a2c; --cta: #3f9c4b;
+  --water: #5cb3e8; --water-deep: #2b8cd1; --water-soft: rgba(92,179,232,.14);
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #161a14; --surface: #1f251d; --ink: #e8eee4; --muted: #a3b09c;
+  --accent: #8fd18a; --soft: #24301f; --line: #303a2c; --cta: #3f9c4b;
+  --water: #5cb3e8; --water-deep: #2b8cd1; --water-soft: rgba(92,179,232,.14);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: Newsreader, Georgia, serif; font-size: 18px; line-height: 1.7; }
+img { max-width: 100%; display: block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+.sans { font-family: "Work Sans", system-ui, sans-serif; }
+
+.top { border-bottom: 1px solid var(--line); }
+.top .wrap { display: flex; align-items: center; gap: 22px; height: 70px; }
+.mark { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; font-family: "Work Sans", sans-serif; font-weight: 600; letter-spacing: .6px; }
+.mark img { width: 30px; height: 30px; object-fit: contain; }
+.top nav { margin-left: auto; display: flex; gap: 24px; font-family: "Work Sans", sans-serif; font-size: 15px; }
+.top nav a { color: var(--muted); text-decoration: none; }
+.top nav a:hover { color: var(--accent); }
+.swap { font-family: "Work Sans", sans-serif; font-size: 14px; border: 1px solid var(--line); background: none; color: var(--ink); border-radius: 999px; padding: 7px 15px; cursor: pointer; }
+
+/* ---- Cabecera ---- */
+.hero { display: grid; grid-template-columns: 1fr 300px; gap: 50px; align-items: center; padding: 64px 0 52px; }
+.hero h1 { font-size: clamp(36px, 5.2vw, 60px); font-weight: 500; line-height: 1.08; margin: 0 0 20px; letter-spacing: -.4px; }
+.hero p { color: var(--muted); margin: 0 0 12px; max-width: 54ch; }
+.hero .go { font-family: "Work Sans", sans-serif; font-size: 16px; display: inline-block; margin-top: 18px; background: var(--cta); color: #fff; text-decoration: none; padding: 13px 30px; border-radius: 999px; font-weight: 600; }
+
+/* El vaso. El nivel sube una vez al cargar: es el único movimiento de la
+   página y existe para que el número se lea como volumen, no como cifra. */
+.glass {
+  position: relative; height: 380px; border-radius: 18px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--line);
+}
+.glass img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; }
+.level {
+  position: absolute; left: 0; right: 0; bottom: 0; height: var(--h, 62%);
+  background: linear-gradient(180deg, var(--water) 0%, var(--water-deep) 100%);
+  opacity: .82; transition: height 1.4s cubic-bezier(.22,.7,.3,1);
+}
+.level::before {
+  content: ""; position: absolute; left: -50%; right: -50%; top: -14px; height: 28px;
+  background: radial-gradient(circle at 20px 14px, transparent 12px, var(--water) 12px) repeat-x;
+  background-size: 40px 28px; opacity: .9;
+}
+.glass figcaption {
+  position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; color: #fff;
+  font-family: "Work Sans", sans-serif; text-shadow: 0 1px 8px rgba(0,0,0,.4);
+}
+.glass figcaption b { display: block; font-size: 34px; line-height: 1.1; }
+.glass figcaption span { font-size: 13.5px; opacity: .9; }
+@media (prefers-reduced-motion: reduce) { .level { transition: none; } }
+
+/* ---- Lo que cuesta fabricar ---- */
+.data { background: var(--surface); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 50px 0; }
+.data h2 { font-size: 30px; font-weight: 500; margin: 0 0 6px; }
+.data .sub { color: var(--muted); margin: 0 0 26px; max-width: 62ch; }
+.bars { display: grid; gap: 12px; }
+.bar { display: grid; grid-template-columns: 110px 1fr 110px; align-items: center; gap: 14px; font-family: "Work Sans", sans-serif; font-size: 14.5px; }
+.bar .track { height: 12px; background: var(--water-soft); border-radius: 999px; overflow: hidden; }
+.bar .fill { height: 100%; background: var(--water); border-radius: 999px; }
+.bar .n { text-align: right; color: var(--muted); }
+.data .note { font-family: "Work Sans", sans-serif; font-size: 13.5px; color: var(--muted); margin-top: 18px; }
+
+/* ---- Catálogo ---- */
+.sec { padding: 54px 0 60px; }
+.sec h2 { font-size: 30px; font-weight: 500; margin: 0 0 6px; }
+.sec .sub { color: var(--muted); margin: 0 0 26px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 22px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.card img { aspect-ratio: 3/4; object-fit: cover; width: 100%; }
+.card .in { padding: 14px 16px 16px; }
+.card h3 { margin: 0 0 2px; font-size: 19px; font-weight: 500; }
+.card .sp { font-family: "Work Sans", sans-serif; font-size: 13px; color: var(--muted); }
+.card .pr { font-family: "Work Sans", sans-serif; font-weight: 600; margin-top: 10px; }
+.card .lt { margin-top: 8px; font-family: "Work Sans", sans-serif; font-size: 13px; color: var(--water); background: var(--water-soft); border-radius: 8px; padding: 6px 10px; }
+
+.foot { padding-bottom: 46px; color: var(--muted); font-family: "Work Sans", sans-serif; font-size: 14px; }
+
+@media (max-width: 860px) {
+  .hero { grid-template-columns: 1fr; padding: 40px 0 34px; gap: 30px; }
+  .glass { height: 300px; max-width: 320px; }
+  .top nav { display: none; }
+  .bar { grid-template-columns: 86px 1fr 92px; font-size: 13.5px; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="mark" href="#"><img src="../../img/logo.webp" alt="">CLOTH TO GO</a>
+    <nav><a href="#">Catálogo</a><a href="#">Quiénes somos</a><a href="#">Contacto</a></nav>
+    <button class="swap" id="swap">Oscuro</button>
+  </div>
+</header>
+
+<section class="hero wrap">
+  <div>
+    <h1>La ropa más limpia es la que no se fabrica</h1>
+    <p>Un vestido nuevo se bebe miles de litros antes de llegar a la tienda: regar
+       la fibra, teñirla, acabarla. Alquilar una prenda que ya existe no gasta
+       ninguno de esos litros.</p>
+    <p>Aquí no vendemos ropa. La ponemos a circular: la revisamos, la lavamos y
+       la volvemos a colgar para el siguiente.</p>
+    <a class="go" href="#">Ver el catálogo</a>
+  </div>
+
+  <figure class="glass" id="glass">
+    <img id="glassImg" src="" alt="">
+    <div class="level" id="level"></div>
+    <figcaption><b id="glassL">—</b><span id="glassName">—</span></figcaption>
+  </figure>
+</section>
+
+<section class="data">
+  <div class="wrap">
+    <h2>Litros por kilo de tela</h2>
+    <p class="sub">Lo que cuesta fabricar el tejido, según el material. Son las cifras que
+       la app usa para calcular tu ahorro, no una estimación aparte.</p>
+    <div class="bars" id="bars"></div>
+    <p class="note">Promedios de huella hídrica (Water Footprint Network / WWF). Una camiseta
+       de algodón de 250 g ronda los 2.500 litros.</p>
+  </div>
+</section>
+
+<section class="sec wrap">
+  <h2>Prendas en circulación</h2>
+  <p class="sub">Cada una lleva los litros que ahorras al alquilarla en vez de comprar una nueva.</p>
+  <div class="grid" id="grid"></div>
+</section>
+
+<p class="foot wrap">Propuesta 4 · El agua — maqueta con el catálogo y los precios reales del prototipo.</p>
+
+<script src="../../js/icons.js"></script>
+<script src="../../js/data.js"></script>
+<script src="demo.js"></script>
+<script>
+  // El vaso enseña la prenda del catálogo que más agua ahorra: es la que hace
+  // entendible la escala del dato.
+  const masAgua = PRODUCTS.reduce((a, b) => garmentWater(b) > garmentWater(a) ? b : a);
+  document.getElementById("glassImg").src = demoCover(masAgua);
+  document.getElementById("glassImg").alt = masAgua.name;
+  document.getElementById("glassL").textContent = `${demoWater(masAgua)} L`;
+  document.getElementById("glassName").textContent = `${masAgua.name} · agua que no se gasta`;
+
+  // Un solo movimiento en toda la página: el nivel sube al entrar.
+  const level = document.getElementById("level");
+  level.style.height = "0%";
+  requestAnimationFrame(() => requestAnimationFrame(() => { level.style.height = "68%"; }));
+
+  const max = Math.max(...Object.values(WATER_PER_KG));
+  document.getElementById("bars").innerHTML = MATERIAL_ORDER.map(m => `
+    <div class="bar">
+      <span>${escapeHTML(materialLabel(m))}</span>
+      <span class="track"><span class="fill" style="width:${(WATER_PER_KG[m] / max * 100).toFixed(1)}%"></span></span>
+      <span class="n">${fmtLiters(WATER_PER_KG[m])} L</span>
+    </div>`).join("");
+
+  document.getElementById("grid").innerHTML = demoProducts(4).map(p => `
+    <article class="card">
+      <img src="${demoCover(p)}" alt="${escapeHTML(p.name)}">
+      <div class="in">
+        <h3>${escapeHTML(p.name)}</h3>
+        <div class="sp">Talla ${escapeHTML(p.size)} · ${escapeHTML(materialLabel(p.material))}</div>
+        <div class="pr">$${demoDay(p)} el día · garantía $${depositFor(p).toFixed(2)}</div>
+        <div class="lt">${demoWater(p)} litros que no se gastan</div>
+      </div>
+    </article>`).join("");
+
+  initDemoTheme("swap");
+</script>
+</body>
+</html>

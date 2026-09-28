@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Propuesta 5 · Lookbook · CLOTH TO GO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PROPUESTA 5 · LOOKBOOK
+   De dónde sale: de que esto es ROPA, y la ropa se vende mirándola. Las
+   otras propuestas explican el servicio; esta apuesta por el deseo, que
+   es lo que mueve a alguien a alquilar un vestido de gala.
+
+   Qué carga la personalidad: la foto a sangre y el titular didone encima,
+   como la portada de una revista. La numeración (01, 02…) no es adorno:
+   el catálogo ES una secuencia de piezas únicas, y así se cita una prenda
+   —"la 07"— cuando se pregunta por ella.
+
+   Tipografía: Bodoni Moda (didona de alto contraste, el registro de la
+   moda) solo para titulares y números; Jost (geométrica ligera) para
+   todo lo que hay que leer. Dos familias muy distintas a propósito.
+   ============================================================ */
+
+:root {
+  --bg: #f1f4ec; --surface: #ffffff; --ink: #1f2a1c; --muted: #5e6a57;
+  --accent: #356b31; --soft: #e3efdc; --line: #d8e3ce;
+  --over: rgba(31,42,28,.42);     /* velo sobre la foto de portada */
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #161a14; --surface: #1f251d; --ink: #e8eee4; --muted: #a3b09c;
+  --accent: #8fd18a; --soft: #24301f; --line: #303a2c;
+  --over: rgba(10,14,9,.55); color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #161a14; --surface: #1f251d; --ink: #e8eee4; --muted: #a3b09c;
+  --accent: #8fd18a; --soft: #24301f; --line: #303a2c;
+  --over: rgba(10,14,9,.55); color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: Jost, system-ui, sans-serif; font-weight: 300; line-height: 1.6; }
+img { max-width: 100%; display: block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 0 28px; }
+
+.top { position: absolute; top: 0; left: 0; right: 0; z-index: 2; }
+.top .wrap { display: flex; align-items: center; gap: 24px; height: 76px; color: #fff; }
+.mark { font-family: "Bodoni Moda", serif; font-size: 22px; letter-spacing: 3px; text-decoration: none; color: inherit; display: flex; align-items: center; gap: 10px; }
+.mark img { width: 28px; height: 28px; object-fit: contain; filter: brightness(0) invert(1); }
+.top nav { margin-left: auto; display: flex; gap: 26px; font-size: 14px; letter-spacing: 1.4px; }
+.top nav a { color: rgba(255,255,255,.88); text-decoration: none; }
+.top nav a:hover { color: #fff; text-decoration: underline; text-underline-offset: 5px; }
+.swap { font: inherit; font-size: 13px; letter-spacing: 1.2px; border: 1px solid rgba(255,255,255,.6); background: none; color: #fff; padding: 6px 15px; cursor: pointer; }
+
+/* ---- Portada a sangre ---- */
+.cover { position: relative; min-height: 78vh; display: grid; align-items: end; overflow: hidden; }
+.cover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 28%; }
+.cover::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, var(--over) 0%, transparent 40%, var(--over) 100%); }
+.cover .wrap { position: relative; z-index: 1; padding-bottom: 54px; color: #fff; }
+.cover h1 {
+  font-family: "Bodoni Moda", serif; font-weight: 400;
+  font-size: clamp(42px, 8.4vw, 116px); line-height: .94; margin: 0 0 18px;
+  letter-spacing: -1px; max-width: 12ch;
+}
+.cover p { max-width: 44ch; font-size: 17px; color: rgba(255,255,255,.9); margin: 0; }
+.cover .credit { margin-top: 26px; font-size: 13px; letter-spacing: 1.6px; color: rgba(255,255,255,.75); }
+
+/* ---- Índice ----
+   La numeración es real: cada prenda es una pieza única del catálogo y se
+   cita por su número. */
+.index { padding: 58px 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px 48px; }
+.index .lead { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: end; }
+.index h2 { font-family: "Bodoni Moda", serif; font-weight: 400; font-size: clamp(28px, 3.6vw, 44px); margin: 0; }
+.index .lead p { color: var(--muted); margin: 0; max-width: 46ch; }
+
+.piece { display: grid; gap: 14px; }
+.piece figure { margin: 0; position: relative; background: var(--soft); }
+.piece img { width: 100%; aspect-ratio: 4/5; object-fit: cover; }
+.piece .no {
+  position: absolute; top: 14px; left: 14px; font-family: "Bodoni Moda", serif;
+  font-size: 30px; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.45);
+}
+.piece .info { display: flex; justify-content: space-between; gap: 20px; align-items: baseline; border-top: 1px solid var(--line); padding-top: 12px; }
+.piece h3 { font-family: "Bodoni Moda", serif; font-weight: 400; font-size: 25px; margin: 0; }
+.piece .sp { color: var(--muted); font-size: 14px; }
+.piece .pr { font-size: 15px; white-space: nowrap; }
+.piece .pr b { font-weight: 500; }
+.piece .pr span { display: block; color: var(--muted); font-size: 13px; text-align: right; }
+
+/* Ritmo de revista: la segunda pieza de cada pareja baja, como en una
+   maquetación impresa. Solo en pantallas anchas, donde hay sitio. */
+@media (min-width: 900px) { .piece:nth-child(even) { margin-top: 56px; } }
+
+.tail { padding: 60px 0 70px; text-align: center; }
+.tail a { font-family: "Bodoni Moda", serif; font-size: 22px; color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--accent); padding-bottom: 6px; }
+.tail a:hover { color: var(--accent); }
+.foot { padding-bottom: 46px; color: var(--muted); font-size: 14px; }
+
+@media (max-width: 900px) {
+  .index { grid-template-columns: 1fr; padding-top: 40px; gap: 34px; }
+  .index .lead { grid-template-columns: 1fr; gap: 14px; }
+  .top nav { display: none; }
+  .cover { min-height: 70vh; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="mark" href="#"><img src="../../img/logo.webp" alt="">CLOTH TO GO</a>
+    <nav><a href="#">Catálogo</a><a href="#">Quiénes somos</a><a href="#">Contacto</a></nav>
+    <button class="swap" id="swap">Oscuro</button>
+  </div>
+</header>
+
+<section class="cover">
+  <img id="coverImg" src="" alt="">
+  <div class="wrap">
+    <h1>Piezas únicas, por los días que las necesites</h1>
+    <p>Segunda mano seleccionada a mano. Ninguna se repite: cuando una sale,
+       sale entera.</p>
+    <p class="credit" id="coverCredit">—</p>
+  </div>
+</section>
+
+<section class="index wrap">
+  <div class="lead">
+    <h2>El índice</h2>
+    <p>Cada prenda lleva su número. Si te gusta la 07, pídela por la 07: es
+       esa y no hay otra igual.</p>
+  </div>
+  <div class="piece" id="p0"></div>
+  <div class="piece" id="p1"></div>
+  <div class="piece" id="p2"></div>
+  <div class="piece" id="p3"></div>
+</section>
+
+<p class="tail"><a href="#">Ver las 16 piezas del catálogo</a></p>
+<p class="foot wrap">Propuesta 5 · Lookbook — maqueta con el catálogo y los precios reales del prototipo.</p>
+
+<script src="../../js/icons.js"></script>
+<script src="../../js/data.js"></script>
+<script src="demo.js"></script>
+<script>
+  const portada = productById(13) || PRODUCTS[0];
+  document.getElementById("coverImg").src = demoCover(portada);
+  document.getElementById("coverImg").alt = portada.name;
+  document.getElementById("coverCredit").textContent =
+    `${portada.name.toUpperCase()} · $${demoDay(portada)} EL DÍA · TALLA ${portada.size}`;
+
+  demoProducts(4, [2, 7, 13, 4]).forEach((p, i) => {
+    document.getElementById("p" + i).innerHTML = `
+      <figure>
+        <span class="no">${String(p.id).padStart(2, "0")}</span>
+        <img src="${demoCover(p)}" alt="${escapeHTML(p.name)}">
+      </figure>
+      <div class="info">
+        <div>
+          <h3>${escapeHTML(p.name)}</h3>
+          <div class="sp">Talla ${escapeHTML(p.size)} · ${escapeHTML(materialLabel(p.material))} · ${escapeHTML(conditionLabel(p.stars))}</div>
+        </div>
+        <div class="pr">
+          <b>$${demoDay(p)}</b> el día
+          <span>fin de semana $${demoWeekend(p)}</span>
+        </div>
+      </div>`;
+  });
+
+  document.querySelector(".tail a").textContent = `Ver las ${PRODUCTS.length} piezas del catálogo`;
+  initDemoTheme("swap");
+</script>
+</body>
+</html>

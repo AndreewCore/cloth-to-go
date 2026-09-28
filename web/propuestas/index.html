@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Cinco propuestas de diseño · CLOTH TO GO</title>
+<style>
+/* Portada de las cinco maquetas. Deliberadamente sobria: aquí no se propone
+   nada, se elige. Cualquier gracia de esta página competiría con lo que hay
+   que juzgar. */
+:root {
+  --bg: #f1f4ec; --surface: #ffffff; --ink: #1f2a1c; --muted: #5e6a57;
+  --accent: #356b31; --soft: #e3efdc; --line: #dde8d3;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #161a14; --surface: #1f251d; --ink: #e8eee4; --muted: #a3b09c;
+  --accent: #8fd18a; --soft: #24301f; --line: #303a2c; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #161a14; --surface: #1f251d; --ink: #e8eee4; --muted: #a3b09c;
+  --accent: #8fd18a; --soft: #24301f; --line: #303a2c; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; line-height: 1.6; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 48px 24px 60px; }
+h1 { font-size: clamp(26px, 4vw, 38px); margin: 0 0 8px; }
+.sub { color: var(--muted); margin: 0 0 12px; max-width: 70ch; }
+.swap { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 7px 15px; font: inherit; font-size: 14px; cursor: pointer; margin-bottom: 30px; }
+ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+a.card {
+  display: block; text-decoration: none; color: inherit;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px;
+}
+a.card:hover { border-color: var(--accent); }
+a.card h2 { margin: 0 0 4px; font-size: 20px; color: var(--accent); }
+a.card p { margin: 0; color: var(--muted); font-size: 15px; }
+a.card .type { display: block; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.note { margin-top: 30px; padding: 16px 18px; background: var(--soft); border-radius: 12px; font-size: 14.5px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Cinco propuestas de diseño</h1>
+  <p class="sub">
+    Las cinco usan la paleta de la app (verde de marca, claro y oscuro) y el
+    catálogo real: los precios que ves los calcula el mismo modelo de tarifas del
+    prototipo. Cada maqueta trae su propio botón para alternar claro y oscuro.
+  </p>
+  <button class="swap" id="swap">Oscuro</button>
+
+  <ol>
+    <li><a class="card" href="1-percha.html">
+      <h2>1 · La percha</h2>
+      <p>Las prendas cuelgan de una barra a distintas alturas, cada una con su
+         etiqueta de precio atada. La tienda física, hecha página.</p>
+      <span class="type">Saira Condensed + Assistant · rótulo de local</span>
+    </a></li>
+
+    <li><a class="card" href="2-calendario.html">
+      <h2>2 · Por día</h2>
+      <p>El héroe es una tira de días que se puede tocar: el precio se recalcula
+         y se ve por qué el cuarto día casi no suma. Catálogo en forma de tabla
+         comparable.</p>
+      <span class="type">Space Grotesk + IBM Plex Sans · agenda y cifras</span>
+    </a></li>
+
+    <li><a class="card" href="3-etiqueta.html">
+      <h2>3 · La etiqueta</h2>
+      <p>Todo el catálogo hablado en el idioma de la etiqueta cosida: talla,
+         material, estado, lavado. Borde de puntada y fichas estrechas.</p>
+      <span class="type">Archivo + Archivo Narrow · etiqueta de prenda</span>
+    </a></li>
+
+    <li><a class="card" href="4-agua.html">
+      <h2>4 · El agua</h2>
+      <p>Abre con el dato que hoy está escondido: los litros que no se gastan.
+         Un nivel de agua que sube una sola vez y las cifras reales por material.</p>
+      <span class="type">Newsreader + Work Sans · editorial</span>
+    </a></li>
+
+    <li><a class="card" href="5-lookbook.html">
+      <h2>5 · Lookbook</h2>
+      <p>Foto a sangre y titular de revista. Vende el deseo antes que el
+         servicio, y numera cada pieza porque el catálogo es una secuencia de
+         prendas únicas.</p>
+      <span class="type">Bodoni Moda + Jost · moda</span>
+    </a></li>
+  </ol>
+
+  <p class="note">
+    Son maquetas: enseñan la portada y una muestra del catálogo, sin carrito ni
+    sesión. El sitio que funciona está en <a href="../index.html">web/index.html</a>.
+    Ábrelas con el servidor en la raíz del proyecto (las fotos y el catálogo
+    viven dos niveles más arriba).
+  </p>
+</div>
+<script>
+  // Mismo interruptor que las maquetas, y la misma clave: elegir el tema una
+  // vez debería valer para las cinco.
+  const KEY = "clothToGo:propuestas:tema";
+  const raiz = document.documentElement, btn = document.getElementById("swap");
+  try { const g = localStorage.getItem(KEY); if(g) raiz.setAttribute("data-theme", g); } catch(e){}
+  const actual = () => raiz.getAttribute("data-theme")
+    || ((window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light");
+  const pintar = () => { btn.textContent = actual() === "dark" ? "Claro" : "Oscuro"; };
+  btn.addEventListener("click", () => {
+    const n = actual() === "dark" ? "light" : "dark";
+    raiz.setAttribute("data-theme", n);
+    try { localStorage.setItem(KEY, n); } catch(e){}
+    pintar();
+  });
+  pintar();
+</script>
+</body>
+</html>
