@@ -120,7 +120,33 @@ const PROJECT_GLOBALS = [
   "fallbackAddress", "hasStreetName"
 ];
 
+// Globales del SITIO WEB (web/js/*). Viven en su propio ámbito global: la web
+// carga los mismos js/data.js, js/state.js y js/api.js que la app, más estos.
+const WEB_GLOBALS = [
+  // web/js/session.js
+  "WEB_GOOGLE_CLIENT_ID", "GUEST_CART_KEY", "webUser", "pendingAfterLogin",
+  "webAuthAvailable", "webDecodeJwt", "persistCart", "readGuestCart", "clearGuestCart",
+  "startWebSession", "signOutWeb", "requireSession", "onWebGoogleCredential",
+  "initWebAuth", "showLoginHint", "renderSession", "userMenuOpen", "toggleUserMenu", "closeUserMenu",
+  // web/js/catalog.js
+  "webImg", "webCover", "webSortProducts", "webFilteredProducts", "webAnyFilter",
+  "clearWebFilters", "chipHTML", "cardHTML", "openDetail", "updateFilterCount",
+  "renderHeroFacts", "renderContact",
+  // web/js/cart.js
+  "checkoutStep", "checkoutTried", "addToCart", "removeFromCart", "setRentalDate",
+  "openCart", "closeCart", "cartLineHTML", "startCheckout", "closeCheckout", "optHTML",
+  "checkoutDataValid", "checkoutPayValid", "renderCheckout", "renderCheckoutFoot",
+  "checkoutDataHTML", "checkoutPayHTML", "renderCheckoutDone", "placeWebOrder",
+  // web/js/main.js
+  "openModal", "syncScrim", "closeTopmost", "openLogin", "closeLogin", "bootDepsReady",
+  "webToastTimer", "dispatchAction", "dispatchInput", "wireEvents", "initWeb",
+  "PLAY_STORE_URL", "applyStoreLinks",
+  "toggleNav", "closeNav", "toggleFilters", "initHeroParallax", "updateTopBar",
+];
+
 const projectGlobals = Object.fromEntries(PROJECT_GLOBALS.map(n => [n, "writable"]));
+const webGlobals = Object.fromEntries(
+  [...PROJECT_GLOBALS, ...WEB_GLOBALS].map(n => [n, "writable"]));
 
 module.exports = [
   {
@@ -144,6 +170,52 @@ module.exports = [
       "no-cond-assign": ["error", "always"],
       "no-constant-condition": "warn",
       "no-empty": "off"                 // hay try/catch vacíos intencionales (persistencia)
+    }
+  },
+  // Las maquetas de diseño (web/propuestas): cargan js/data.js y su propio
+  // andamiaje. Mismas reglas; el JS de cada maqueta va dentro del HTML y no lo
+  // ve ESLint, así que aquí solo entra demo.js.
+  {
+    files: ["web/propuestas/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "script",
+      globals: {
+        ...globals.browser,
+        ...webGlobals,
+        DEMO_THEME_KEY: "writable", demoImg: "writable", demoCover: "writable",
+        demoProducts: "writable", demoDay: "writable", demoWeekend: "writable",
+        demoSaving: "writable", demoWater: "writable", initDemoTheme: "writable",
+      }
+    },
+    rules: {
+      "no-undef": "error",
+      "no-unused-vars": "off",
+      "eqeqeq": ["warn", "smart"],
+      "no-redeclare": ["error", { "builtinGlobals": false }],
+      "no-empty": "off"
+    }
+  },
+  // El sitio web: mismas reglas y mismo patrón de ámbito global compartido,
+  // con los globales de js/ (que también carga) más los suyos.
+  {
+    files: ["web/js/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "script",
+      globals: { ...globals.browser, ...webGlobals }
+    },
+    rules: {
+      "no-undef": "error",
+      "no-unused-vars": "off",
+      "eqeqeq": ["warn", "smart"],
+      "no-redeclare": ["error", { "builtinGlobals": false }],
+      "no-dupe-keys": "error",
+      "no-dupe-args": "error",
+      "no-unreachable": "error",
+      "no-cond-assign": ["error", "always"],
+      "no-constant-condition": "warn",
+      "no-empty": "off"
     }
   }
 ];

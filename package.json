@@ -6,8 +6,8 @@
   "packageManager": "pnpm@11.3.0",
   "scripts": {
     "test": "node --test \"test/**/*.test.js\"",
-    "lint": "eslint js",
-    "lint:fix": "eslint js --fix"
+    "lint": "eslint js web/js web/propuestas",
+    "lint:fix": "eslint js web/js web/propuestas --fix"
   },
   "devDependencies": {
     "eslint": "^9.13.0",

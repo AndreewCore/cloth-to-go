@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CLOTH TO GO · Alquiler de ropa por día</title>
+<link rel="stylesheet" href="css/web.css" />
+</head>
+<body>
+
+<!-- ============================================================
+     Cabecera. Fija, con las rutas del sitio. La búsqueda NO va aquí:
+     vive en el catálogo, que es donde se busca (ver #catalogo).
+     ============================================================ -->
+<header class="top over" id="topBar">
+  <a class="brand" href="#inicio">
+    <img src="../img/logo.webp" alt="" />
+    <span>CLOTH TO <b>GO</b></span>
+  </a>
+
+  <nav class="nav" id="nav" aria-label="Secciones">
+    <a href="#catalogo">Catálogo</a>
+    <a href="#nosotros">Quiénes somos</a>
+    <a href="#contacto">Contacto</a>
+    <!-- En pantalla estrecha la cabecera no tiene sitio para el botón: baja
+         aquí, dentro del menú. La URL la pone applyStoreLinks() en los dos. -->
+    <a class="nav-install" data-play href="#" rel="noopener">Instalar la app</a>
+  </nav>
+
+  <div class="top-actions">
+    <!-- Sesión: botón de entrar o, ya dentro, la foto de perfil. La pinta
+         renderSession(). -->
+    <a class="install-btn" data-play href="#" rel="noopener">Instalar la app</a>
+    <div class="session" id="sessionBox"></div>
+    <button class="icon-btn cart-btn" id="openCart" data-action="openCart" aria-label="Ver carrito">
+      <span class="cart-ico" aria-hidden="true"></span>
+      <span class="cart-badge" id="cartBadge" hidden>0</span>
+    </button>
+    <button class="icon-btn burger" data-action="toggleNav" aria-label="Menú" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- ============================================================
+       Portada. El fondo ya no es un verde plano: son prendas del propio
+       catálogo. Es la imagen más honesta que existe del servicio —lo que
+       se alquila— y sigue cargando sin red.
+       ============================================================ -->
+  <section class="hero" id="inicio">
+    <!-- El vídeo NO es un tapiz detrás de todo: está anclado a la derecha y se
+         sale por el borde, y su lado izquierdo se funde con el fondo oscuro
+         (máscara en degradado) para que el texto se apoye en negro y no sobre
+         la imagen. Es un vídeo de MUESTRA generado con prendas del catálogo
+         (web/media/hero-demo.mp4): se cambia por el definitivo sustituyendo ese
+         archivo, sin tocar nada más. Va silenciado, en bucle y con póster, y se
+         detiene si el sistema pide menos movimiento. -->
+    <div class="hero-bg" id="heroBg" aria-hidden="true">
+      <video id="heroVideo" poster="media/hero-demo.jpg" autoplay muted loop playsinline preload="metadata">
+        <source src="media/hero-demo.mp4" type="video/mp4">
+      </video>
+    </div>
+
+    <div class="hero-in">
+      <div class="hero-copy">
+        <h1 class="lockup">
+          <img src="../img/logo.webp" alt="" />
+          <!-- El salto es fijo: la marca se lee CLOTH / TO GO en dos renglones,
+               no donde el ancho de la pantalla decida partirla. -->
+          <span>CLOTH<br />TO <b>GO</b></span>
+        </h1>
+        <p class="lede">
+          Un terno para el grado, un vestido para la boda, un abrigo para el viaje.
+          Elige la prenda y los días que la necesitas: te llega lavada y planchada,
+          y cuando terminas la devuelves. Nada que guardar después.
+        </p>
+        <div class="hero-cta">
+          <a class="btn-solid" href="#catalogo">Ver catálogo</a>
+        </div>
+        <ul class="hero-perks">
+          <li><b id="heroSaving">—</b><span>de lo que cuesta comprarla</span></li>
+          <li><b>Lista para usar</b><span>lavada y planchada</span></li>
+          <li><b>Garantía devuelta</b><span>íntegra al entregarla</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cómo funciona: tres pasos, porque "alquilar ropa" no es un gesto que
+       la gente ya tenga aprendido. -->
+  <section class="steps-band" aria-label="Cómo funciona">
+    <ol>
+      <li><span>1</span><b>Elige la prenda</b><p>Filtra por talla, ocasión y color. Cada prenda es única.</p></li>
+      <li><span>2</span><b>Di cuántos días</b><p>El precio baja por día y por cantidad de prendas.</p></li>
+      <li><span>3</span><b>Úsala y devuélvela</b><p>La recogemos o la dejas en el local. Del lavado nos ocupamos nosotros.</p></li>
+    </ol>
+  </section>
+
+  <!-- ============================================================
+       Catálogo. Aquí vive el buscador: se busca donde están las prendas,
+       no en una cabecera que acompaña a toda la página.
+       ============================================================ -->
+  <section class="catalog" id="catalogo">
+    <div class="sec-head">
+      <h2>Catálogo</h2>
+      <p>Prendas de segunda mano listas para alquilar. Cada una es una sola pieza.</p>
+    </div>
+
+    <div class="cat-toolbar">
+      <div class="search">
+        <input type="search" id="searchInput" placeholder="Buscar prenda, color, categoría…" aria-label="Buscar prenda" />
+      </div>
+      <button class="ghost-btn filters-toggle" data-action="toggleFilters" aria-expanded="false">
+        Filtros <span class="fcount" id="filterCount" hidden>0</span>
+      </button>
+      <label class="sort">
+        <span>Ordenar</span>
+        <select id="sortBy" aria-label="Ordenar catálogo">
+          <option value="default">Recomendado</option>
+          <option value="price-asc">Precio: más bajo</option>
+          <option value="price-desc">Precio: más alto</option>
+          <option value="stars-desc">Mejor calidad</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="layout">
+      <aside class="side" id="filterPanel" aria-label="Filtros del catálogo"></aside>
+      <div class="content">
+        <div class="results-bar"><span id="resultsCount"></span></div>
+        <div class="grid" id="grid"></div>
+        <p class="empty" id="noResults" hidden>No encontramos prendas para tu búsqueda.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quiénes somos -->
+  <section class="about" id="nosotros">
+    <div class="about-in">
+      <div class="sec-head">
+        <h2>Quiénes somos</h2>
+        <p>
+          CLOTH TO GO nació en la ESPOL con una pregunta incómoda: por qué compramos
+          ropa que vamos a usar una o dos veces. Recuperamos prendas de segunda mano
+          en buen estado, las revisamos, las lavamos y las ponemos a alquilar por día.
+        </p>
+      </div>
+      <div class="about-cards">
+        <article>
+          <h3>Ropa que ya existe</h3>
+          <p>Nada de producción nueva. Trabajamos con prendas donadas y de segunda
+            mano, revisadas pieza por pieza antes de entrar al catálogo.</p>
+        </article>
+        <article>
+          <h3>Pagas por el uso</h3>
+          <p>El precio sale del valor real de la prenda y de los días que la tienes.
+            Alquilar varias a la vez sale más barato.</p>
+        </article>
+        <article>
+          <h3>Agua que no se gasta</h3>
+          <p id="aboutWater">Cada prenda alquilada evita fabricar una nueva.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contacto -->
+  <section class="contact" id="contacto">
+    <div class="contact-in">
+      <div class="sec-head">
+        <h2>Contacto</h2>
+        <p>Escríbenos o pasa por el local; también llevamos y recogemos a domicilio.</p>
+      </div>
+      <ul class="contact-list" id="contactList"></ul>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div><b>CLOTH TO GO</b> · <span id="footLocal"></span></div>
+  <div class="foot-note">
+    Prototipo de clase · el catálogo y los precios son los mismos de la app móvil ·
+    <a data-play href="#" rel="noopener">Instalar la app</a>
+  </div>
+</footer>
+
+<!-- Fondo compartido por el carrito y los diálogos -->
+<div class="scrim" id="scrim" hidden></div>
+
+<!-- Carrito -->
+<aside class="drawer" id="cartDrawer" aria-label="Tu carrito" hidden>
+  <div class="drawer-head">
+    <h2>Tu alquiler</h2>
+    <button class="x" data-action="closeCart" aria-label="Cerrar carrito">&times;</button>
+  </div>
+  <div class="drawer-body" id="cartBody"></div>
+  <div class="drawer-foot" id="cartFoot"></div>
+</aside>
+
+<!-- Detalle de prenda -->
+<div class="modal-wrap" id="detailModal" hidden>
+  <div class="modal wide" role="dialog" aria-modal="true" aria-label="Ficha de la prenda">
+    <button class="x float" data-action="closeDetail" aria-label="Cerrar">&times;</button>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<!-- Puerta de sesión: mirar y llenar el carrito no pide cuenta; alquilar sí. -->
+<div class="modal-wrap" id="loginModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+    <button class="x float" data-action="closeLogin" aria-label="Cerrar">&times;</button>
+    <h2 id="loginTitle">Inicia sesión para continuar</h2>
+    <p class="modal-sub">
+      Tu carrito se guarda. Necesitamos tu cuenta para registrar el alquiler,
+      las fechas y la devolución.
+    </p>
+    <div class="google-slot" id="googleBtn"></div>
+    <p class="hint" id="loginHint" role="status" hidden></p>
+  </div>
+</div>
+
+<!-- Checkout -->
+<div class="modal-wrap" id="checkoutModal" hidden>
+  <div class="modal wide" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle">
+    <button class="x float" data-action="closeCheckout" aria-label="Cerrar">&times;</button>
+    <h2 id="checkoutTitle">Completa tu alquiler</h2>
+    <div id="checkoutBody"></div>
+    <div class="modal-foot" id="checkoutFoot"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<!-- ============================================================
+     Carga en orden de dependencias. Los cuatro primeros son los MISMOS
+     archivos de la app móvil (no una copia): catálogo, modelo de precios,
+     estado/persistencia y el puente con el backend.
+     ============================================================ -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="../js/icons.js"></script>
+<script src="../js/data.js"></script>
+<script src="../js/state.js"></script>
+<script src="../js/api.js"></script>
+<script src="js/session.js"></script>
+<script src="js/catalog.js"></script>
+<script src="js/cart.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
