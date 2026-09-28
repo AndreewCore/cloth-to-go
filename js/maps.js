@@ -222,6 +222,19 @@ function setUpPickerMap(target){
   readMapCenter();
 }
 
+/**
+ * Sustituto cuando la geocodificación inversa no da una calle.
+ *
+ * Existe como función y no como plantilla suelta porque `hasStreetName()` tiene
+ * que reconocer esta cadena para no enseñarla: si las dos se escriben aparte,
+ * cambiar una deja a la otra comparando contra un texto que ya no se genera.
+ * @param {{lat:number,lng:number}} punto Coordenadas elegidas.
+ * @returns {string} Texto sustituto.
+ */
+function fallbackAddress(punto){
+  return `Ubicación ${punto.lat.toFixed(5)}, ${punto.lng.toFixed(5)}`;
+}
+
 /** Lee el centro del mapa y lo traduce a una dirección legible. */
 function readMapCenter(){
   if(!pickerMap) return;
@@ -240,9 +253,14 @@ function readMapCenter(){
     // Puede haber llegado otro "idle" mientras tanto: si el punto cambió, este
     // resultado ya es viejo y pisarlo mostraría una dirección que no toca.
     if(!pickerPlace || pickerPlace.lat !== punto.lat || pickerPlace.lng !== punto.lng) return;
-    const texto = (status === "OK" && res && res[0])
-      ? res[0].formatted_address
-      : `Ubicación ${punto.lat.toFixed(5)}, ${punto.lng.toFixed(5)}`;
+    const ok = status === "OK" && res && res[0];
+    if(!ok){
+      // El motivo se descartaba, y sin él "sale una coordenada en vez de la
+      // calle" no se puede diagnosticar: REQUEST_DENIED (clave o facturación),
+      // OVER_QUERY_LIMIT y ZERO_RESULTS se ven exactamente igual desde fuera.
+      console.warn(`[maps] geocodificación inversa sin resultado: ${status}`);
+    }
+    const texto = ok ? res[0].formatted_address : fallbackAddress(punto);
     pickerPlace.address = texto;
     addrEl.textContent = texto;
   });
@@ -328,6 +346,21 @@ function mapPickerButtonHTML(target, coords){
 }
 
 /**
+ * ¿La dirección guardada es una calle de verdad, o el sustituto de coordenadas?
+ *
+ * Sin geocodificación —clave sin facturación, sin red— `readMapCenter()` guarda
+ * "Ubicación -2.16396, -79.89318". Eso es una coordenada disfrazada de
+ * dirección: no le dice nada al cliente y ocupa el sitio del dato que importa.
+ * @param {string} addr Dirección guardada.
+ * @param {{lat:number,lng:number}} coords Punto elegido.
+ * @returns {boolean} true si hay un nombre de calle utilizable.
+ */
+function hasStreetName(addr, coords){
+  const texto = String(addr ?? "").trim();
+  return !!texto && texto !== fallbackAddress(coords);
+}
+
+/**
  * Campo de dirección del checkout.
  *
  * Con el mapa disponible NO se ofrece campo de texto: la dirección se fija
@@ -354,10 +387,16 @@ function addressFieldHTML(target, label, addr, coords){
       <input id="${campo ? campo.inputId : "addr"}" placeholder="Calle, número, ciudad…" value="${escapeHTML(addr)}" />
       ${mapPickerButtonHTML(target, coords)}`;
   }
+  // Con calle: la calle manda y la confirmación va debajo, pequeña. Sin calle
+  // —que es lo normal si la geocodificación no está disponible— una sola línea:
+  // "Ubicación marcada en el mapa" y "Punto exacto guardado" dicen lo mismo, y
+  // apilarlas era repetir por segunda vez lo que ya se veía.
   const cuerpo = coords
     ? `<div class="addr-picked">
-         <div class="ap-text">${escapeHTML(addr)}</div>
-         <div class="ap-coords">${icon("check", { size: 13 })} Punto exacto guardado (${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)})</div>
+         ${hasStreetName(addr, coords)
+           ? `<div class="ap-text">${escapeHTML(addr)}</div>
+              <div class="ap-coords">${icon("check", { size: 13 })} Punto exacto guardado</div>`
+           : `<div class="ap-coords">${icon("check", { size: 13 })} Ubicación marcada en el mapa</div>`}
        </div>`
     : `<div class="addr-empty">${campo ? campo.hint : ""}</div>`;
   return `${head}${cuerpo}${mapPickerButtonHTML(target, coords)}`;

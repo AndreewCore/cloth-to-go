@@ -116,7 +116,8 @@ const PROJECT_GLOBALS = [
   "ADDRESS_FIELDS", "addressField", "addressFieldByInput",
   "mapsAvailable", "loadMapsSdk", "openMapPicker", "setUpPickerMap", "readMapCenter",
   "useMyLocation", "confirmMapPicker", "applyPickedLocation", "clearPickedLocation", "closeMapPicker",
-  "mapPickerButtonHTML", "addressFieldHTML", "addressReady"
+  "mapPickerButtonHTML", "addressFieldHTML", "addressReady",
+  "fallbackAddress", "hasStreetName"
 ];
 
 // Globales del SITIO WEB (web/js/*). Viven en su propio ámbito global: la web
