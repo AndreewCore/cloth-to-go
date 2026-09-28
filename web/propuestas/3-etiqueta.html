@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Propuesta 3 · La etiqueta · CLOTH TO GO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;800&family=Archivo+Narrow:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PROPUESTA 3 · LA ETIQUETA
+   De dónde sale: de la etiqueta cosida en el cuello. Es el sitio donde
+   una prenda ya cuenta de qué está hecha, cómo se lava y qué talla es —
+   exactamente los datos que este catálogo necesita enseñar, y en un
+   formato que cualquiera ha leído mil veces sin que nadie se lo explique.
+
+   Qué carga la personalidad: la ficha cosida. Borde de puntada, datos en
+   filas estrechas, condensada en mayúsculas pequeñas, y el lavado como
+   argumento de venta (lo hacemos nosotros) en vez de letra pequeña.
+
+   Tipografía: Archivo para el texto y Archivo Narrow para los datos de la
+   etiqueta, que es donde la condensada trabaja de verdad: muchas filas
+   cortas en poco ancho.
+   ============================================================ */
+
+:root {
+  --bg: #f1f4ec; --surface: #ffffff; --ink: #1f2a1c; --muted: #5e6a57;
+  --accent: #356b31; --soft: #e3efdc; --line: #d3e0c8; --cta: #2d8438;
+  --stitch: #356b31;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #161a14; --surface: #1f251d; --ink: #e8eee4; --muted: #a3b09c;
+  --accent: #8fd18a; --soft: #24301f; --line: #303a2c; --cta: #3f9c4b;
+  --stitch: #8fd18a; color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #161a14; --surface: #1f251d; --ink: #e8eee4; --muted: #a3b09c;
+  --accent: #8fd18a; --soft: #24301f; --line: #303a2c; --cta: #3f9c4b;
+  --stitch: #8fd18a; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: Archivo, system-ui, sans-serif; line-height: 1.55; }
+img { max-width: 100%; display: block; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+
+.top { background: var(--surface); border-bottom: 1px dashed var(--line); }
+.top .wrap { display: flex; align-items: center; gap: 22px; height: 64px; }
+.mark { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; font-weight: 800; letter-spacing: .4px; }
+.mark img { width: 28px; height: 28px; object-fit: contain; }
+.top nav { margin-left: auto; display: flex; gap: 22px; font-size: 15px; }
+.top nav a { color: var(--muted); text-decoration: none; font-weight: 600; }
+.top nav a:hover { color: var(--accent); }
+.swap { border: 1px dashed var(--stitch); background: none; color: var(--ink); padding: 6px 14px; font: inherit; font-size: 14px; cursor: pointer; border-radius: 4px; }
+
+/* ---- Cabecera: la etiqueta grande ---- */
+.hero { display: grid; grid-template-columns: 1fr 340px; gap: 44px; align-items: center; padding: 56px 0 40px; }
+.hero h1 { font-size: clamp(34px, 5vw, 56px); line-height: 1.04; margin: 0 0 16px; letter-spacing: -.4px; max-width: 16ch; }
+.hero p { color: var(--muted); font-size: 17px; max-width: 50ch; margin: 0 0 24px; }
+.go { display: inline-block; background: var(--cta); color: #fff; text-decoration: none; padding: 13px 28px; border-radius: 6px; font-weight: 600; }
+
+/* La ficha cosida: borde de puntada real (dashed) sobre tela blanca. */
+.label {
+  background: var(--surface); border: 2px dashed var(--stitch); border-radius: 8px;
+  padding: 18px 20px; font-family: "Archivo Narrow", sans-serif;
+}
+.label .brand { font-family: Archivo, sans-serif; font-weight: 800; letter-spacing: 2px; font-size: 13px; text-align: center; padding-bottom: 12px; border-bottom: 1px dashed var(--line); }
+.label dl { display: grid; grid-template-columns: auto 1fr; gap: 0 14px; margin: 14px 0 0; font-size: 15px; }
+.label dt { color: var(--muted); }
+.label dd { margin: 0; text-align: right; font-weight: 600; }
+.label .price { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); display: flex; align-items: baseline; justify-content: space-between; }
+.label .price b { font-family: Archivo, sans-serif; font-size: 30px; }
+.label .price span { color: var(--muted); font-size: 14px; }
+.care { margin-top: 12px; display: flex; gap: 10px; color: var(--accent); align-items: center; font-size: 13px; }
+.care svg { width: 20px; height: 20px; flex: 0 0 20px; }
+
+/* ---- Catálogo: cada prenda con su etiqueta ---- */
+.sec { padding: 10px 0 60px; }
+.sec h2 { font-size: 24px; margin: 0 0 4px; }
+.sec .sub { color: var(--muted); margin: 0 0 22px; }
+.rows { display: grid; gap: 16px; }
+.item {
+  display: grid; grid-template-columns: 96px 1fr 210px; gap: 20px; align-items: center;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px;
+}
+.item > img { width: 96px; height: 120px; object-fit: cover; border-radius: 6px; }
+.item h3 { margin: 0 0 4px; font-size: 19px; }
+.item .desc { color: var(--muted); font-size: 14.5px; margin: 0 0 8px; max-width: 58ch; }
+.item .facts { font-family: "Archivo Narrow", sans-serif; display: flex; gap: 16px; flex-wrap: wrap; color: var(--muted); font-size: 14px; }
+.item .facts b { color: var(--ink); }
+.mini {
+  border: 2px dashed var(--stitch); border-radius: 6px; padding: 10px 12px;
+  font-family: "Archivo Narrow", sans-serif; text-align: right;
+}
+.mini b { font-family: Archivo, sans-serif; font-size: 24px; display: block; line-height: 1.1; }
+.mini span { color: var(--muted); font-size: 13px; }
+.mini .dep { display: block; margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 13px; }
+
+.foot { padding-bottom: 44px; color: var(--muted); font-size: 14px; }
+
+@media (max-width: 880px) {
+  .hero { grid-template-columns: 1fr; padding: 34px 0 26px; gap: 26px; }
+  .top nav { display: none; }
+  .item { grid-template-columns: 76px 1fr; }
+  .item > img { width: 76px; height: 96px; }
+  .mini { grid-column: 1 / -1; text-align: left; display: flex; gap: 14px; align-items: baseline; }
+  .mini .dep { border: 0; margin: 0; padding: 0; }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="mark" href="#"><img src="../../img/logo.webp" alt="">CLOTH TO GO</a>
+    <nav><a href="#">Catálogo</a><a href="#">Quiénes somos</a><a href="#">Contacto</a></nav>
+    <button class="swap" id="swap">Oscuro</button>
+  </div>
+</header>
+
+<section class="hero wrap">
+  <div>
+    <h1>Todo lo que necesitas saber está en la etiqueta</h1>
+    <p>Talla, material, estado y precio por día. Nada de tallas aproximadas ni fotos
+       de catálogo: cada prenda es una sola pieza, con su historia y su ficha.
+       Llega lavada y planchada, y vuelve a lavarse cuando la devuelves.</p>
+    <a class="go" href="#">Ver el catálogo</a>
+  </div>
+
+  <aside class="label" id="label">
+    <div class="brand">CLOTH TO GO</div>
+    <dl id="labelData"></dl>
+    <div class="price"><b id="labelPrice">—</b><span>por día</span></div>
+    <p class="care">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <path d="M12 3s6 6.2 6 10a6 6 0 0 1-12 0c0-3.8 6-10 6-10z"/>
+      </svg>
+      Lavado profesional incluido en cada alquiler
+    </p>
+  </aside>
+</section>
+
+<section class="sec wrap">
+  <h2>En la percha esta semana</h2>
+  <p class="sub">Cada prenda, con su ficha y su tarifa.</p>
+  <div class="rows" id="rows"></div>
+</section>
+
+<p class="foot wrap">Propuesta 3 · La etiqueta — maqueta con el catálogo y los precios reales del prototipo.</p>
+
+<script src="../../js/icons.js"></script>
+<script src="../../js/data.js"></script>
+<script src="demo.js"></script>
+<script>
+  const p = productById(2) || PRODUCTS[0];
+  document.getElementById("labelData").innerHTML = `
+    <dt>Prenda</dt><dd>${escapeHTML(p.name)}</dd>
+    <dt>Talla</dt><dd>${escapeHTML(p.size)}</dd>
+    <dt>Material</dt><dd>${escapeHTML(materialLabel(p.material))}</dd>
+    <dt>Color</dt><dd>${escapeHTML(colorLabel(p.color))}</dd>
+    <dt>Estado</dt><dd>${escapeHTML(conditionLabel(p.stars))}</dd>
+    <dt>Garantía</dt><dd>$${depositFor(p).toFixed(2)}</dd>`;
+  document.getElementById("labelPrice").textContent = `$${demoDay(p)}`;
+
+  document.getElementById("rows").innerHTML = demoProducts(5).map(q => `
+    <article class="item">
+      <img src="${demoCover(q)}" alt="${escapeHTML(q.name)}">
+      <div>
+        <h3>${escapeHTML(q.name)}</h3>
+        <p class="desc">${escapeHTML(q.desc)}</p>
+        <div class="facts">
+          <span>Talla <b>${escapeHTML(q.size)}</b></span>
+          <span>Material <b>${escapeHTML(materialLabel(q.material))}</b></span>
+          <span>Color <b>${escapeHTML(colorLabel(q.color))}</b></span>
+          <span>Estado <b>${escapeHTML(conditionLabel(q.stars))}</b></span>
+        </div>
+      </div>
+      <div class="mini">
+        <b>$${demoDay(q)}</b><span>por día</span>
+        <span class="dep">Garantía $${depositFor(q).toFixed(2)} · se devuelve</span>
+      </div>
+    </article>`).join("");
+
+  initDemoTheme("swap");
+</script>
+</body>
+</html>

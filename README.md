@@ -175,7 +175,7 @@ mantiene viva la demo por `file://`.
 
 ## 🖥️ Backend (opcional)
 
-En `server/` hay una API con **Fastify + Prisma + SQLite** que hoy sirve el catálogo y
+En `server/` hay una API con **Fastify + Prisma + Postgres** que hoy sirve el catálogo y
 verifica el inicio de sesión:
 
 | Método | Ruta | Para qué |
@@ -184,8 +184,9 @@ verifica el inicio de sesión:
 | `GET` | `/api/products` | Catálogo, en el mismo formato que espera el frontend. |
 | `POST` | `/api/auth/google` | Verifica el ID token de Google y registra al usuario. |
 
-SQLite en desarrollo; para producción se cambia el `provider` y la `DATABASE_URL` a
-Postgres sin tocar el código de la app. Si el servidor no está levantado, el frontend usa
+Postgres en desarrollo, en CI y en producción: el mismo motor en los tres sitios, para
+que las migraciones de `server/prisma/migrations/` se ejerciten siempre. Si el servidor
+no está levantado, el frontend usa
 los datos embebidos y sigue abriéndose por `file://`. Ver
 [`server/README.md`](server/README.md).
 
@@ -211,7 +212,7 @@ navegador.
 │   ├── logo.webp
 │   └── products/           # Fotos del catálogo (webp, servidas desde el repo)
 ├── test/                   # Pruebas del frontend (runner nativo de Node + jsdom)
-├── server/                 # API Fastify + Prisma + SQLite
+├── server/                 # API Fastify + Prisma + Postgres
 ├── .github/workflows/      # CI (lint + tests) y despliegue a GitHub Pages
 ├── package.json            # Scripts de tooling (lint/test)
 ├── eslint.config.js

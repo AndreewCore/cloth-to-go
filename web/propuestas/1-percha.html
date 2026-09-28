@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Propuesta 1 · La percha · CLOTH TO GO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;700;800&family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   PROPUESTA 1 · LA PERCHA
+   De dónde sale: del objeto que define el negocio. Una tienda de
+   alquiler no es un almacén de cajas, es una barra con prendas
+   colgadas, cada una con su etiqueta de precio guindando.
+
+   Qué carga la personalidad: la barra. Las prendas cuelgan de ella a
+   alturas distintas, como en una percha real, y el precio es una
+   etiqueta de cartón atada con hilo. Todo lo demás se mantiene callado.
+
+   Tipografía: Saira Condensed (condensada, de rótulo de local) para los
+   titulares; Assistant para leer. La condensada permite un titular
+   grande sin robarle sitio a la ropa, que es lo que hay que mirar.
+   ============================================================ */
+
+:root {
+  --bg: #f1f4ec; --surface: #ffffff; --ink: #1f2a1c; --muted: #5e6a57;
+  --accent: #356b31; --soft: #e3efdc; --line: #d5e2cb; --cta: #2d8438;
+  --rail: #1f2a1c; --tag: #ffffff; --tag-ink: #1f2a1c;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #161a14; --surface: #1f251d; --ink: #e8eee4; --muted: #a3b09c;
+  --accent: #8fd18a; --soft: #24301f; --line: #303a2c; --cta: #3f9c4b;
+  --rail: #8fd18a; --tag: #e8eee4; --tag-ink: #161a14;
+  color-scheme: dark;
+} }
+:root[data-theme="dark"] {
+  --bg: #161a14; --surface: #1f251d; --ink: #e8eee4; --muted: #a3b09c;
+  --accent: #8fd18a; --soft: #24301f; --line: #303a2c; --cta: #3f9c4b;
+  --rail: #8fd18a; --tag: #e8eee4; --tag-ink: #161a14;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font-family: Assistant, system-ui, sans-serif; line-height: 1.55;
+}
+img { max-width: 100%; display: block; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+
+/* ---- Cabecera ---- */
+.top { border-bottom: 2px solid var(--ink); }
+.top .wrap { display: flex; align-items: center; gap: 24px; height: 68px; }
+.mark {
+  font-family: "Saira Condensed", sans-serif; font-weight: 800;
+  font-size: 26px; letter-spacing: .5px; text-transform: uppercase;
+  text-decoration: none; display: flex; align-items: center; gap: 9px;
+}
+.mark img { width: 30px; height: 30px; object-fit: contain; }
+.top nav { margin-left: auto; display: flex; gap: 26px; font-weight: 600; }
+.top nav a { text-decoration: none; color: var(--muted); }
+.top nav a:hover { color: var(--accent); }
+.swap {
+  border: 2px solid var(--ink); background: none; color: var(--ink);
+  font-family: "Saira Condensed", sans-serif; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .8px; padding: 5px 14px; cursor: pointer;
+}
+
+/* ---- Titular ---- */
+.head { padding: 54px 0 26px; }
+.head h1 {
+  font-family: "Saira Condensed", sans-serif; font-weight: 800;
+  font-size: clamp(46px, 9vw, 108px); line-height: .92; letter-spacing: -.5px;
+  text-transform: uppercase; margin: 0; max-width: 14ch;
+}
+.head p { max-width: 46ch; font-size: 18px; color: var(--muted); margin: 18px 0 0; }
+.head .go {
+  display: inline-block; margin-top: 24px; background: var(--cta); color: #fff;
+  font-family: "Saira Condensed", sans-serif; font-weight: 700; font-size: 19px;
+  text-transform: uppercase; letter-spacing: 1px; padding: 12px 30px; text-decoration: none;
+}
+
+/* ---- La percha ----
+   La barra es un elemento de verdad, no un adorno: sostiene las prendas y
+   ordena la fila. Cada prenda cuelga de su gancho a distinta altura. */
+.rack { padding: 20px 0 70px; overflow-x: auto; }
+.rail {
+  position: relative; border-top: 6px solid var(--rail);
+  display: flex; gap: 28px; padding-top: 0; min-width: min-content;
+}
+.rail::before, .rail::after {
+  content: ""; position: absolute; top: -6px; width: 6px; height: 34px; background: var(--rail);
+}
+.rail::before { left: 0; } .rail::after { right: 0; }
+
+.hang { width: 210px; flex: 0 0 210px; position: relative; padding-top: var(--drop, 26px); }
+.hang:nth-child(2n) { --drop: 52px; }
+.hang:nth-child(3n) { --drop: 14px; }
+.hook {
+  position: absolute; top: 0; left: 50%; width: 2px; height: var(--drop, 26px);
+  background: var(--rail); transform: translateX(-50%);
+}
+.hang figure { margin: 0; background: var(--surface); border: 1px solid var(--line); }
+.hang img { aspect-ratio: 3/4; object-fit: cover; width: 100%; }
+.hang h3 {
+  font-family: "Saira Condensed", sans-serif; font-weight: 700; text-transform: uppercase;
+  font-size: 19px; margin: 12px 0 2px; line-height: 1.1;
+}
+.hang .spec { color: var(--muted); font-size: 13.5px; }
+
+/* La etiqueta de precio cuelga de la prenda, girada como cuelga de verdad. */
+.tag {
+  position: absolute; right: 8px; top: calc(var(--drop, 26px) + 12px);
+  background: var(--tag); color: var(--tag-ink); border: 1px solid var(--line);
+  padding: 7px 11px 8px; transform: rotate(-4deg); box-shadow: 0 4px 12px rgba(20,30,18,.18);
+}
+.tag b { font-family: "Saira Condensed", sans-serif; font-size: 24px; display: block; line-height: 1; }
+.tag span { font-size: 11.5px; color: var(--muted); letter-spacing: .3px; }
+
+/* ---- Franja de datos ---- */
+.band { border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); background: var(--soft); }
+.band .wrap { display: flex; gap: 40px; flex-wrap: wrap; padding-top: 22px; padding-bottom: 22px; }
+.band div { flex: 1 1 200px; }
+.band b { font-family: "Saira Condensed", sans-serif; font-size: 30px; color: var(--accent); display: block; line-height: 1.1; }
+.band span { color: var(--muted); font-size: 14.5px; }
+
+.foot { padding: 30px 0 50px; color: var(--muted); font-size: 14px; }
+
+@media (max-width: 720px) {
+  .top nav { display: none; }
+  .head { padding: 34px 0 18px; }
+  .hang { width: 170px; flex-basis: 170px; }
+  .tag b { font-size: 20px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .hang { animation: drop .5s cubic-bezier(.2,.8,.3,1) backwards; }
+  .hang:nth-child(2) { animation-delay: .06s } .hang:nth-child(3) { animation-delay: .12s }
+  .hang:nth-child(4) { animation-delay: .18s } .hang:nth-child(5) { animation-delay: .24s }
+  @keyframes drop { from { transform: translateY(-14px); opacity: 0 } }
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="mark" href="#"><img src="../../img/logo.webp" alt="">Cloth to go</a>
+    <nav><a href="#">Catálogo</a><a href="#">Quiénes somos</a><a href="#">Contacto</a></nav>
+    <button class="swap" id="swap">Oscuro</button>
+  </div>
+</header>
+
+<section class="head wrap">
+  <h1>Una prenda para hoy, no para siempre</h1>
+  <p>El terno del grado, el vestido de la boda, el abrigo del viaje. Te lo llevas
+     los días que lo necesitas y lo devuelves. Del lavado nos ocupamos nosotros.</p>
+  <a class="go" href="#">Ver la percha</a>
+</section>
+
+<section class="rack wrap">
+  <div class="rail" id="rail"></div>
+</section>
+
+<section class="band">
+  <div class="wrap">
+    <div><b id="fact1">—</b><span>menos que comprar el esmoquin y usarlo una noche</span></div>
+    <div><b id="fact2">—</b><span>prendas en la percha, cada una única</span></div>
+    <div><b>Sin clóset</b><span>la devuelves y deja de ser tu problema</span></div>
+  </div>
+</section>
+
+<p class="foot wrap">Propuesta 1 · La percha — maqueta con el catálogo y los precios reales del prototipo.</p>
+
+<script src="../../js/icons.js"></script>
+<script src="../../js/data.js"></script>
+<script src="demo.js"></script>
+<script>
+  const prendas = demoProducts(5);
+  document.getElementById("rail").innerHTML = prendas.map(p => `
+    <article class="hang">
+      <span class="hook"></span>
+      <figure><img src="${demoCover(p)}" alt="${escapeHTML(p.name)}"></figure>
+      <h3>${escapeHTML(p.name)}</h3>
+      <div class="spec">Talla ${escapeHTML(p.size)} · ${escapeHTML(materialLabel(p.material))}</div>
+      <div class="tag"><b>$${demoDay(p)}</b><span>el día</span></div>
+    </article>`).join("");
+
+  const esmoquin = productById(7) || prendas[0];
+  document.getElementById("fact1").textContent = `${demoSaving(esmoquin)}%`;
+  document.getElementById("fact2").textContent = PRODUCTS.length;
+  initDemoTheme("swap");
+</script>
+</body>
+</html>
