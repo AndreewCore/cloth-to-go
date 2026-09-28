@@ -1,24 +1,29 @@
 # CLOTH TO GO · Backend (API)
 
-API del prototipo, construida con **Fastify + Prisma + SQLite**. Expone el
+API del prototipo, construida con **Fastify + Prisma + Postgres**. Expone el
 **catálogo** en modo lectura y la **verificación de login con Google**;
 alquileres, pagos y envíos llegarán en iteraciones posteriores.
 
-> **Estado:** scaffold inicial. SQLite es la base de **desarrollo/testeo**; para
-> producción se migra a PostgreSQL cambiando `provider` y `DATABASE_URL` en
-> `prisma/schema.prisma` (el código de la app no cambia).
+> **Estado:** Postgres es el motor en los **tres** sitios —desarrollo, CI y
+> producción—. Se descartó dejar SQLite para probar: con dos motores las
+> migraciones solo valen para uno y las pruebas no ejercitan el real. El
+> historial de migraciones vive en `prisma/migrations/` y se commitea.
 
 ## Requisitos
 
 - Node.js 18+ y **pnpm**.
+- Un **Postgres 16** al que apuntar. En local vale un contenedor
+  (`docker run -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16`) o una
+  rama gratuita de Neon/Supabase.
 
 ## Puesta en marcha
 
 ```bash
 cd server
 pnpm install            # instala dependencias y genera el cliente Prisma
-cp .env.example .env    # configura DATABASE_URL y PORT
-pnpm db:reset           # crea la base SQLite y siembra las 16 prendas
+cp .env.example .env    # configura DATABASE_URL, DIRECT_URL y PORT
+pnpm db:deploy          # aplica las migraciones
+pnpm db:seed            # siembra las 16 prendas
 pnpm dev                # levanta el servidor en http://localhost:3000
 ```
 
@@ -79,6 +84,17 @@ catálogo de la base.
 - El estado de pago **se deriva**: un pedido está `settled` cuando no le queda
   ninguna línea `PENDING`.
 
+**Nada de lo que llega en el cuerpo se cree sin comprobar.** `delivery`, `ret` y
+`pay` se validan contra su lista cerrada (editar el HTML del navegador para
+mandar un valor inventado da 400, no un pedido raro); los ids de prenda deben
+ser enteros existentes y sin repetir; las fechas, `YYYY-MM-DD` y no en el
+pasado. Las **direcciones** son texto libre pero acotado: obligatorias solo
+cuando el modo las necesita, de 6 a 200 caracteres y se guardan recortadas. Un
+valor que no es texto da **400**, no 500 — un error de entrada no puede parecer
+una caída del servidor. Lo que el servidor **no** hace es sanear marcado: el
+XSS se ataja escapando al pintar (`escapeHTML()`), que es la única defensa que
+vale para todos los destinos, y un filtro aquí rompería direcciones legítimas.
+
 Códigos: **400** entrada inválida · **401** sin credencial o expirada · **403**
 hace falta ser del local · **404** no existe o no es tuyo · **409** conflicto de
 estado (prenda ya alquilada, pedido anulado, depósito ya devuelto).
@@ -92,18 +108,20 @@ estado (prenda ya alquilada, pedido anulado, depósito ya devuelto).
 | Script | Qué hace |
 |---|---|
 | `pnpm dev` | Arranca el servidor (con logs). |
-| `pnpm db:push` | Aplica el esquema a la base sin borrar datos. |
-| `pnpm db:seed` | Siembra el catálogo. |
+| `pnpm db:migrate` | Crea una migración nueva a partir del cambio en el esquema (desarrollo). |
+| `pnpm db:deploy` | Aplica el historial de migraciones tal cual (CI y producción). |
+| `pnpm db:seed` | Siembra el catálogo. **Idempotente**: inserta lo que falte, actualiza lo que ya esté y no borra nada, así que puede correrse sobre una base con pedidos vivos. Avisa de las prendas de la base que ya no están en la lista, sin tocarlas. |
 | `pnpm db:reset` | Recrea la base desde cero y siembra (**borra datos**). |
 | `pnpm test` | Corre las pruebas (`node:test`) contra la app en memoria. |
 
-> Los tests asumen que la base fue sembrada (`pnpm db:reset`) antes de correrlos.
+> Los tests asumen que la base fue migrada y sembrada antes de correrlos.
 
 ## Variables de entorno
 
 | Variable | Qué hace |
 |---|---|
-| `DATABASE_URL` | Conexión de Prisma. `file:./dev.db` en desarrollo. |
+| `DATABASE_URL` | Conexión que usa la app. En Supabase es el **pooler** (pgbouncer, puerto 6543). |
+| `DIRECT_URL` | Conexión **directa** (puerto 5432). La exigen las migraciones: el pooler no admite las sentencias preparadas de `prisma migrate` y falla con un error que no explica de dónde viene. En local suele ser la misma que `DATABASE_URL`. |
 | `PORT` | Puerto del servidor (por defecto `3000`). |
 | `CORS_ORIGINS` | Orígenes autorizados a leer la API, separados por comas: `CORS_ORIGINS="https://clothtogo.app"`. Vacía refleja cualquier origen — cómodo en desarrollo y para abrir el frontend por `file://`. **Con `NODE_ENV=production` es obligatoria: si falta, el servidor no arranca** (#18), para que un despliegue no quede abierto a todos los orígenes sin avisar. |
 | `GOOGLE_CLIENT_ID` | Client ID de Google Cloud Console usado como `audience` al verificar el ID token en `POST /api/auth/google`. Debe coincidir con el `GOOGLE_CLIENT_ID` de `js/auth.js`. Sin esta variable, la ruta responde `500` en vez de arrancar rota. |

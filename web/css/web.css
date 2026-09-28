@@ -1,0 +1,558 @@
+/* ============================================================
+   CLOTH TO GO · web.css
+   Hoja única del sitio.
+
+   No reutiliza css/base.css ni css/components.css a propósito: esos
+   estilos dibujan el MOCKUP de un teléfono (marco, muesca, panel
+   deslizante) y aquí estorbarían. Lo que sí se comparte son los colores
+   de marca, copiados de las variables de base.css para que las dos
+   superficies se vean de la misma casa.
+   ============================================================ */
+
+:root {
+  --bg: #f1f4ec;
+  --card: #ffffff;
+  --ink: #1f2a1c;
+  --muted: #5e6a57;
+  --accent: #356b31;
+  --accent-soft: #e3efdc;
+  --cta: #2d8438;
+  --cta-strong: #1f6b27;
+  --line: #e2ebda;
+  --danger: #a1482a;
+  --star: #6f8420;
+  --water: #2b8cd1;
+  --field: #ffffff;
+  --disabled-bg: #d7cfc3;
+  --disabled-ink: #6b6459;
+  --shadow: 0 10px 30px rgba(31,42,28,.16);
+  --radius: 14px;
+  --head-h: 64px;             /* alto de la cabecera fija; lo usan los sticky */
+  color-scheme: light;
+}
+
+/* Tema oscuro por preferencia del sistema. La web no tiene pantalla de
+   ajustes (la app sí, en prefs.js): aquí no hay dónde guardar la elección,
+   así que se respeta la del sistema y punto. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161a14;
+    --card: #1f251d;
+    --ink: #e8eee4;
+    --muted: #a3b09c;
+    --accent: #8fd18a;
+    --accent-soft: #24301f;
+    --cta: #3f9c4b;
+    --cta-strong: #348040;
+    --line: #303a2c;
+    --danger: #e59274;
+    --star: #c3d95e;
+    --field: #161a14;
+    --disabled-bg: #2c332a;
+    --disabled-ink: #7d8a77;
+    --shadow: 0 10px 30px rgba(0,0,0,.5);
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+/* El atributo `hidden` tiene que ganar SIEMPRE. Es la regla del navegador,
+   pero la trae su hoja por defecto: cualquier `display` nuestro (el carrito es
+   flex, los diálogos son grid) la pisa por especificidad y el panel se queda a
+   la vista aunque el JS lo haya cerrado. Con esto, ocultar es ocultar. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+}
+img { max-width: 100%; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+svg { width: 1em; height: 1em; }
+h1, h2, h3 { line-height: 1.2; }
+
+/* El ancla de cada sección tiene que quedar por debajo de la cabecera fija;
+   si no, el título se esconde detrás al pulsar un enlace del menú. */
+section[id] { scroll-margin-top: calc(var(--head-h) + 8px); }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---------------- Cabecera ---------------- */
+.top {
+  position: sticky; top: 0; z-index: 30;
+  height: var(--head-h);
+  display: flex; align-items: center; gap: 22px;
+  padding: 0 28px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  transition: background .25s ease, border-color .25s ease, color .25s ease;
+}
+
+/* Sobre la portada la cabecera no existe como barra: flota sobre el vídeo y
+   se vuelve sólida al pasar de largo (la clase la pone y la quita
+   updateTopBar()). Mientras flota, todo su contenido va en claro: el fondo de
+   ahí abajo es el vídeo oscuro, no el tema de la página. */
+.top.over {
+  background: transparent;
+  border-bottom-color: transparent;
+  color: #f2f5ee;
+}
+.top.over .brand b { color: #8fd18a; }
+.top.over .nav a { color: rgba(242,245,238,.82); }
+.top.over .nav a:hover { color: #fff; border-color: #fff; }
+.top.over .icon-btn,
+.top.over /* Instalar la app: la única acción de la cabecera que lleva relleno. El resto
+   (sesión, carrito) son contornos, así que el peso visual la señala sin
+   necesidad de más color. */
+.install-btn {
+  background: var(--cta); color: #fff; text-decoration: none;
+  border-radius: 999px; padding: 9px 18px; font-weight: 600; font-size: 14px;
+  white-space: nowrap;
+}
+.install-btn:hover { background: var(--cta-strong); }
+/* Sobre el vídeo el verde de marca se pierde: ahí va en blanco sólido, que es
+   lo que de verdad destaca contra una imagen oscura. */
+.top.over .install-btn { background: #f2f5ee; color: #14200f; }
+.top.over .install-btn:hover { background: #fff; }
+.nav-install { display: none; }
+
+.ghost-btn { border-color: rgba(242,245,238,.45); color: #f2f5ee; background: transparent; }
+.top.over .icon-btn:hover,
+.top.over .ghost-btn:hover { border-color: #fff; color: #fff; }
+.top.over .avatar-btn { border-color: rgba(242,245,238,.6); background: rgba(255,255,255,.12); color: #f2f5ee; }
+@media (prefers-reduced-motion: reduce) { .top { transition: none; } }
+.brand {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; color: inherit; font-weight: 700; letter-spacing: .4px;
+  white-space: nowrap;
+}
+.brand img { width: 34px; height: 34px; object-fit: contain; }
+.brand b { color: var(--accent); }
+
+.nav { display: flex; gap: 22px; }
+.nav a {
+  color: var(--muted); text-decoration: none; font-weight: 600; font-size: 15px;
+  padding: 6px 0; border-bottom: 2px solid transparent;
+}
+.nav a:hover { color: var(--accent); border-color: var(--accent); }
+
+.top-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+.icon-btn {
+  position: relative; display: grid; place-items: center;
+  width: 42px; height: 42px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--card); color: var(--ink);
+}
+.icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+.cart-ico { display: grid; place-items: center; font-size: 20px; }
+.cart-badge {
+  position: absolute; top: -4px; right: -4px;
+  min-width: 20px; height: 20px; padding: 0 5px;
+  border-radius: 999px; background: var(--cta); color: #fff;
+  font-size: 12px; font-weight: 700; display: grid; place-items: center;
+}
+
+/* Menú de hamburguesa: solo en pantallas estrechas (ver el bloque final). */
+.burger { display: none; flex-direction: column; gap: 4px; }
+.burger span { width: 18px; height: 2px; background: currentColor; border-radius: 2px; }
+
+/* Sesión: botón de entrar → foto de perfil al iniciar sesión. */
+.session { position: relative; display: flex; align-items: center; }
+.avatar-btn {
+  width: 40px; height: 40px; padding: 0; border-radius: 50%;
+  border: 2px solid var(--line); background: var(--accent-soft); color: var(--accent);
+  overflow: hidden; display: grid; place-items: center; font-weight: 700;
+}
+.avatar-btn:hover { border-color: var(--accent); }
+.avatar-btn img { width: 100%; height: 100%; object-fit: cover; }
+.user-menu {
+  position: absolute; top: calc(100% + 10px); right: 0; z-index: 40;
+  min-width: 220px; padding: 14px;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: var(--shadow); text-align: left;
+}
+.user-menu .u-name { font-weight: 700; }
+.user-menu .u-mail { color: var(--muted); font-size: 13px; word-break: break-all; }
+.user-menu hr { border: 0; border-top: 1px solid var(--line); margin: 10px 0; }
+
+.ghost-btn {
+  background: none; border: 1px solid var(--line); border-radius: 999px;
+  padding: 8px 16px; color: var(--ink); font-weight: 600; font-size: 14px;
+}
+.ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
+.link-btn { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; font-size: 13px; }
+.btn-solid {
+  display: inline-block; background: var(--cta); color: #fff; text-decoration: none;
+  border-radius: 999px; padding: 12px 26px; font-weight: 700;
+}
+.btn-solid:hover { background: var(--cta-strong); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------------- Portada ----------------
+   El vídeo no es un tapiz detrás de todo: ocupa el lado derecho, se sale
+   por el borde y su canto izquierdo se DISUELVE en el fondo oscuro con una
+   máscara en degradado. Ese fundido es lo que hace que la imagen parezca
+   parte de la página y no una foto pegada dentro de una caja; además deja
+   negro limpio donde va el texto, que es lo que mantiene la lectura por
+   encima de cualquier fotograma.
+
+   La banda ocupa la ventana entera (100svh: la unidad que descuenta la
+   barra del navegador en móvil, donde 100vh se pasa de largo). */
+.hero {
+  position: relative; isolation: isolate; overflow: hidden;
+  /* La portada se mete DEBAJO de la cabecera (margen negativo del alto de la
+     barra) en vez de empezar donde esta termina. Es lo que permite que la
+     cabecera sea transparente y deje ver el vídeo: si no, transparentarla solo
+     descubriría el fondo claro de la página. El relleno superior devuelve ese
+     espacio por dentro, para que el titular no quede tapado por la barra. */
+  margin-top: calc(-1 * var(--head-h));
+  min-height: 100vh; min-height: 100svh;
+  display: grid; align-items: center;
+  background: #0d120b; color: #f2f5ee;
+}
+
+/* Un poco más alto que la banda para que el paralaje pueda desplazarlo sin
+   descubrir el borde por arriba o por abajo. */
+.hero-bg {
+  position: absolute; top: -10%; bottom: -10%; right: 0; left: auto;
+  width: 68%; z-index: -2; will-change: transform;
+}
+.hero-bg video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* La máscara: transparente a la izquierda (el vídeo desaparece en el fondo) y
+   opaca a la derecha. La segunda capa hace lo mismo con el borde inferior,
+   donde empieza la sección siguiente. `mask-composite: intersect` las combina;
+   los navegadores que no la entiendan se quedan con el fundido lateral, que es
+   el que importa. */
+.hero-bg {
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent 0%, rgba(0,0,0,.55) 26%, #000 62%),
+    linear-gradient(0deg, transparent 0%, #000 22%);
+  mask-image:
+    linear-gradient(90deg, transparent 0%, rgba(0,0,0,.55) 26%, #000 62%),
+    linear-gradient(0deg, transparent 0%, #000 22%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+
+/* Velo de color sobre el vídeo: iguala fotogramas claros y oscuros para que el
+   texto no dependa de qué esté pasando en la imagen. */
+.hero::after {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background:
+    linear-gradient(90deg, rgba(13,18,11,.95) 0%, rgba(13,18,11,.75) 40%, rgba(13,18,11,.15) 72%, rgba(13,18,11,.35) 100%),
+    linear-gradient(0deg, rgba(13,18,11,.75) 0%, transparent 40%);
+}
+
+.hero-in {
+  position: relative;
+  max-width: 1180px; width: 100%; margin: 0 auto;
+  padding: calc(var(--head-h) + 50px) 28px 80px;
+}
+.hero-copy { max-width: 620px; }
+
+/* El titular es la marca: el logotipo y el nombre, al tamaño de un rótulo. */
+.lockup { display: flex; align-items: center; gap: 18px; margin: 0 0 10px; }
+/* Sin placa ni recuadro: el PNG ya viene con fondo transparente, y cualquier
+   caja detrás se ve como un parche sobre el vídeo. */
+.lockup img {
+  width: clamp(64px, 8vw, 104px); height: clamp(64px, 8vw, 104px);
+  object-fit: contain;
+}
+.lockup span {
+  font-size: clamp(40px, 7vw, 82px); font-weight: 800; font-style: italic;
+  /* La cursiva ya inclina las letras hacia la siguiente: con el interletrado
+     tan cerrado de antes se tocaban, así que se afloja un punto. */
+  letter-spacing: -.5px;
+  /* Dos renglones pegados: a este cuerpo, el interlineado normal los separa
+     tanto que dejan de leerse como una sola marca. */
+  line-height: .88;
+}
+.lockup b { color: #8fd18a; }
+
+.lede { margin: 20px 0 0; font-size: 17px; color: #dce5d6; max-width: 52ch; }
+.hero-cta { margin-top: 26px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+
+.hero-perks { list-style: none; display: flex; gap: 26px; flex-wrap: wrap; margin: 32px 0 0; padding: 0; }
+.hero-perks li { display: flex; flex-direction: column; }
+.hero-perks b { font-size: 17px; color: #8fd18a; }
+.hero-perks span { font-size: 13px; color: #b9c6b2; }
+
+/* ---------------- Cómo funciona ---------------- */
+.steps-band { background: var(--card); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.steps-band ol {
+  max-width: 1180px; margin: 0 auto; padding: 30px 28px; list-style: none;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px;
+}
+.steps-band li { display: grid; grid-template-columns: 34px 1fr; gap: 10px 12px; align-items: start; }
+.steps-band span {
+  grid-row: span 2; width: 34px; height: 34px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent);
+  display: grid; place-items: center; font-weight: 700;
+}
+.steps-band b { align-self: center; }
+.steps-band p { margin: 0; color: var(--muted); font-size: 14px; }
+
+/* ---------------- Secciones ---------------- */
+.sec-head { margin-bottom: 20px; }
+.sec-head h2 { margin: 0 0 6px; font-size: clamp(22px, 3vw, 30px); }
+.sec-head p { margin: 0; color: var(--muted); max-width: 70ch; }
+
+.catalog { max-width: 1180px; margin: 0 auto; padding: 44px 28px 10px; }
+
+/* Barra del catálogo: aquí vive el buscador, pegado a las prendas. Se queda
+   fija bajo la cabecera para poder buscar y filtrar sin volver arriba. */
+.cat-toolbar {
+  position: sticky; top: var(--head-h); z-index: 20;
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  padding: 12px 0; margin-bottom: 8px;
+  background: var(--bg);
+}
+.search { flex: 1; min-width: 220px; }
+.search input {
+  width: 100%; padding: 10px 16px;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--field);
+}
+.sort { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; }
+.sort select { border: 1px solid var(--line); border-radius: 999px; padding: 8px 12px; background: var(--field); }
+.filters-toggle { display: none; }
+.fcount {
+  display: inline-grid; place-items: center; min-width: 20px; height: 20px;
+  border-radius: 999px; background: var(--accent); color: #fff; font-size: 12px; margin-left: 6px;
+}
+
+.layout { display: grid; grid-template-columns: 232px 1fr; gap: 26px; align-items: start; }
+
+/* La columna de filtros se queda a la vista y SE DESPLAZA POR DENTRO. Antes
+   era un bloque pegajoso más alto que la pantalla: sus últimos grupos (color,
+   limpiar) solo aparecían al llegar al final de la página. */
+.side {
+  position: sticky; top: calc(var(--head-h) + 62px);
+  max-height: calc(100vh - var(--head-h) - 84px);
+  overflow-y: auto;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px;
+}
+.fgroup + .fgroup { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 14px; }
+.fgroup h3 { margin: 0 0 9px; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.chip {
+  border: 1px solid var(--line); background: var(--card); color: var(--ink);
+  border-radius: 999px; padding: 5px 12px; font-size: 13px;
+}
+.chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+.chip .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; border: 1px solid rgba(0,0,0,.2); vertical-align: -1px; }
+.clear-filters { margin-top: 14px; }
+
+.results-bar { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 20px; }
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  overflow: hidden; display: flex; flex-direction: column; cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+.card .ph { position: relative; aspect-ratio: 3/4; background: var(--accent-soft); display: grid; place-items: center; color: var(--muted); }
+.card .ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.card .body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.card h3 { margin: 0; font-size: 15px; }
+.meta { color: var(--muted); font-size: 12.5px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.price { margin-top: auto; font-weight: 700; color: var(--accent); }
+.price small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.card .add { margin-top: 8px; }
+
+.qmeter { display: inline-flex; gap: 2px; vertical-align: -1px; }
+.qm-seg { width: 11px; height: 5px; border-radius: 2px; background: var(--line); display: inline-block; }
+.qm-seg.on { background: var(--star); }
+
+.tag-out { background: var(--disabled-bg); color: var(--disabled-ink); border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 600; }
+
+.cta-btn {
+  width: 100%; border: 0; border-radius: 10px; padding: 10px 14px;
+  background: var(--cta); color: #fff; font-weight: 700;
+}
+.cta-btn:hover { background: var(--cta-strong); }
+.cta-btn[disabled] { background: var(--disabled-bg); color: var(--disabled-ink); cursor: not-allowed; }
+
+.empty { text-align: center; color: var(--muted); padding: 40px 0; }
+
+/* ---------------- Quiénes somos / Contacto ---------------- */
+.about { background: var(--card); border-top: 1px solid var(--line); margin-top: 50px; }
+.about-in, .contact-in { max-width: 1180px; margin: 0 auto; padding: 48px 28px; }
+.about-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+.about-cards article { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+.about-cards h3 { margin: 0 0 8px; font-size: 17px; color: var(--accent); }
+.about-cards p { margin: 0; color: var(--muted); font-size: 14.5px; }
+
+.contact-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+.contact-list li { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+.contact-list b { display: block; font-size: 14px; }
+.contact-list span, .contact-list a { color: var(--muted); font-size: 14px; }
+
+.foot a { color: var(--accent); }
+
+.foot {
+  border-top: 1px solid var(--line); background: var(--card);
+  padding: 22px 28px; color: var(--muted); font-size: 14px;
+  display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+
+/* ---------------- Carrito ---------------- */
+.scrim { position: fixed; inset: 0; background: rgba(15,20,14,.5); z-index: 40; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
+  width: min(420px, 100%); background: var(--card);
+  display: flex; flex-direction: column; box-shadow: var(--shadow);
+}
+.drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.drawer-head h2 { margin: 0; font-size: 18px; }
+.drawer-body { flex: 1; overflow: auto; padding: 16px 20px; }
+.drawer-foot { border-top: 1px solid var(--line); padding: 16px 20px; }
+
+.x { background: none; border: 0; font-size: 26px; line-height: 1; color: var(--muted); }
+.x.float { position: absolute; top: 10px; right: 14px; }
+
+.line { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.line img { width: 62px; height: 78px; object-fit: cover; border-radius: 8px; background: var(--accent-soft); }
+.line .l-body { flex: 1; min-width: 0; }
+.line b { display: block; font-size: 14px; }
+.line .l-price { font-weight: 700; }
+
+.rows { margin-top: 12px; font-size: 14px; }
+.row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; }
+.row.total { border-top: 1px solid var(--line); margin-top: 8px; padding-top: 8px; font-weight: 700; font-size: 16px; }
+.row .sub { color: var(--muted); font-weight: 400; }
+.note { color: var(--muted); font-size: 12.5px; margin: 8px 0 0; }
+
+.dates { display: flex; gap: 10px; margin: 14px 0 4px; }
+.dates label { flex: 1; font-size: 12.5px; color: var(--muted); }
+.field {
+  width: 100%; margin-top: 4px; padding: 9px 11px;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--field);
+}
+.field.bad { border-color: var(--danger); }
+
+/* ---------------- Diálogos ---------------- */
+.modal-wrap { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 20px; overflow: auto; }
+.modal {
+  position: relative; background: var(--card); border-radius: 18px;
+  padding: 26px; width: min(460px, 100%); box-shadow: var(--shadow);
+  max-height: calc(100vh - 40px); overflow: auto;
+}
+.modal.wide { width: min(880px, 100%); }
+.modal h2 { margin: 0 0 6px; font-size: 20px; }
+.modal-sub { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+.modal-foot { margin-top: 20px; display: flex; gap: 10px; align-items: center; }
+.modal-foot .cta-btn { width: auto; flex: 1; }
+.google-slot { display: grid; place-items: center; min-height: 48px; }
+.hint { margin: 12px 0 0; font-size: 13px; color: var(--danger); text-align: center; }
+
+.detail { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.detail .gal img { width: 100%; border-radius: 12px; aspect-ratio: 3/4; object-fit: cover; background: var(--accent-soft); }
+.detail .thumbs { display: flex; gap: 8px; margin-top: 8px; }
+.detail .thumbs img { width: 56px; height: 70px; object-fit: cover; border-radius: 8px; cursor: pointer; border: 2px solid transparent; }
+.detail .thumbs img.on { border-color: var(--accent); }
+.detail h2 { font-size: 24px; }
+.detail .desc { color: var(--muted); }
+.specs { list-style: none; margin: 16px 0; padding: 0; font-size: 14px; }
+.specs li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.water { background: rgba(43,140,209,.12); color: var(--water); border-radius: 10px; padding: 10px 12px; font-size: 13px; }
+
+.steps { display: flex; gap: 8px; margin-bottom: 18px; font-size: 13px; color: var(--muted); }
+.steps span.on { color: var(--accent); font-weight: 700; }
+.opts { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin-bottom: 6px; }
+.opt { text-align: left; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: var(--card); }
+.opt.on { border-color: var(--accent); background: var(--accent-soft); }
+.opt b { display: block; font-size: 14px; }
+.opt small { color: var(--muted); }
+.block { margin-bottom: 18px; }
+.block > h3 { margin: 0 0 8px; font-size: 14px; }
+.ok-big { text-align: center; padding: 10px 0 0; }
+.ok-big .mark { font-size: 44px; color: var(--cta); }
+
+/* ---------------- Aviso flotante ---------------- */
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px);
+  background: var(--ink); color: var(--bg); padding: 11px 20px; border-radius: 999px;
+  opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 80;
+}
+.toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------------- Aviso de instalación ----------------
+   Solo aparece si los archivos compartidos con la app no cargaron (ver
+   initWeb): la página está servida desde web/ en vez de desde la raíz. */
+.boot-error {
+  max-width: 720px; margin: 40px auto; padding: 24px 26px;
+  background: var(--card); border: 1px solid var(--danger); border-radius: var(--radius);
+}
+.boot-error h2 { margin: 0 0 10px; }
+.boot-error code { display: block; margin: 8px 0; padding: 10px 12px; background: var(--accent-soft); border-radius: 8px; font-size: 14px; }
+
+/* ============================================================
+   Pantallas medianas y estrechas. La web se comparte por enlace, así que
+   la mitad de las visitas llegan desde un teléfono.
+   ============================================================ */
+@media (max-width: 1000px) {
+  .hero-in { padding: calc(var(--head-h) + 36px) 20px 56px; }
+  /* En una columna no hay "lado derecho": el vídeo ocupa el fondo entero y el
+     fundido pasa a ser vertical, desde abajo, que es donde está el texto. */
+  .hero-bg {
+    width: 100%;
+    -webkit-mask-image: linear-gradient(0deg, transparent 2%, rgba(0,0,0,.6) 26%, #000 60%);
+    mask-image: linear-gradient(0deg, transparent 2%, rgba(0,0,0,.6) 26%, #000 60%);
+  }
+  .hero::after {
+    background: linear-gradient(0deg, rgba(13,18,11,.96) 18%, rgba(13,18,11,.55) 62%, rgba(13,18,11,.35) 100%);
+  }
+  .steps-band ol { grid-template-columns: 1fr; gap: 16px; padding: 24px 20px; }
+  .about-cards, .contact-list { grid-template-columns: 1fr; }
+  .about-in, .contact-in { padding: 36px 20px; }
+  .catalog { padding: 34px 20px 10px; }
+  .foot a { color: var(--accent); }
+
+.foot { padding: 20px; }
+
+  /* Los filtros pasan a ser un bloque que se abre desde la barra: en una
+     columna estrecha, una barra lateral fija se come la pantalla. */
+  .layout { grid-template-columns: 1fr; }
+  .side { position: static; max-height: none; overflow: visible; margin-bottom: 18px; }
+  .side:not(.open) { display: none; }
+  .filters-toggle { display: inline-flex; align-items: center; }
+}
+
+@media (max-width: 760px) {
+  .top { padding: 0 16px; gap: 12px; }
+  .burger { display: flex; }
+  /* El menú se despliega bajo la cabecera; cerrado no ocupa nada. */
+  .nav {
+    position: absolute; top: var(--head-h); left: 0; right: 0;
+    flex-direction: column; gap: 0;
+    background: var(--card); border-bottom: 1px solid var(--line);
+    padding: 6px 16px 14px;
+  }
+  .nav:not(.open) { display: none; }
+  .nav a { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .install-btn { display: none; }
+  .nav-install {
+    display: block; margin-top: 12px; border-bottom: 0;
+    background: var(--cta); color: #fff; text-align: center;
+    border-radius: 999px; padding: 11px 18px; font-weight: 600;
+  }
+  .lockup img { width: 54px; height: 54px; }
+  .lockup span { letter-spacing: -1px; }
+  .lede { font-size: 15.5px; }
+  .hero-perks { gap: 16px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .detail { grid-template-columns: 1fr; }
+  .opts { grid-template-columns: 1fr; }
+  .modal { padding: 20px; }
+  .cat-toolbar { gap: 8px; }
+  .sort span { display: none; }
+}
