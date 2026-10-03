@@ -28,22 +28,7 @@ import {
 } from "./ledger.js";
 import { DELIVERY, RETURN_TO, rentalDays } from "./pricing.js";
 import { isAdmin } from "./auth.js";
-
-// Ecuador continental es UTC−5 todo el año (sin horario de verano). Se fija a
-// mano en vez de confiar en la zona del proceso: en producción el contenedor
-// corre en UTC, y con `new Date()` el día del negocio cambiaría a las 19:00
-// hora de Guayaquil — los alquileres empezarían "mañana" toda la tarde.
-const EC_OFFSET_MIN = -5 * 60;
-
-/**
- * Fecha de hoy en Guayaquil, como `YYYY-MM-DD`.
- * @returns {string} Día de calendario local.
- */
-function todayISO() {
-  // Se desplaza el instante UTC y se lee con toISOString: así el día sale de
-  // una cuenta explícita y no de la zona horaria en que corra el proceso.
-  return new Date(Date.now() + EC_OFFSET_MIN * 60000).toISOString().slice(0, 10);
-}
+import { todayISO } from "./dates.js";
 
 /** Formato de fecha que acepta la API: día de calendario, sin hora ni zona. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;

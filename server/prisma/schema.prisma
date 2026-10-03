@@ -131,6 +131,12 @@ model Order {
   pay         String
   createdAt   DateTime  @default(now())
   cancelledAt DateTime?
+  /// Litros que este pedido sumó al contador de agua (WaterCounter), o null
+  /// si todavía no los sumó. Es la marca que impide acreditarlo dos veces, y
+  /// guarda la cifra EXACTA que se sumó: si después cambia el peso o el
+  /// material de una prenda, una anulación resta lo que entró, no lo que hoy
+  /// saldría de recalcular.
+  waterLiters Int?
   items       OrderItem[]
   charges     Charge[]
 
@@ -195,4 +201,23 @@ model Charge {
 
   @@index([orderId])
   @@map("charges")
+}
+
+/// Litros de agua ahorrados entre TODOS los perfiles: el contador de la web.
+///
+/// Una sola fila (id = 1), creada por la migración. Es un acumulado y no una
+/// suma que se hace al leer: la página pide este registro y nada más. Lo
+/// alimenta el corte horario de src/impact.js, que suma los pedidos que se
+/// cumplieron desde el corte anterior (y resta los que el local anuló después
+/// de acreditarlos).
+///
+/// `liters` es BigInt porque la meta crece por escalones (100 M, 250 M, …) y un
+/// Int de Postgres se queda corto en 2.147 M.
+model WaterCounter {
+  id     Int      @id @default(1)
+  liters BigInt   @default(0)
+  /// Instante del último corte. El siguiente toca cuando empiece otra hora.
+  cutAt  DateTime
+
+  @@map("water_counter")
 }

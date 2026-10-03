@@ -167,6 +167,26 @@ async function hydrateCatalog() {
 }
 
 /**
+ * Pide al backend el contador común de agua ahorrada (GET /api/impact/water).
+ * Sin backend o con fallo devuelve null: quien llama esconde la sección en vez
+ * de inventar una cifra, porque es un dato de toda la comunidad y no tiene un
+ * equivalente local honesto.
+ * @returns {Promise<{liters:number, goal:number, reached:number[], cutAt:string, nextCutAt:string}|null>}
+ */
+async function fetchWaterImpact() {
+  if (!backend.enabled) return null;
+  try {
+    const res = await fetch(`${backend.base}/api/impact/water`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return Number.isFinite(data?.liters) && data.goal > 0 ? data : null;
+  } catch (err) {
+    console.info("No se pudo leer el contador de agua; la sección queda oculta.", err.message);
+    return null;
+  }
+}
+
+/**
  * Verifica un ID token de Google contra el backend (POST /api/auth/google).
  * Devuelve la identidad verificada, o null si la verificación no fue posible
  * (sin backend, fetch fallido, o token rechazado). Con backend presente, quien
