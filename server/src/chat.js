@@ -123,14 +123,17 @@ export function createGeminiAsk({ apiKey, model }) {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents,
-        generationConfig: { temperature: 0.2, maxOutputTokens: 600 },
+        // El tope incluye el razonamiento interno de los modelos que "piensan":
+        // con 600 se lo comía entero y la respuesta salía vacía.
+        generationConfig: { temperature: 0.2, maxOutputTokens: 2048 },
       }),
       signal: AbortSignal.timeout(20_000),
     });
     if (!res.ok) throw new Error(`Gemini HTTP ${res.status}`);
     const data = await res.json();
     const cand = data?.candidates?.[0];
-    const text = (cand?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
+    // Las partes `thought` son el razonamiento del modelo, no la respuesta.
+    const text = (cand?.content?.parts ?? []).filter((p) => !p.thought).map((p) => p.text ?? "").join("").trim();
     const blocked = Boolean(data?.promptFeedback?.blockReason) ||
       ["SAFETY", "PROHIBITED_CONTENT", "BLOCKLIST", "SPII", "RECITATION"].includes(cand?.finishReason);
     return { text, blocked };

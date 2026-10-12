@@ -144,7 +144,11 @@ export function buildApp(opts = {}) {
       : process.env.GEMINI_API_KEY
         ? createGeminiAsk({
             apiKey: process.env.GEMINI_API_KEY,
-            model: process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash",
+            // Alias, no versión fija: Google retira los modelos con nombre
+            // (gemini-2.5-flash ya no se abre a cuentas nuevas). Lite porque
+            // responde en ~1 s; el Flash completo tardaba ~20 s o daba 503, y
+            // contestar desde unos documentos no necesita más.
+            model: process.env.GEMINI_MODEL?.trim() || "gemini-flash-lite-latest",
           })
         : null,
     knowledge: chat.knowledge ?? loadKnowledge(),
