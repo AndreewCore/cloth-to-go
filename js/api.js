@@ -187,6 +187,50 @@ async function fetchWaterImpact() {
 }
 
 /**
+ * Pregunta al backend si el asistente informativo está encendido
+ * (GET /api/chat/status). Sin backend o con fallo devuelve null y la web no
+ * muestra la burbuja: el asistente no tiene versión local.
+ * @returns {Promise<{enabled:boolean, foundation:string}|null>}
+ */
+async function fetchChatStatus() {
+  if (!backend.enabled) return null;
+  try {
+    const res = await fetch(`${backend.base}/api/chat/status`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return data?.enabled ? data : null;
+  } catch (err) {
+    console.info("Asistente no disponible; la burbuja queda oculta.", err.message);
+    return null;
+  }
+}
+
+/**
+ * Envía una pregunta al asistente (POST /api/chat). Nunca lanza: el panel
+ * pinta lo que vuelva, sea la respuesta o el motivo del fallo, que el
+ * servidor ya redacta para el visitante (límite, ocupado, pregunta inválida).
+ * @param {string} message Pregunta del visitante.
+ * @param {{role:"user"|"model", text:string}[]} history Turnos anteriores.
+ * @returns {Promise<{reply:string}|{error:string}>}
+ */
+async function askChatbot(message, history) {
+  const offline = { error: "No pude conectarme con el asistente. Revisa tu conexión e inténtalo de nuevo." };
+  if (!backend.enabled) return offline;
+  try {
+    const res = await fetch(`${backend.base}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, history }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && typeof data.reply === "string") return { reply: data.reply };
+    return { error: data.error || offline.error };
+  } catch {
+    return offline;
+  }
+}
+
+/**
  * Verifica un ID token de Google contra el backend (POST /api/auth/google).
  * Devuelve la identidad verificada, o null si la verificación no fue posible
  * (sin backend, fetch fallido, o token rechazado). Con backend presente, quien

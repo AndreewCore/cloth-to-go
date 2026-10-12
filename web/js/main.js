@@ -150,6 +150,11 @@ function dispatchAction(el){
     case "checkoutBack":  checkoutStep = "datos"; checkoutTried = false; renderCheckout(); break;
     case "placeOrder":    placeWebOrder(); break;
     case "closeCheckout": closeCheckout(); break;
+
+    // Asistente sobre el agua
+    case "toggleChat":  toggleChat(); break;
+    case "closeChat":   closeChat(); break;
+    case "chatSuggest": sendChat(el.textContent); break;
     default: break;
   }
 }
@@ -319,8 +324,17 @@ function wireEvents(){
   });
 
   document.getElementById("scrim").addEventListener("click", closeTopmost);
+  document.getElementById("chatForm").addEventListener("submit", e => {
+    e.preventDefault();
+    sendChat(document.getElementById("chatInput").value);
+  });
   document.addEventListener("keydown", e => {
-    if(e.key === "Escape"){ closeUserMenu(); closeNav(); closeTopmost(); return; }
+    if(e.key === "Escape"){
+      // El panel del asistente flota sobre todo lo demás: Esc lo cierra a él
+      // primero, sin tocar un carrito o diálogo que siga abierto debajo.
+      if(chatIsOpen()){ closeChat(); return; }
+      closeUserMenu(); closeNav(); closeTopmost(); return;
+    }
     // Los div/span con role="button" no responden al teclado por su cuenta;
     // el catálogo los usa (la tarjeta de prenda, el enlace de la portada).
     const el = e.target.closest('[role="button"][data-action], .card[data-action]');
@@ -370,6 +384,7 @@ function initWeb(){
   renderContact();
   initHeroParallax();
   initWaterImpact();
+  initChat();
   renderSession();
   renderFilters();
   renderGrid();

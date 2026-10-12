@@ -103,7 +103,7 @@ const PROJECT_GLOBALS = [
   "PRODUCTION_HOSTS", "isProductionHost",
   "readApiOverride", "backendForHost", "isMixedContent",
   "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog", "verifyGoogleCredential",
-  "fetchWaterImpact",
+  "fetchWaterImpact", "fetchChatStatus", "askChatbot",
   // auth.js  (`google` lo aporta el SDK externo de Google Identity)
   "google", "GOOGLE_CLIENT_ID", "currentUser", "authAvailable", "decodeJwt",
   "activateUserSession", "onGoogleCredential", "initGoogleAuth", "renderGoogleButton", "signOut",
@@ -146,6 +146,9 @@ const WEB_GLOBALS = [
   // web/js/water.js
   "WATER_TANK_MIN", "waterRefreshTimer", "fmtGoalLiters", "fmtGoalPct", "fmtCutTime",
   "renderWaterImpact", "countUpLiters", "scheduleWaterRefresh", "loadWaterImpact", "initWaterImpact",
+  // web/js/chat.js
+  "CHAT_SUGGESTIONS", "chatHistory", "chatBusy", "chatFoundation", "addChatBubble",
+  "renderChatWelcome", "chatIsOpen", "openChat", "closeChat", "toggleChat", "sendChat", "initChat",
 ];
 
 const projectGlobals = Object.fromEntries(PROJECT_GLOBALS.map(n => [n, "writable"]));
