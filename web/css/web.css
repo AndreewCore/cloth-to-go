@@ -106,7 +106,9 @@ html { scroll-behavior: smooth; }
 .top.over .nav a { color: rgba(242,245,238,.82); }
 .top.over .nav a:hover { color: #fff; border-color: #fff; }
 .top.over .icon-btn,
-.top.over /* Instalar la app: la única acción de la cabecera que lleva relleno. El resto
+.top.over .ghost-btn { border-color: rgba(242,245,238,.45); color: #f2f5ee; background: transparent; }
+
+/* Instalar la app: la única acción de la cabecera que lleva relleno. El resto
    (sesión, carrito) son contornos, así que el peso visual la señala sin
    necesidad de más color. */
 .install-btn {
@@ -121,7 +123,6 @@ html { scroll-behavior: smooth; }
 .top.over .install-btn:hover { background: #fff; }
 .nav-install { display: none; }
 
-.ghost-btn { border-color: rgba(242,245,238,.45); color: #f2f5ee; background: transparent; }
 .top.over .icon-btn:hover,
 .top.over .ghost-btn:hover { border-color: #fff; color: #fff; }
 .top.over .avatar-btn { border-color: rgba(242,245,238,.6); background: rgba(255,255,255,.12); color: #f2f5ee; }
@@ -567,11 +568,10 @@ html { scroll-behavior: smooth; }
   box-shadow: var(--shadow); overflow: hidden;
 }
 .chat-head {
-  display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
   padding: 14px 16px; background: var(--water); color: #fff;
 }
 .chat-head h2 { margin: 0; font-size: 17px; }
-.chat-head p { margin: 2px 0 0; font-size: 13px; opacity: .9; }
 .chat-head .x { color: #fff; }
 .chat-log { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
 .chat-msg {
