@@ -27,9 +27,10 @@ export const HISTORY_TEXT_MAX = 1000;
 /** Marca que el modelo devuelve cuando la pregunta no le corresponde. */
 export const OFF_TOPIC_TOKEN = "FUERA_DE_TEMA";
 
+// Sin el nombre de la fundación: ya lo dice la nota fija del panel.
 export const APOLOGY =
-  `Lo siento, solo puedo responder preguntas sobre la información de ${CHAT_FOUNDATION} ` +
-  "y la huella hídrica de la ropa. ¿Te ayudo con algo de eso?";
+  "Lo siento, solo puedo responder preguntas sobre la huella hídrica de la ropa. " +
+  "¿Te ayudo con algo de eso?";
 
 export const BUSY_MESSAGE = "El asistente está ocupado. Intenta de nuevo en unos minutos.";
 

@@ -147,7 +147,7 @@ const WEB_GLOBALS = [
   "WATER_TANK_MIN", "waterRefreshTimer", "fmtGoalLiters", "fmtGoalPct", "fmtCutTime",
   "renderWaterImpact", "countUpLiters", "scheduleWaterRefresh", "loadWaterImpact", "initWaterImpact",
   // web/js/chat.js
-  "CHAT_SUGGESTIONS", "chatHistory", "chatBusy", "chatFoundation", "addChatBubble",
+  "CHAT_SUGGESTIONS", "chatHistory", "chatBusy", "addChatBubble",
   "renderChatWelcome", "chatIsOpen", "openChat", "closeChat", "toggleChat", "sendChat", "initChat",
 ];
 

@@ -21,7 +21,6 @@ const CHAT_SUGGESTIONS = [
 // a la cuenta. Recargar la página la empieza de cero.
 let chatHistory = [];
 let chatBusy = false;
-let chatFoundation = "";
 
 /**
  * Agrega un globo al registro y lo deja a la vista.
@@ -45,7 +44,7 @@ function renderChatWelcome(){
   const log = document.getElementById("chatLog");
   log.textContent = "";
   addChatBubble("model",
-    `¡Hola! Respondo dudas sobre la huella hídrica de la ropa con la información de ${chatFoundation}. ¿Qué te gustaría saber?`);
+    "¡Hola! Respondo dudas sobre la huella hídrica de la ropa. ¿Qué te gustaría saber?");
   const sug = document.createElement("div");
   sug.className = "chat-suggest";
   for(const q of CHAT_SUGGESTIONS){
@@ -127,12 +126,10 @@ async function sendChat(raw){
 async function initChat(){
   const status = await fetchChatStatus();
   if(!status) return;
-  chatFoundation = status.foundation;
   document.getElementById("chatFab").innerHTML = icon("chat", { size: 26 });
   document.getElementById("chatSend").innerHTML = icon("send", { size: 18 });
-  document.getElementById("chatSource").textContent = `Con información de ${chatFoundation}`;
   document.getElementById("chatNote").textContent =
-    `Respondo solo con los documentos de ${chatFoundation}. No compartas datos personales.`;
+    `Respondo solo con los documentos de ${status.foundation}. No compartas datos personales.`;
   renderChatWelcome();
   document.getElementById("chat").hidden = false;
 }
