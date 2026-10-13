@@ -256,6 +256,11 @@ html { scroll-behavior: smooth; }
   padding: calc(var(--head-h) + 50px) 28px 80px;
 }
 .hero-copy { max-width: 620px; }
+/* Con el panel del agua la portada pasa a dos columnas: texto a la izquierda,
+   panel a la derecha, sobre la zona donde se ve el vídeo. */
+.hero-in:has(.hero-water:not([hidden])) {
+  display: grid; grid-template-columns: minmax(0, 620px) 1fr; gap: 40px; align-items: center;
+}
 
 /* El titular es la marca: el logotipo y el nombre, al tamaño de un rótulo. */
 .lockup { display: flex; align-items: center; gap: 18px; margin: 0 0 10px; }
@@ -298,6 +303,71 @@ html { scroll-behavior: smooth; }
 }
 .steps-band b { align-self: center; }
 .steps-band p { margin: 0; color: var(--muted); font-size: 14px; }
+
+/* ---------------- Agua ahorrada entre todos ----------------
+   Panel de vidrio dentro de la portada, a la derecha, sobre el vídeo. El
+   desenfoque deja ver la prenda que pasa por detrás, que es lo que lo hace
+   parte de la portada y no una caja pegada encima. Colores fijos, como el
+   resto de la portada: el fondo es siempre oscuro, con o sin tema. */
+.hero-water {
+  justify-self: end; width: 100%; max-width: 360px;
+  display: grid; grid-template-columns: 1fr; justify-items: center; text-align: center;
+  padding: 26px 26px 22px; border-radius: 22px;
+  background: linear-gradient(160deg, rgba(14,38,58,.42), rgba(9,22,16,.34));
+  border: 1px solid rgba(180,220,245,.16);
+  box-shadow: 0 24px 60px rgba(0,0,0,.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+  color: #e9f4fb;
+}
+.hero-water .tank { width: 118px; margin-bottom: 14px; }
+
+.tank { width: 100%; height: auto; display: block; filter: drop-shadow(0 18px 40px rgba(43,140,209,.35)); }
+.tank-glass { fill: rgba(255,255,255,.05); }
+.tank-rim { fill: none; stroke: rgba(200,232,252,.55); stroke-width: 2.5; }
+.tank-shine { fill: none; stroke: rgba(255,255,255,.45); stroke-width: 5; stroke-linecap: round; }
+.tank-level { transition: transform 1.8s cubic-bezier(.22,.8,.3,1); }
+.wave-back { fill: #2b8cd1; opacity: .55; animation: waveX 7s linear infinite reverse; }
+.wave-front { fill: url(#tankDeep); animation: waveX 4.5s linear infinite; }
+/* Un periodo de la ola mide 100 unidades: moverla 100 deja el dibujo igual
+   que al empezar, y el bucle no da saltos. */
+@keyframes waveX { to { transform: translateX(-100px); } }
+
+.water-kicker {
+  margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: #7cc4f2;
+}
+.hero-water h2 { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.water-num {
+  font-size: clamp(34px, 3.6vw, 46px); font-weight: 800; letter-spacing: -1px; line-height: 1;
+  font-variant-numeric: tabular-nums; color: #fff;
+}
+.water-unit { font-size: 15px; font-weight: 600; color: #b9dcf3; }
+.water-lede { margin: 10px 0 18px; font-size: 13.5px; color: #c3d9e8; }
+
+.water-bar {
+  width: 100%; height: 10px; border-radius: 999px; overflow: hidden;
+  background: rgba(255,255,255,.12);
+}
+.water-bar span {
+  display: block; height: 100%; width: 0; border-radius: inherit;
+  background: linear-gradient(90deg, #4fb3f0, #8fd18a);
+  transition: width 1.8s cubic-bezier(.22,.8,.3,1);
+}
+.water-goal { margin: 8px 0 0; font-size: 13.5px; color: #c3d9e8; }
+.water-goal b { color: #fff; }
+.water-reached { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 12px 0 0; padding: 0; }
+.water-reached li {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: rgba(143,209,138,.16); color: #a9e2a4;
+}
+.water-stamp { margin: 12px 0 0; font-size: 12px; color: #87a9c0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wave-back, .wave-front { animation: none; }
+  .tank-level, .water-bar span { transition: none; }
+}
 
 /* ---------------- Secciones ---------------- */
 .sec-head { margin-bottom: 20px; }
@@ -512,6 +582,16 @@ html { scroll-behavior: smooth; }
     background: linear-gradient(0deg, rgba(13,18,11,.96) 18%, rgba(13,18,11,.55) 62%, rgba(13,18,11,.35) 100%);
   }
   .steps-band ol { grid-template-columns: 1fr; gap: 16px; padding: 24px 20px; }
+  /* En una columna el panel baja bajo el texto y se acuesta: la gota a la
+     izquierda y la cifra a su lado, para no doblar el alto de la portada. */
+  .hero-in:has(.hero-water:not([hidden])) { grid-template-columns: 1fr; gap: 28px; }
+  .hero-water {
+    justify-self: stretch; max-width: 520px;
+    grid-template-columns: 84px 1fr; gap: 18px; align-items: center;
+    justify-items: start; text-align: left; padding: 18px;
+  }
+  .hero-water .tank { width: 84px; margin: 0; }
+  .water-reached { justify-content: flex-start; }
   .about-cards, .contact-list { grid-template-columns: 1fr; }
   .about-in, .contact-in { padding: 36px 20px; }
   .catalog { padding: 34px 20px 10px; }

@@ -369,6 +369,7 @@ function initWeb(){
   renderHeroFacts();
   renderContact();
   initHeroParallax();
+  initWaterImpact();
   renderSession();
   renderFilters();
   renderGrid();

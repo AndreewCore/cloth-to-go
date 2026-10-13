@@ -29,7 +29,7 @@ globalThis.__APP__ = {
   qualityLevel, qualityMeter, qualityMeterText,
   productImages, coverImage, imgPlaceholder,
   REWARDS, rewardById, rewardIssue,
-  garmentWater, litersToGallons,
+  garmentWater, litersToGallons, WATER_PER_KG,
   isValidEmail, isValidPhone, isValidName, isValidAddress,
   ALLOWED_EMAIL_DOMAINS, emailDomain, isAllowedEmailDomain, isValidContactEmail,
   PHONE_COUNTRY_CODE, PHONE_NATIONAL_LEN, isValidEcPhone, phoneToE164, NAME_CHANGE_DAYS,

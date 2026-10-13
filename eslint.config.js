@@ -103,6 +103,7 @@ const PROJECT_GLOBALS = [
   "PRODUCTION_HOSTS", "isProductionHost",
   "readApiOverride", "backendForHost", "isMixedContent",
   "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog", "verifyGoogleCredential",
+  "fetchWaterImpact",
   // auth.js  (`google` lo aporta el SDK externo de Google Identity)
   "google", "GOOGLE_CLIENT_ID", "currentUser", "authAvailable", "decodeJwt",
   "activateUserSession", "onGoogleCredential", "initGoogleAuth", "renderGoogleButton", "signOut",
@@ -142,6 +143,9 @@ const WEB_GLOBALS = [
   "webToastTimer", "dispatchAction", "dispatchInput", "wireEvents", "initWeb",
   "PLAY_STORE_URL", "applyStoreLinks",
   "toggleNav", "closeNav", "toggleFilters", "initHeroParallax", "updateTopBar",
+  // web/js/water.js
+  "WATER_TANK_MIN", "waterRefreshTimer", "fmtGoalLiters", "fmtGoalPct", "fmtCutTime",
+  "renderWaterImpact", "countUpLiters", "scheduleWaterRefresh", "loadWaterImpact", "initWaterImpact",
 ];
 
 const projectGlobals = Object.fromEntries(PROJECT_GLOBALS.map(n => [n, "writable"]));

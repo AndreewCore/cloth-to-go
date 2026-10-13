@@ -41,6 +41,7 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | POST | `/api/orders/:id/settle` | **Solo local**: confirma que el efectivo entró. |
 | POST | `/api/orders/:id/deposit-release` | **Solo local**: libera el depósito. |
 | POST | `/api/orders/:id/late-penalty` | **Solo local**: cobra la devolución fuera de plazo. |
+| GET | `/api/impact/water` | **Pública**: litros de agua ahorrados entre todos (contador de la web). |
 
 ### `POST /api/auth/google`
 
@@ -55,6 +56,26 @@ ese token (sin comprobar la firma) — esta ruta es la que de verdad autentica.
 - **401** → credential ausente o que no verifica (firma, expiración o
   audience inválidas). El mensaje no expone el motivo interno.
 - **500** → falta `GOOGLE_CLIENT_ID` en el entorno del servidor.
+
+### `GET /api/impact/water`
+
+Contador común de agua ahorrada que muestra la portada de la web. Responde
+`{ liters, goal, reached, cutAt, nextCutAt }`.
+
+- **La página lee un acumulado, no una suma.** Vive en una sola fila
+  (`water_counter`, creada por la migración `contador_agua` con 0 L).
+- **Corte por hora, perezoso.** La primera lectura de cada hora acredita los
+  pedidos cumplidos desde el corte anterior: no anulados y con `start` ya
+  pasado (la misma regla que `countsForRewards()` en el frontend). Cada pedido
+  guarda en `waterLiters` lo que sumó, y eso impide contarlo dos veces. Si el
+  local anula un pedido ya acreditado, sus litros se restan en el corte
+  siguiente. No hay temporizador porque Render duerme el proceso sin tráfico.
+- **Metas:** 100 M → 250 M → 500 M → 1.000 M de litros, y luego de mil en mil
+  millones (`communityGoal()` en `src/water.js`).
+- Los litros por prenda salen de `src/water.js`, una **copia** de
+  `garmentWater()` de `js/data.js` vigilada por `test/agua-paridad.test.js`.
+- **Hoy marca 0:** el frontend todavía no envía los pedidos a `POST
+  /api/orders`, así que no hay pedidos en la base que acreditar.
 
 ### Pedidos y libro de cargos
 

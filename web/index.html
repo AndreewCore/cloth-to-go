@@ -84,6 +84,53 @@
           <li><b>Garantía devuelta</b><span>íntegra al entregarla</span></li>
         </ul>
       </div>
+
+      <!-- Agua ahorrada entre todos. Va dentro de la portada, sobre el vídeo,
+           como un panel de vidrio: es el otro argumento de la marca (además del
+           precio) y aquí se ve sin bajar. La cifra la lleva el backend en un
+           solo registro que se renueva cada hora (GET /api/impact/water); la
+           página solo la lee. Nace oculto: sin backend no hay cifra común que
+           mostrar, y una inventada sería peor que ninguna. Lo pinta
+           web/js/water.js. -->
+      <aside class="hero-water" id="agua" aria-labelledby="waterTitle" hidden>
+        <!-- El tanque es una gota que se llena con el % de la meta. Es
+             decorativo: la cifra exacta va en el texto y en la barra. -->
+        <svg class="tank" viewBox="0 0 200 260" aria-hidden="true">
+          <defs>
+            <clipPath id="tankDrop">
+              <path d="M100 8C100 8 24 104 24 166a76 76 0 0 0 152 0C176 104 100 8 100 8Z" />
+            </clipPath>
+            <linearGradient id="tankDeep" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#4fb3f0" />
+              <stop offset="1" stop-color="#1765a8" />
+            </linearGradient>
+          </defs>
+          <g clip-path="url(#tankDrop)">
+            <rect class="tank-glass" width="200" height="260" />
+            <g class="tank-level" id="tankLevel">
+              <path class="wave wave-back" d="M0 12Q25 0 50 12T100 12T150 12T200 12T250 12T300 12T350 12T400 12V280H0Z" />
+              <path class="wave wave-front" d="M0 14Q25 4 50 14T100 14T150 14T200 14T250 14T300 14T350 14T400 14V280H0Z" />
+            </g>
+          </g>
+          <path class="tank-rim" d="M100 8C100 8 24 104 24 166a76 76 0 0 0 152 0C176 104 100 8 100 8Z" />
+          <path class="tank-shine" d="M58 150c-6 22-2 44 12 60" />
+        </svg>
+
+        <div class="water-copy">
+          <p class="water-kicker">Impacto de la comunidad</p>
+          <h2 id="waterTitle">
+            <span class="water-num" id="waterLiters">0</span>
+            <span class="water-unit">litros de agua ahorrados entre todos</span>
+          </h2>
+          <p class="water-lede">Cada prenda alquilada es una que no hubo que fabricar.</p>
+          <div class="water-bar" id="waterBar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="waterGoalText">
+            <span id="waterBarFill"></span>
+          </div>
+          <p class="water-goal" id="waterGoalText"></p>
+          <ul class="water-reached" id="waterReached" hidden></ul>
+          <p class="water-stamp" id="waterStamp"></p>
+        </div>
+      </aside>
     </div>
   </section>
 
@@ -245,6 +292,7 @@
 <script src="js/session.js"></script>
 <script src="js/catalog.js"></script>
 <script src="js/cart.js"></script>
+<script src="js/water.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

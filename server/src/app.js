@@ -10,6 +10,7 @@ import prisma from "./db.js";
 import { createGoogleVerifier } from "./googleAuth.js";
 import { createAuthGuards, upsertUser } from "./auth.js";
 import { registerOrderRoutes } from "./orders.js";
+import { registerImpactRoutes } from "./impact.js";
 
 /**
  * Resuelve la política de CORS a partir de CORS_ORIGINS.
@@ -128,6 +129,9 @@ export function buildApp(opts = {}) {
   // Pedidos y libro de cargos. Todas exigen credencial; las de confirmar cobro
   // y liberar depósito, además, ser del personal del local.
   registerOrderRoutes(app, createAuthGuards(verify));
+
+  // Contador común de agua ahorrada (sección de impacto de la web). Pública.
+  registerImpactRoutes(app);
 
   return app;
 }
