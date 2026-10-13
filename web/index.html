@@ -277,6 +277,26 @@
   </div>
 </div>
 
+<!-- Asistente sobre la huella hídrica. Oculto hasta que el backend confirma
+     que está encendido (web/js/chat.js); sin servidor no aparece. -->
+<div class="chat" id="chat" hidden>
+  <section class="chat-panel" id="chatPanel" role="dialog" aria-labelledby="chatTitle" hidden>
+    <header class="chat-head">
+      <h2 id="chatTitle">Pregúntale al agua</h2>
+      <button class="x" data-action="closeChat" aria-label="Cerrar asistente">&times;</button>
+    </header>
+    <div class="chat-log" id="chatLog" aria-live="polite"></div>
+    <form class="chat-form" id="chatForm">
+      <input id="chatInput" type="text" maxlength="500" autocomplete="off"
+             placeholder="Escribe tu pregunta…" aria-label="Tu pregunta">
+      <button class="chat-send" id="chatSend" type="submit" aria-label="Enviar pregunta"></button>
+    </form>
+    <p class="chat-note" id="chatNote"></p>
+  </section>
+  <button class="chat-fab" id="chatFab" type="button" data-action="toggleChat"
+          aria-controls="chatPanel" aria-expanded="false" aria-label="Preguntas sobre el agua"></button>
+</div>
+
 <div class="toast" id="toast" role="status"></div>
 
 <!-- ============================================================
@@ -293,6 +313,7 @@
 <script src="js/catalog.js"></script>
 <script src="js/cart.js"></script>
 <script src="js/water.js"></script>
+<script src="js/chat.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
