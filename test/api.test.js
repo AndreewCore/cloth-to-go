@@ -47,7 +47,7 @@ test("en producción (https) sin backend publicado se marca como mal configurado
   // porque en el origen público ese estado no es una espera legítima sino un
   // despliegue incompleto, y auth.js se apoya en la distinción para negarse a
   // autenticar sin verificar la firma.
-  const { app: a } = at("https://andreewcore.github.io/cloth-to-go/");
+  const { app: a } = loadDom({ url: "https://andreewcore.github.io/cloth-to-go/", deployedApi: null });
   assert.deepEqual({ ...a.backend }, { enabled: false, reason: "misconfigured" });
 });
 
@@ -200,7 +200,7 @@ test("con backend, un token válido devuelve la identidad verificada", async () 
    suplantación trivial (basta con fabricar un JWT). */
 
 test("en un host de producción sin DEPLOYED_API el backend queda 'misconfigured'", () => {
-  const env = loadDom({ url: "https://andreewcore.github.io/cloth-to-go/" });
+  const env = loadDom({ url: "https://andreewcore.github.io/cloth-to-go/", deployedApi: null });
   assert.equal(env.app.isProductionHost(), true);
   assert.equal(env.app.backend.enabled, false);
   assert.equal(env.app.backend.reason, "misconfigured",
@@ -208,9 +208,18 @@ test("en un host de producción sin DEPLOYED_API el backend queda 'misconfigured
 });
 
 test("un host cualquiera sin backend sigue siendo 'undeployed', no un fallo", () => {
-  const env = loadDom({ url: "https://ejemplo.test/" });
+  const env = loadDom({ url: "https://ejemplo.test/", deployedApi: null });
   assert.equal(env.app.isProductionHost(), false);
   assert.equal(env.app.backend.reason, "undeployed");
+});
+
+test("el origen público habla con el backend de Render por https", () => {
+  // El valor commiteado, no uno inyectado: es lo que recibe GitHub Pages.
+  const env = loadDom({ url: "https://andreewcore.github.io/cloth-to-go/" });
+  assert.deepEqual({ ...env.app.backend },
+    { enabled: true, base: "https://cloth-to-go-api.onrender.com" });
+  assert.equal(env.app.isMixedContent(env.app.backend.base), false);
+  assert.doesNotMatch(env.app.backend.base, /\/$/, "sin barra final: las rutas ya empiezan por /api");
 });
 
 test("el motivo 'misconfigured' se explica, no se calla", () => {

@@ -20,6 +20,9 @@ const { loadDom } = require("./helpers/load-dom.js");
 
 const PROD_URL = "https://andreewcore.github.io/cloth-to-go/";
 
+// Estas pruebas fijan el escenario de v0.6.0 (producción SIN backend), así que
+// anulan la URL de Render que ya trae api.js.
+
 // Un ID token de Google real trae header.payload.signature; para el decode
 // local solo importa el payload, y la firma no se comprueba (ese es el punto).
 function fakeIdToken(claims) {
@@ -51,7 +54,7 @@ afterEach(() => { env = null; });
 
 /* ---- Sin backend: identifica y entra ---- */
 test("en producción sin backend, iniciar sesión con Google entra a la app", async () => {
-  env = setup({ url: PROD_URL });
+  env = setup({ url: PROD_URL, deployedApi: null });
   // El escenario exacto del fallo: host de producción y DEPLOYED_API en null.
   assert.equal(env.app.backend.enabled, false);
   assert.equal(env.app.backend.reason, "misconfigured");
@@ -63,7 +66,7 @@ test("en producción sin backend, iniciar sesión con Google entra a la app", as
 });
 
 test("la identidad de Google rellena el perfil", async () => {
-  env = setup({ url: PROD_URL });
+  env = setup({ url: PROD_URL, deployedApi: null });
   await env.window.onGoogleCredential({ credential: fakeIdToken(CLAIMS) });
 
   assert.equal(env.app.profile.name, "Andreew Core");
@@ -72,7 +75,7 @@ test("la identidad de Google rellena el perfil", async () => {
 });
 
 test("un token ilegible no entra, y lo dice", async () => {
-  env = setup({ url: PROD_URL });
+  env = setup({ url: PROD_URL, deployedApi: null });
   await env.window.onGoogleCredential({ credential: "esto-no-es-un-jwt" });
 
   assert.equal(env.entered.called, false);
@@ -114,7 +117,7 @@ test("con backend, NO se cae al decode local (sería anular la verificación)", 
 
 /* ---- El aviso de la bienvenida ---- */
 test("el aviso de login se limpia al reintentar y al cerrar sesión", async () => {
-  env = setup({ url: PROD_URL });
+  env = setup({ url: PROD_URL, deployedApi: null });
   const hint = env.document.getElementById("loginHint");
 
   await env.window.onGoogleCredential({ credential: "roto" });

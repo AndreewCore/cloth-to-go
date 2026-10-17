@@ -7,11 +7,10 @@
    cuándo hidratar.
    ============================================================ */
 
-// URL https del backend desplegado (Render), sin barra final. Sigue en null
-// mientras no exista: en un host de producción eso marca el despliegue como
-// `misconfigured` y deshabilita el login a propósito (#17). Paso 4.1 de
-// server/DEPLOY.md.
-const DEPLOYED_API = null;
+// URL https del backend desplegado (Render), sin barra final. Si vuelve a
+// null, en un host de producción el despliegue queda `misconfigured` y el login
+// se deshabilita a propósito (#17). Paso 4.1 de server/DEPLOY.md.
+const DEPLOYED_API = "https://cloth-to-go-api.onrender.com";
 
 // Puerto donde escucha el backend en desarrollo (el PORT de server/.env).
 const LOCAL_API_PORT = 3000;
