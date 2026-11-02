@@ -148,7 +148,8 @@ proyecto de Supabase en *East US* igualmente.
 ### 2.2 Variables de entorno
 
 En el servicio → **Environment**. `NODE_ENV=production` y `NODE_VERSION=22` ya
-vienen del blueprint; estas cinco las escribís vos:
+vienen del blueprint; estas cinco las escribís vos, más las dos del asistente
+de la web:
 
 | Variable | Valor |
 |---|---|
@@ -157,6 +158,8 @@ vienen del blueprint; estas cinco las escribís vos:
 | `CORS_ORIGINS` | `https://andreewcore.github.io` — **exacto, sin barra final y sin comodines**. |
 | `GOOGLE_CLIENT_ID` | `115840486389-f3vitcouhua5eckn3grn1gk9kqb7ccjs.apps.googleusercontent.com` (idéntico al de `js/auth.js`). |
 | `ADMIN_SUBS` | El `googleSub` del personal, separados por comas. Vacía = nadie es admin. |
+| `GEMINI_API_KEY` | *(Opcional)* Clave gratuita de [Google AI Studio](https://aistudio.google.com/apikey). Sin ella el asistente de la web queda apagado. |
+| `TRUST_PROXY` | `1`. Sin esto, el límite por IP del asistente ve a todos los visitantes como la IP del proxy de Render. Tras desplegar, el `remoteAddress` de los logs debe ser tu IP pública; si es una del proxy, súbelo a `2`. |
 
 Tres avisos que ahorran una tarde:
 

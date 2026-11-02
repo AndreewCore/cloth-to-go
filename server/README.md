@@ -41,6 +41,9 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | POST | `/api/orders/:id/settle` | **Solo local**: confirma que el efectivo entró. |
 | POST | `/api/orders/:id/deposit-release` | **Solo local**: libera el depósito. |
 | POST | `/api/orders/:id/late-penalty` | **Solo local**: cobra la devolución fuera de plazo. |
+| GET | `/api/impact/water` | **Pública**: litros de agua ahorrados entre todos (contador de la web). |
+| GET | `/api/chat/status` | **Pública**: si el asistente está encendido y de qué fundación habla. |
+| POST | `/api/chat` | **Pública, con límite**: pregunta al asistente sobre la huella hídrica. |
 
 ### `POST /api/auth/google`
 
@@ -55,6 +58,47 @@ ese token (sin comprobar la firma) — esta ruta es la que de verdad autentica.
 - **401** → credential ausente o que no verifica (firma, expiración o
   audience inválidas). El mensaje no expone el motivo interno.
 - **500** → falta `GOOGLE_CLIENT_ID` en el entorno del servidor.
+
+### `GET /api/impact/water`
+
+Contador común de agua ahorrada que muestra la portada de la web. Responde
+`{ liters, goal, reached, cutAt, nextCutAt }`.
+
+- **La página lee un acumulado, no una suma.** Vive en una sola fila
+  (`water_counter`, creada por la migración `contador_agua` con 0 L).
+- **Corte por hora, perezoso.** La primera lectura de cada hora acredita los
+  pedidos cumplidos desde el corte anterior: no anulados y con `start` ya
+  pasado (la misma regla que `countsForRewards()` en el frontend). Cada pedido
+  guarda en `waterLiters` lo que sumó, y eso impide contarlo dos veces. Si el
+  local anula un pedido ya acreditado, sus litros se restan en el corte
+  siguiente. No hay temporizador porque Render duerme el proceso sin tráfico.
+- **Metas:** 100 M → 250 M → 500 M → 1.000 M de litros, y luego de mil en mil
+  millones (`communityGoal()` en `src/water.js`).
+- Los litros por prenda salen de `src/water.js`, una **copia** de
+  `garmentWater()` de `js/data.js` vigilada por `test/agua-paridad.test.js`.
+- **Hoy marca 0:** el frontend todavía no envía los pedidos a `POST
+  /api/orders`, así que no hay pedidos en la base que acreditar.
+
+### Asistente sobre la huella hídrica (`/api/chat`)
+
+Responde **solo** con el texto de los documentos de `knowledge/`. Llama a Google
+Gemini (capa gratuita) por REST y **sin herramientas**: no busca en la web, no
+ve la base y no ejecuta nada. Todo lo que sabe va en el system prompt.
+
+- **Cargar los documentos:** copiar los PDF a `knowledge/` y correr
+  `pnpm knowledge` (necesita `pdftotext`, de poppler). Genera un `.txt` por PDF;
+  el servidor solo lee los `.txt` al arrancar. Revisa el texto en el diff antes
+  del commit: es literalmente lo que el modelo sabrá.
+- **Encendido:** necesita `GEMINI_API_KEY` y al menos un `.txt`. Si falta algo,
+  `GET /api/chat/status` → `{ enabled: false }` y la web oculta la burbuja.
+- **Defensas:** validación (≤ 500 caracteres, historial de ≤ 6 turnos y solo
+  `user`/`model`), un prefiltro de inyecciones que responde sin gastar cuota,
+  reglas en el prompt y un postfiltro. **La disculpa la escribe el servidor**:
+  si el modelo responde `FUERA_DE_TEMA`, vacío o bloqueado, sale `APOLOGY`.
+- **Límites:** `CHAT_PER_MINUTE` por IP (8 por defecto) y `CHAT_PER_DAY` global
+  (1000), en memoria. El global cuida la cuota aunque alguien rote IPs.
+  Respuestas: **429** al pasarse del límite y **503** si Gemini falla o agota la cuota.
+- El texto de los usuarios **no se registra** en los logs.
 
 ### Pedidos y libro de cargos
 

@@ -7,11 +7,10 @@
    cuándo hidratar.
    ============================================================ */
 
-// URL https del backend desplegado (Render), sin barra final. Sigue en null
-// mientras no exista: en un host de producción eso marca el despliegue como
-// `misconfigured` y deshabilita el login a propósito (#17). Paso 4.1 de
-// server/DEPLOY.md.
-const DEPLOYED_API = null;
+// URL https del backend desplegado (Render), sin barra final. Si vuelve a
+// null, en un host de producción el despliegue queda `misconfigured` y el login
+// se deshabilita a propósito (#17). Paso 4.1 de server/DEPLOY.md.
+const DEPLOYED_API = "https://cloth-to-go-api.onrender.com";
 
 // Puerto donde escucha el backend en desarrollo (el PORT de server/.env).
 const LOCAL_API_PORT = 3000;
@@ -164,6 +163,70 @@ async function hydrateCatalog() {
     console.info("Backend no disponible; se usa el catálogo local.", err.message);
   }
   return false;
+}
+
+/**
+ * Pide al backend el contador común de agua ahorrada (GET /api/impact/water).
+ * Sin backend o con fallo devuelve null: quien llama esconde la sección en vez
+ * de inventar una cifra, porque es un dato de toda la comunidad y no tiene un
+ * equivalente local honesto.
+ * @returns {Promise<{liters:number, goal:number, reached:number[], cutAt:string, nextCutAt:string}|null>}
+ */
+async function fetchWaterImpact() {
+  if (!backend.enabled) return null;
+  try {
+    const res = await fetch(`${backend.base}/api/impact/water`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return Number.isFinite(data?.liters) && data.goal > 0 ? data : null;
+  } catch (err) {
+    console.info("No se pudo leer el contador de agua; la sección queda oculta.", err.message);
+    return null;
+  }
+}
+
+/**
+ * Pregunta al backend si el asistente informativo está encendido
+ * (GET /api/chat/status). Sin backend o con fallo devuelve null y la web no
+ * muestra la burbuja: el asistente no tiene versión local.
+ * @returns {Promise<{enabled:boolean, foundation:string}|null>}
+ */
+async function fetchChatStatus() {
+  if (!backend.enabled) return null;
+  try {
+    const res = await fetch(`${backend.base}/api/chat/status`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return data?.enabled ? data : null;
+  } catch (err) {
+    console.info("Asistente no disponible; la burbuja queda oculta.", err.message);
+    return null;
+  }
+}
+
+/**
+ * Envía una pregunta al asistente (POST /api/chat). Nunca lanza: el panel
+ * pinta lo que vuelva, sea la respuesta o el motivo del fallo, que el
+ * servidor ya redacta para el visitante (límite, ocupado, pregunta inválida).
+ * @param {string} message Pregunta del visitante.
+ * @param {{role:"user"|"model", text:string}[]} history Turnos anteriores.
+ * @returns {Promise<{reply:string}|{error:string}>}
+ */
+async function askChatbot(message, history) {
+  const offline = { error: "No pude conectarme con el asistente. Revisa tu conexión e inténtalo de nuevo." };
+  if (!backend.enabled) return offline;
+  try {
+    const res = await fetch(`${backend.base}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, history }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && typeof data.reply === "string") return { reply: data.reply };
+    return { error: data.error || offline.error };
+  } catch {
+    return offline;
+  }
 }
 
 /**
