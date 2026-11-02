@@ -175,6 +175,18 @@ test("el limitador corta por IP y por día", () => {
   assert.equal(allow("c"), true, "el tope se renueva al día siguiente");
 });
 
+test("loadKnowledge ignora los borradores _*.txt cuando se le pide (producción)", async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), "knowledge-"));
+  try {
+    await writeFile(path.join(dir, "_demo.txt"), "Texto inventado");
+    await writeFile(path.join(dir, "informe.txt"), "Texto real");
+    assert.equal(await loadKnowledge(dir, false), "=== DOCUMENTO: informe ===\nTexto real");
+    assert.match(await loadKnowledge(dir, true), /Texto inventado/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test("loadKnowledge une los .txt con su encabezado e ignora lo demás", async () => {
   const dir = await mkdtemp(path.join(tmpdir(), "knowledge-"));
   try {

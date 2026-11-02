@@ -60,3 +60,12 @@ services:
         sync: false
       - key: ADMIN_SUBS
         sync: false
+      # Render pone un proxy delante: sin esto el servidor ve la IP del proxy y
+      # el límite por minuto del chat se reparte entre todos los usuarios a la
+      # vez. Un salto, no `true` (ver server.js).
+      - key: TRUST_PROXY
+        value: "1"
+      # Clave de Google AI Studio para el asistente del agua. Sin ella el chat
+      # queda apagado y la web oculta la burbuja.
+      - key: GEMINI_API_KEY
+        sync: false
