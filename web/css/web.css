@@ -139,6 +139,7 @@ html { scroll-behavior: smooth; }
 .nav a {
   color: var(--muted); text-decoration: none; font-weight: 600; font-size: 15px;
   padding: 6px 0; border-bottom: 2px solid transparent;
+  white-space: nowrap;
 }
 .nav a:hover { color: var(--accent); border-color: var(--accent); }
 
@@ -184,6 +185,7 @@ html { scroll-behavior: smooth; }
 .ghost-btn {
   background: none; border: 1px solid var(--line); border-radius: 999px;
   padding: 8px 16px; color: var(--ink); font-weight: 600; font-size: 14px;
+  white-space: nowrap;
 }
 .ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
 .link-btn { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; font-size: 13px; }
@@ -657,32 +659,48 @@ html { scroll-behavior: smooth; }
   .about-cards, .contact-list { grid-template-columns: 1fr; }
   .about-in, .contact-in { padding: 36px 20px; }
   .catalog { padding: 34px 20px 10px; }
+  .foot { padding: 20px; }
   .foot a { color: var(--accent); }
-
-.foot { padding: 20px; }
 
   /* Los filtros pasan a ser un bloque que se abre desde la barra: en una
      columna estrecha, una barra lateral fija se come la pantalla. */
-  .layout { grid-template-columns: 1fr; }
+  /* minmax(0, …) y no 1fr: una columna 1fr no baja de su contenido mínimo, y
+     la rejilla de tarjetas se negaba a partirse en dos en el teléfono. */
+  .layout { grid-template-columns: minmax(0, 1fr); }
   .side { position: static; max-height: none; overflow: visible; margin-bottom: 18px; }
   .side:not(.open) { display: none; }
   .filters-toggle { display: inline-flex; align-items: center; }
-}
 
-@media (max-width: 760px) {
-  .top { padding: 0 16px; gap: 12px; }
+  /* El menú pasa a hamburguesa ya aquí y no a 760 px: entre ambos anchos los
+     enlaces, «Instalar la app» y la sesión no caben en una fila y se partían
+     en dos líneas. Se despliega bajo la cabecera; cerrado no ocupa nada. */
   .burger { display: flex; }
-  /* El menú se despliega bajo la cabecera; cerrado no ocupa nada. */
   .nav {
     position: absolute; top: var(--head-h); left: 0; right: 0;
     flex-direction: column; gap: 0;
     background: var(--card); border-bottom: 1px solid var(--line);
-    padding: 6px 16px 14px;
+    padding: 6px 20px 14px;
   }
   .nav:not(.open) { display: none; }
   .nav a { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  /* Desplegado, el menú tiene fondo de tarjeta: sobre la portada no puede
+     heredar el texto claro de la cabecera flotante. */
+  .top.over .nav a { color: var(--ink); }
+  .top.over .nav a:hover { color: var(--accent); border-color: var(--line); }
+  .top.over .nav .nav-install { color: #fff; }
+  /* Con el menú abierto la cabecera deja de flotar: una barra transparente
+     encima de un desplegable sólido se leía como dos piezas sueltas. */
+  .top.over:has(.nav.open) { background: var(--card); color: var(--ink); border-bottom-color: var(--line); }
+  .top.over:has(.nav.open) .brand b { color: var(--accent); }
+  .top.over:has(.nav.open) :is(.icon-btn, .ghost-btn) { color: var(--ink); border-color: var(--line); background: var(--card); }
+}
+
+@media (max-width: 760px) {
+  .top { padding: 0 16px; gap: 12px; }
   .install-btn { display: none; }
-  .nav-install {
+  /* `.nav .nav-install` y no solo la clase: `.nav a` pesa más y le ponía el
+     texto gris sobre el botón verde. */
+  .nav .nav-install {
     display: block; margin-top: 12px; border-bottom: 0;
     background: var(--cta); color: #fff; text-align: center;
     border-radius: 999px; padding: 11px 18px; font-weight: 600;
@@ -691,10 +709,33 @@ html { scroll-behavior: smooth; }
   .lockup span { letter-spacing: -1px; }
   .lede { font-size: 15.5px; }
   .hero-perks { gap: 16px; }
-  .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  /* Dos columnas fijas: con una sola, cada prenda ocupaba la pantalla entera
+     y había que desplazar dieciséis pantallas para ver el catálogo. */
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .card .body { padding: 10px 10px 12px; }
+  .card .cta-btn { padding: 9px 8px; font-size: 13px; }
   .detail { grid-template-columns: 1fr; }
+  /* En una columna la foto 3:4 llenaba la pantalla y escondía el precio. */
+  .detail .gal img { aspect-ratio: 4/5; max-height: 52vh; }
+  /* La X cae encima de la foto: necesita fondo propio para verse. */
+  .x.float {
+    z-index: 2; width: 38px; height: 38px; border-radius: 50%;
+    background: var(--card); box-shadow: var(--shadow);
+    display: grid; place-items: center; font-size: 22px;
+  }
   .opts { grid-template-columns: 1fr; }
   .modal { padding: 20px; }
   .cat-toolbar { gap: 8px; }
   .sort span { display: none; }
+}
+
+/* Teléfonos estrechos (360–420 px): el logotipo se queda sin la palabra para
+   que la sesión, el carrito y el menú quepan en una fila. El nombre completo
+   ya está, grande, en la portada. */
+@media (max-width: 420px) {
+  .top { gap: 8px; }
+  .brand span { display: none; }
+  .catalog { padding-left: 16px; padding-right: 16px; }
+  .modal-wrap { padding: 12px; }
+  .modal { padding: 20px 16px; max-height: calc(100vh - 24px); }
 }
