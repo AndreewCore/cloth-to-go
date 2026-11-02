@@ -115,8 +115,10 @@ function renderFilters(){
 
   const cats = CATS.map(c => chipHTML("cat", c, escapeHTML(c), activeCat === c)).join("");
 
+  // El medidor dibujado y no `qualityMeterText()`: los glifos ▰▱ no vienen en
+  // la fuente del sistema de muchos teléfonos y salían como cuadros vacíos.
   const calidad = [0,3,4,5]
-    .map(n => chipHTML("quality", n, n === 0 ? "Todas" : `${qualityMeterText(n)}+`, qualityFilter === n))
+    .map(n => chipHTML("quality", n, n === 0 ? "Todas" : `${qualityMeter(n)}+`, qualityFilter === n))
     .join("");
 
   const tallas = SIZE_SCALES.map(escala => {
