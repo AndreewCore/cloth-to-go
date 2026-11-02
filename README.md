@@ -175,14 +175,18 @@ mantiene viva la demo por `file://`.
 
 ## 🖥️ Backend (opcional)
 
-En `server/` hay una API con **Fastify + Prisma + Postgres** que hoy sirve el catálogo y
-verifica el inicio de sesión:
+En `server/` hay una API con **Fastify + Prisma + Postgres**, desplegada en Render con la
+base en Supabase:
 
 | Método | Ruta | Para qué |
 |---|---|---|
 | `GET` | `/api/health` | Comprobación de vida. |
 | `GET` | `/api/products` | Catálogo, en el mismo formato que espera el frontend. |
 | `POST` | `/api/auth/google` | Verifica el ID token de Google y registra al usuario. |
+| `GET` | `/api/impact/water` | Litros de agua ahorrados por los alquileres entregados. |
+| `GET` · `POST` | `/api/chat/status` · `/api/chat` | Asistente sobre la huella hídrica (Gemini), solo con los documentos de `server/knowledge/`. |
+| `GET` · `POST` | `/api/orders` | Pedidos del usuario, con su libro de cargos. |
+| `PATCH` · `POST` | `/api/orders/:id/…` | Cambiar la devolución, cancelar y, solo personal, cobrar, liberar garantía o cobrar atraso. |
 
 Postgres en desarrollo, en CI y en producción: el mismo motor en los tres sitios, para
 que las migraciones de `server/prisma/migrations/` se ejerciten siempre. Si el servidor
@@ -190,8 +194,8 @@ no está levantado, el frontend usa
 los datos embebidos y sigue abriéndose por `file://`. Ver
 [`server/README.md`](server/README.md).
 
-El dinero, los pedidos y los puntos **todavía no viven en el servidor**: están en el
-navegador.
+Las rutas de pedidos y el libro de cargos ya existen en el servidor, pero el frontend
+**todavía no las llama**: los pedidos, el dinero y los puntos siguen en el navegador.
 
 ---
 
@@ -212,7 +216,9 @@ navegador.
 │   ├── logo.webp
 │   └── products/           # Fotos del catálogo (webp, servidas desde el repo)
 ├── test/                   # Pruebas del frontend (runner nativo de Node + jsdom)
+├── web/                    # Sitio de escritorio: catálogo público sobre los mismos js/ de la app
 ├── server/                 # API Fastify + Prisma + Postgres
+├── render.yaml             # Blueprint del servicio de la API en Render
 ├── .github/workflows/      # CI (lint + tests) y despliegue a GitHub Pages
 ├── package.json            # Scripts de tooling (lint/test)
 ├── eslint.config.js

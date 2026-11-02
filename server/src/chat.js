@@ -68,13 +68,20 @@ export function looksLikeInjection(text) {
 /**
  * Lee los .txt de la carpeta de conocimiento y los une con un encabezado por
  * documento, para que el modelo distinga de dónde sale cada dato.
+ *
+ * Los archivos que empiezan por `_` son borradores (p. ej. el texto de prueba
+ * para encender el chat en local): en producción se ignoran, para que un texto
+ * inventado no llegue a contestar a un usuario como si fuera de la fundación.
  * @param {string} [dir]
+ * @param {boolean} [includeDrafts] Si se cargan también los `_*.txt`.
  * @returns {Promise<string>} Texto unido; "" si no hay documentos.
  */
-export async function loadKnowledge(dir = KNOWLEDGE_DIR) {
+export async function loadKnowledge(dir = KNOWLEDGE_DIR, includeDrafts = process.env.NODE_ENV !== "production") {
   let names;
   try {
-    names = (await readdir(dir)).filter((n) => n.endsWith(".txt")).sort();
+    names = (await readdir(dir))
+      .filter((n) => n.endsWith(".txt") && (includeDrafts || !n.startsWith("_")))
+      .sort();
   } catch {
     return "";
   }
