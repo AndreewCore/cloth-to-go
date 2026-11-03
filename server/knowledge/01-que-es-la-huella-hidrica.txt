@@ -1,0 +1,105 @@
+Qué es la huella hídrica
+Documento de consulta del asistente de CLOTH TO GO. Resume, en español y
+con palabras propias, información publicada por Water Footprint Network
+en waterfootprint.org. Las fuentes de cada sección se indican al final
+de ella.
+
+Definición
+La huella hídrica mide la cantidad de agua dulce que se usa para
+producir cada uno de los bienes y servicios que consumimos. Se puede
+calcular para un proceso (por ejemplo, cultivar arroz), para un producto
+(por ejemplo, un par de jeans), para un combustible o para una empresa
+completa.
+Water Footprint Network la describe también como una medida de cuánta
+agua dulce se apropia la humanidad, expresada como volumen de agua
+consumida o contaminada.
+Se expresa en distintas unidades según lo que se mida: metros cúbicos
+por tonelada producida, por hectárea de cultivo, por unidad de moneda, o
+litros por kilogramo de producto.
+El concepto lo creó el profesor Arjen Y. Hoekstra en 2002, cuando
+trabajaba en el Instituto UNESCO-IHE para la Educación sobre el Agua.
+Fuentes: waterfootprint.org/water-footprint-2/what-is-a-water-footprint/
+y waterfootprint.org/about-us/aims-history/
+
+Huella directa e indirecta
+La huella hídrica cuenta tanto el uso directo como el indirecto del
+agua, a lo largo de toda la cadena de producción, desde los proveedores
+hasta quien usa el producto.
+La huella directa es el agua que una persona o empresa usa por sí misma:
+por ejemplo, el agua de la ducha, del lavado o de la cocina.
+La huella indirecta es el agua que está "detrás" de los productos que se
+consumen o se producen: el agua que se gastó o se contaminó para
+fabricarlos. En la mayoría de las personas, la huella indirecta es mucho
+mayor que la directa.
+Fuentes: waterfootprint.org/water-footprint-2/what-is-a-water-footprint/
+y waterfootprint.org/water-footprint-2/glossary/
+
+Los tres colores del agua: verde, azul y gris
+Huella hídrica verde: es el agua de lluvia que queda almacenada en el
+suelo, en la zona de las raíces, y que las plantas evaporan, transpiran
+o incorporan. Es especialmente importante en la agricultura, la
+horticultura y los productos forestales.
+Huella hídrica azul: es el agua que se toma de ríos, lagos o acuíferos
+(agua superficial o subterránea) y que se evapora, se incorpora al
+producto o se traslada a otra cuenca. La agricultura de riego, la
+industria y el uso doméstico pueden tener huella azul.
+Huella hídrica gris: es la cantidad de agua dulce que haría falta para
+diluir los contaminantes de un proceso hasta que el agua cumpla las
+normas de calidad. Mide la contaminación expresada como volumen de agua.
+Fuentes: waterfootprint.org/water-footprint-2/what-is-a-water-footprint/
+y waterfootprint.org/water-footprint-2/glossary/
+
+Agua virtual
+El agua virtual de un producto es el agua dulce que quedó "incorporada"
+en él durante su producción; no está físicamente en el producto, sino en
+un sentido virtual. Como volumen, es lo mismo que la huella hídrica del
+producto.
+La huella hídrica es un concepto más amplio que el agua virtual: además
+del volumen, dice de dónde sale el agua, de qué tipo es (verde, azul o
+gris) y cuándo se usó, y se aplica tanto a consumidores como a
+productores.
+Fuentes: waterfootprint.org/water-footprint-2/glossary/ y
+waterfootprint.org/water-footprint-2/frequently-asked-questions/
+
+Huella de un producto, de una persona y de un país
+Huella hídrica de un producto: el volumen total de agua dulce usada para
+producirlo, sumando todos los pasos de la cadena de producción.
+Huella hídrica de una persona (consumidor): el agua dulce consumida y
+contaminada para producir los bienes y servicios que esa persona
+consume. Es la suma de su huella directa y su huella indirecta.
+Huella hídrica de un país: el agua dulce usada para producir los bienes
+y servicios que consumen sus habitantes, aunque parte de esa agua se
+haya usado en otros países.
+Huella hídrica de una empresa: el agua que usa directamente en sus
+operaciones más la que se usa en su cadena de proveedores.
+
+Fuentes: waterfootprint.org/water-footprint-2/glossary/ y
+waterfootprint.org/water-footprint-2/frequently-asked-questions/
+
+Por qué importa
+El agua dulce es limitada y la escasez de agua afecta a más de 2.700
+millones de personas al menos un mes al año. Conocer la huella hídrica
+permite ver cuánta agua hay detrás de lo que consumimos y en qué lugares
+del mundo se usa, para poder reducirla.
+Water Footprint Network aclara que el agua no se puede "compensar" como
+el carbono: lo importante es reducir la propia huella hídrica.
+Fuentes: waterfootprint.org/water-footprint-2/what-is-a-water-footprint/
+y waterfootprint.org/water-footprint-2/frequently-asked-questions/
+
+Preguntas frecuentes
+¿Qué es la huella hídrica? Es la cantidad de agua dulce usada para
+producir los bienes y servicios que consumimos, contando el agua
+consumida y la contaminada.
+¿Quién inventó la huella hídrica? El profesor Arjen Y. Hoekstra, en
+2002.
+¿Qué diferencia hay entre agua verde, azul y gris? La verde es agua de
+lluvia que usan las plantas; la azul es agua tomada de ríos, lagos o
+acuíferos; la gris es el agua necesaria para diluir la contaminación.
+¿Qué es el agua virtual? Es el agua que se usó para producir un
+producto, aunque no esté físicamente en él.
+¿Qué es la huella indirecta? Es el agua que hay detrás de los productos
+que consumimos, por ejemplo la ropa o los alimentos.
+¿Se puede compensar la huella hídrica? Según Water Footprint Network, no
+como el carbono: lo que hay que hacer es reducirla.
+
+

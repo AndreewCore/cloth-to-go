@@ -1,0 +1,114 @@
+Sobre CLOTH TO GO y cómo funciona la
+página
+Documento de consulta del asistente de CLOTH TO GO. Explica a qué se
+dedica CLOTH TO GO y cómo se usa la página, a grandes rasgos. Los
+precios, las prendas disponibles y los detalles de cada pedido se
+consultan directamente en la página, no en el asistente.
+
+A qué se dedica CLOTH TO GO
+CLOTH TO GO es un servicio de alquiler de ropa por días que nació en la
+ESPOL, en Guayaquil, Ecuador, como proyecto de emprendimiento. Parte de
+una pregunta: por qué compramos ropa que vamos a usar una o dos veces,
+como un terno para una graduación, un vestido para una boda o un abrigo
+para un viaje.
+CLOTH TO GO trabaja solo con ropa que ya existe: prendas donadas en buen
+estado. Cada prenda se revisa pieza por pieza, se
+lava y se plancha antes de alquilarla. No hay producción de ropa nueva.
+Cada prenda es única: hay una sola pieza de cada una.
+
+Relación con el agua
+Fabricar ropa nueva usa mucha agua, sobre todo en el cultivo de las
+fibras y en el teñido. Cada prenda alquilada es una prenda que no hubo
+que fabricar, así que el agua de fabricarla no se gasta. Por eso CLOTH
+TO GO muestra el agua ahorrada.
+La página muestra un contador de agua ahorrada entre todos: suma los
+litros que se dejaron de gastar gracias a los alquileres de toda la
+comunidad y se actualiza cada hora. Cada prenda también indica cuánta
+agua se ahorra al alquilarla. Esas cifras son estimaciones según el
+material y el peso de la prenda, basadas en datos de huella hídrica.
+El asistente de la página, "Pregúntale al agua", responde dudas sobre la
+huella hídrica usando información de Water Footprint Network
+(waterfootprint.org). CLOTH TO GO no forma parte de esa organización.
+
+Cómo se alquila, paso a paso
+Paso 1, elige la prenda: en el catálogo puedes buscar y filtrar por
+talla, ocasión, color y otras características, y abrir cada prenda para
+ver sus fotos y detalles. Para mirar el catálogo y llenar el carrito no
+necesitas cuenta.
+Paso 2, elige los días: indicas desde qué fecha y hasta qué fecha
+
+necesitas la prenda. El precio depende de la prenda y de cuántos días la
+tienes; alquilar varias prendas a la vez sale más barato. El precio
+exacto se ve en la página antes de confirmar.
+Paso 3, inicia sesión: para confirmar un alquiler hay que iniciar sesión
+con una cuenta de Google. Tu carrito se guarda mientras lo haces. La
+cuenta sirve para registrar el alquiler, las fechas y la devolución.
+Paso 4, entrega: puedes retirar la prenda en el local de CLOTH TO GO en
+Guayaquil o pedir el envío a domicilio dentro de Guayaquil. La prenda
+llega lavada y planchada, lista para usar.
+Paso 5, pago: el pago se hace en la propia página, en la pantalla de
+pago del pedido. El asistente no recibe pagos ni datos de tarjetas.
+Paso 6, devolución: al terminar, devuelves la prenda en el local o la
+pasan a recoger a domicilio. Del lavado se ocupa CLOTH TO GO. Es
+importante devolverla a tiempo; si te retrasas puede aplicarse un cargo,
+según las condiciones que muestra la página.
+
+La garantía
+Cada alquiler incluye una garantía que se cobra junto con el pedido y
+que se devuelve íntegra al entregar la prenda en buen estado. La
+garantía no es un pago por el alquiler: existe para cubrir el riesgo de
+daño o pérdida. Su monto se ve en la página al hacer el pedido.
+
+Puntos y recompensas
+Los alquileres entregados suman puntos en tu cuenta, y también hay metas
+de agua ahorrada que dan puntos extra. Los puntos se canjean por
+recompensas desde la app móvil de CLOTH TO GO. Una recompensa nunca
+descuenta la garantía.
+
+Web y app móvil
+CLOTH TO GO tiene una página web y una app móvil con el mismo catálogo y
+los mismos precios. Si usas la misma cuenta de Google, un alquiler hecho
+en la web aparece en "Mis pedidos" de la app, y al revés. Algunas
+funciones, como el perfil, las reseñas y el canje de puntos, están en la
+app.
+
+Lo que el asistente no hace
+El asistente "Pregúntale al agua" es solo informativo. No informa qué
+prendas hay disponibles, no da precios ni cotizaciones, no reserva ni
+vende prendas, no recibe pagos y no consulta ni modifica pedidos. Para
+todo eso hay que usar la página: el catálogo, el carrito y la sección de
+pedidos.
+
+Por tu seguridad, no compartas datos personales en el chat, como tu
+número de cédula, tu dirección, tu teléfono o los datos de tu tarjeta.
+
+Preguntas frecuentes
+¿Qué es CLOTH TO GO? Un servicio de alquiler de ropa por días, nacido en
+la ESPOL, en Guayaquil. Cada prenda es única.
+¿De dónde viene la ropa? Son prendas donadas, revisadas, lavadas y
+planchadas antes de alquilarse.
+¿La ropa es de segunda mano? Sí: son prendas que ya tuvieron dueño y se
+donaron en buen estado. Por eso cada una es única, y alquilarla ahorra el
+agua de fabricar una nueva.
+¿Necesito una cuenta? Para mirar el catálogo y llenar el carrito, no.
+Para alquilar, sí: se inicia sesión con Google.
+¿Cuánto cuesta alquilar una prenda? El precio depende de la prenda y de
+los días; se ve en la página al elegir las fechas. El asistente no da
+precios.
+¿Qué prendas hay disponibles? Se consultan en el catálogo de la página.
+El asistente no tiene esa información.
+¿Puedo pagar o reservar por el chat? No. El asistente no recibe pagos ni
+hace reservas; todo se hace en la página.
+¿Cómo recibo la prenda? Retirándola en el local en Guayaquil o con envío
+a domicilio dentro de Guayaquil.
+¿Cómo la devuelvo? En el local o con retiro a domicilio. No necesitas
+lavarla.
+¿Me devuelven la garantía? Sí, se devuelve íntegra al entregar la prenda
+en buen estado.
+¿Por qué alquilar ropa ahorra agua? Porque cada prenda alquilada evita
+fabricar una nueva, y fabricar ropa usa mucha agua.
+¿Qué es el contador de agua? Es la suma de los litros de agua que la
+comunidad de CLOTH TO GO ha dejado de gastar alquilando en lugar de
+comprar ropa nueva.
+
+
