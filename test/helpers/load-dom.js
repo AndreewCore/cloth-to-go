@@ -193,6 +193,26 @@ globalThis.__APP__ = {
 };
 `;
 
+// La declaración que `deployedApi` reemplaza. Si deja de coincidir, leerScript
+// falla en voz alta: una sustitución que no ocurre dejaría pasar los tests del
+// caso "sin backend" probando en realidad el caso "con backend".
+const DEPLOYED_API_DECL = /^const DEPLOYED_API = .*;$/m;
+
+/**
+ * Lee un script de js/ aplicando los ajustes de `opts` que cambian su fuente.
+ * @param {string} archivo Nombre del archivo dentro de js/.
+ * @param {object} opts Las mismas opciones de loadDom.
+ * @returns {string} Código fuente listo para concatenar.
+ */
+function leerScript(archivo, opts) {
+  const src = fs.readFileSync(path.join(JS_DIR, archivo), "utf8");
+  if (archivo !== "api.js" || !("deployedApi" in opts)) return src;
+  if (!DEPLOYED_API_DECL.test(src)) {
+    throw new Error("load-dom: no se encontró la declaración de DEPLOYED_API en api.js");
+  }
+  return src.replace(DEPLOYED_API_DECL, `const DEPLOYED_API = ${JSON.stringify(opts.deployedApi)};`);
+}
+
 /**
  * Monta un DOM limpio con la app cargada.
  * @param {object} [opts] Ajustes del entorno, para los módulos que leen el
@@ -201,6 +221,9 @@ globalThis.__APP__ = {
  *   - `storage`: pares clave/valor sembrados en localStorage ANTES de ejecutar
  *     los scripts, única forma de probar el override del backend.
  *   - `withMain`: carga también main.js, con su reparto de eventos y su init.
+ *   - `deployedApi`: sustituye el valor de `DEPLOYED_API` (p. ej. `null`). Los
+ *     casos "producción sin backend" (#17) deben seguir probándose ahora que el
+ *     código trae la URL real de Render.
  * @returns {{window, document, app}} `app` es la API __APP__ del trailer.
  */
 function loadDom(opts = {}) {
@@ -224,7 +247,7 @@ function loadDom(opts = {}) {
   // embebido). Sin esto la promesa quedaría suelta y el runner lo reporta.
   if (opts.withMain && !dom.window.fetch) dom.window.fetch = () => Promise.reject(new Error("sin backend"));
   const source =
-    archivos.map(f => fs.readFileSync(path.join(JS_DIR, f), "utf8")).join("\n") +
+    archivos.map(f => leerScript(f, opts)).join("\n") +
     "\n" + EXPORT_TRAILER;
   vm.runInContext(source, ctx, { filename: "app-bundle.js" });
 

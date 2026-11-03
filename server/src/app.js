@@ -10,6 +10,8 @@ import prisma from "./db.js";
 import { createGoogleVerifier } from "./googleAuth.js";
 import { createAuthGuards, upsertUser } from "./auth.js";
 import { registerOrderRoutes } from "./orders.js";
+import { registerImpactRoutes } from "./impact.js";
+import { registerChatRoutes, createGeminiAsk, createChatLimiter, loadKnowledge } from "./chat.js";
 
 /**
  * Resuelve la política de CORS a partir de CORS_ORIGINS.
@@ -54,10 +56,12 @@ function corsOrigin() {
  * @param {object} [opts] Opciones de Fastify (p. ej. logger).
  * @param {(idToken: string) => Promise<object>} [opts.verifyGoogleToken]
  *   Verificador de ID tokens; por defecto se crea contra GOOGLE_CLIENT_ID.
+ * @param {{ask?: Function|null, knowledge?: string, allow?: Function}} [opts.chat]
+ *   Piezas del asistente; los tests las reemplazan para no llamar a Gemini.
  * @returns {import("fastify").FastifyInstance}
  */
 export function buildApp(opts = {}) {
-  const { verifyGoogleToken, ...fastifyOpts } = opts;
+  const { verifyGoogleToken, chat = {}, ...fastifyOpts } = opts;
   const app = Fastify(fastifyOpts);
 
   app.register(cors, { origin: corsOrigin() });
@@ -128,6 +132,31 @@ export function buildApp(opts = {}) {
   // Pedidos y libro de cargos. Todas exigen credencial; las de confirmar cobro
   // y liberar depósito, además, ser del personal del local.
   registerOrderRoutes(app, createAuthGuards(verify));
+
+  // Contador común de agua ahorrada (sección de impacto de la web). Pública.
+  registerImpactRoutes(app);
+
+  // Asistente informativo de la web. Sin GEMINI_API_KEY o sin documentos queda
+  // apagado y la web no muestra la burbuja.
+  registerChatRoutes(app, {
+    ask: "ask" in chat
+      ? chat.ask
+      : process.env.GEMINI_API_KEY
+        ? createGeminiAsk({
+            apiKey: process.env.GEMINI_API_KEY,
+            // Alias, no versión fija: Google retira los modelos con nombre
+            // (gemini-2.5-flash ya no se abre a cuentas nuevas). Lite porque
+            // responde en ~1 s; el Flash completo tardaba ~20 s o daba 503, y
+            // contestar desde unos documentos no necesita más.
+            model: process.env.GEMINI_MODEL?.trim() || "gemini-flash-lite-latest",
+          })
+        : null,
+    knowledge: chat.knowledge ?? loadKnowledge(),
+    allow: chat.allow ?? createChatLimiter({
+      perMinute: Number(process.env.CHAT_PER_MINUTE) || 8,
+      perDay: Number(process.env.CHAT_PER_DAY) || 1000,
+    }),
+  });
 
   return app;
 }

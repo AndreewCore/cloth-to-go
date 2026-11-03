@@ -57,6 +57,8 @@ web/
   js/session.js     carrito de invitado + puerta de sesión con Google
   js/catalog.js     filtros, parrilla y ficha de prenda
   js/cart.js        carrito, checkout y confirmación del pedido
+  js/water.js       sección "agua ahorrada entre todos" (contador del backend)
+  js/chat.js        asistente sobre la huella hídrica (burbuja flotante)
   js/main.js        diálogos, delegación de eventos y arranque (va el último)
 ```
 
@@ -65,6 +67,34 @@ compartido** (sin `import`/`export`), eventos por **delegación** con
 `data-action`, `escapeHTML()` antes de meter nada en `innerHTML`, y todo global
 nuevo declarado en `WEB_GLOBALS` de `eslint.config.js` (`pnpm lint` cubre
 `web/js`).
+
+## Agua ahorrada entre todos (`#agua`)
+
+Es un panel de vidrio dentro de la portada, a la derecha y sobre el vídeo; en
+pantalla estrecha baja bajo el texto. La cifra **no se
+calcula en la web**: la lleva el backend en un solo registro que se renueva
+cada hora (`GET /api/impact/water`, ver `server/README.md`). La página la lee al
+cargar y vuelve a pedirla justo después de cada corte mientras siga abierta.
+
+- **Sin backend la sección no aparece**, porque no hay cifra común que mostrar
+  y una inventada sería peor que ninguna. Por `file://` no se ve.
+- El tanque (una gota en SVG) es decorativo y tiene un nivel mínimo para que la
+  ola se vea. El dato exacto está en el número y en la barra de la meta.
+- La ola y el conteo se detienen con `prefers-reduced-motion`.
+
+## Asistente sobre el agua (burbuja flotante)
+
+Responde dudas sobre la huella hídrica **solo con los documentos de la
+fundación** de la que sale la fórmula del agua. Los documentos y el modelo viven
+en el backend (`POST /api/chat`, ver `server/README.md`); la web solo pinta.
+
+- **Sin backend, o sin `GEMINI_API_KEY` o documentos en el servidor, la burbuja
+  no aparece** (`GET /api/chat/status`). Por `file://` tampoco.
+- Lo fuera de tema y los intentos de inyección reciben una disculpa fija que
+  escribe el servidor. Toda respuesta se pinta con `textContent`.
+- La conversación vive solo en memoria: no va a `localStorage` ni a la cuenta.
+- El aviso del panel pide no compartir datos personales, porque en la capa
+  gratuita de Gemini Google puede usar los mensajes.
 
 ## Lo que la web todavía no hace
 

@@ -106,7 +106,9 @@ html { scroll-behavior: smooth; }
 .top.over .nav a { color: rgba(242,245,238,.82); }
 .top.over .nav a:hover { color: #fff; border-color: #fff; }
 .top.over .icon-btn,
-.top.over /* Instalar la app: la única acción de la cabecera que lleva relleno. El resto
+.top.over .ghost-btn { border-color: rgba(242,245,238,.45); color: #f2f5ee; background: transparent; }
+
+/* Instalar la app: la única acción de la cabecera que lleva relleno. El resto
    (sesión, carrito) son contornos, así que el peso visual la señala sin
    necesidad de más color. */
 .install-btn {
@@ -121,7 +123,6 @@ html { scroll-behavior: smooth; }
 .top.over .install-btn:hover { background: #fff; }
 .nav-install { display: none; }
 
-.ghost-btn { border-color: rgba(242,245,238,.45); color: #f2f5ee; background: transparent; }
 .top.over .icon-btn:hover,
 .top.over .ghost-btn:hover { border-color: #fff; color: #fff; }
 .top.over .avatar-btn { border-color: rgba(242,245,238,.6); background: rgba(255,255,255,.12); color: #f2f5ee; }
@@ -138,6 +139,7 @@ html { scroll-behavior: smooth; }
 .nav a {
   color: var(--muted); text-decoration: none; font-weight: 600; font-size: 15px;
   padding: 6px 0; border-bottom: 2px solid transparent;
+  white-space: nowrap;
 }
 .nav a:hover { color: var(--accent); border-color: var(--accent); }
 
@@ -183,6 +185,7 @@ html { scroll-behavior: smooth; }
 .ghost-btn {
   background: none; border: 1px solid var(--line); border-radius: 999px;
   padding: 8px 16px; color: var(--ink); font-weight: 600; font-size: 14px;
+  white-space: nowrap;
 }
 .ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
 .link-btn { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; font-size: 13px; }
@@ -256,6 +259,11 @@ html { scroll-behavior: smooth; }
   padding: calc(var(--head-h) + 50px) 28px 80px;
 }
 .hero-copy { max-width: 620px; }
+/* Con el panel del agua la portada pasa a dos columnas: texto a la izquierda,
+   panel a la derecha, sobre la zona donde se ve el vídeo. */
+.hero-in:has(.hero-water:not([hidden])) {
+  display: grid; grid-template-columns: minmax(0, 620px) 1fr; gap: 40px; align-items: center;
+}
 
 /* El titular es la marca: el logotipo y el nombre, al tamaño de un rótulo. */
 .lockup { display: flex; align-items: center; gap: 18px; margin: 0 0 10px; }
@@ -298,6 +306,71 @@ html { scroll-behavior: smooth; }
 }
 .steps-band b { align-self: center; }
 .steps-band p { margin: 0; color: var(--muted); font-size: 14px; }
+
+/* ---------------- Agua ahorrada entre todos ----------------
+   Panel de vidrio dentro de la portada, a la derecha, sobre el vídeo. El
+   desenfoque deja ver la prenda que pasa por detrás, que es lo que lo hace
+   parte de la portada y no una caja pegada encima. Colores fijos, como el
+   resto de la portada: el fondo es siempre oscuro, con o sin tema. */
+.hero-water {
+  justify-self: end; width: 100%; max-width: 360px;
+  display: grid; grid-template-columns: 1fr; justify-items: center; text-align: center;
+  padding: 26px 26px 22px; border-radius: 22px;
+  background: linear-gradient(160deg, rgba(14,38,58,.42), rgba(9,22,16,.34));
+  border: 1px solid rgba(180,220,245,.16);
+  box-shadow: 0 24px 60px rgba(0,0,0,.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  backdrop-filter: blur(14px) saturate(1.2);
+  color: #e9f4fb;
+}
+.hero-water .tank { width: 118px; margin-bottom: 14px; }
+
+.tank { width: 100%; height: auto; display: block; filter: drop-shadow(0 18px 40px rgba(43,140,209,.35)); }
+.tank-glass { fill: rgba(255,255,255,.05); }
+.tank-rim { fill: none; stroke: rgba(200,232,252,.55); stroke-width: 2.5; }
+.tank-shine { fill: none; stroke: rgba(255,255,255,.45); stroke-width: 5; stroke-linecap: round; }
+.tank-level { transition: transform 1.8s cubic-bezier(.22,.8,.3,1); }
+.wave-back { fill: #2b8cd1; opacity: .55; animation: waveX 7s linear infinite reverse; }
+.wave-front { fill: url(#tankDeep); animation: waveX 4.5s linear infinite; }
+/* Un periodo de la ola mide 100 unidades: moverla 100 deja el dibujo igual
+   que al empezar, y el bucle no da saltos. */
+@keyframes waveX { to { transform: translateX(-100px); } }
+
+.water-kicker {
+  margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: #7cc4f2;
+}
+.hero-water h2 { margin: 0; display: flex; flex-direction: column; gap: 4px; }
+.water-num {
+  font-size: clamp(34px, 3.6vw, 46px); font-weight: 800; letter-spacing: -1px; line-height: 1;
+  font-variant-numeric: tabular-nums; color: #fff;
+}
+.water-unit { font-size: 15px; font-weight: 600; color: #b9dcf3; }
+.water-lede { margin: 10px 0 18px; font-size: 13.5px; color: #c3d9e8; }
+
+.water-bar {
+  width: 100%; height: 10px; border-radius: 999px; overflow: hidden;
+  background: rgba(255,255,255,.12);
+}
+.water-bar span {
+  display: block; height: 100%; width: 0; border-radius: inherit;
+  background: linear-gradient(90deg, #4fb3f0, #8fd18a);
+  transition: width 1.8s cubic-bezier(.22,.8,.3,1);
+}
+.water-goal { margin: 8px 0 0; font-size: 13.5px; color: #c3d9e8; }
+.water-goal b { color: #fff; }
+.water-reached { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 12px 0 0; padding: 0; }
+.water-reached li {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 600;
+  background: rgba(143,209,138,.16); color: #a9e2a4;
+}
+.water-stamp { margin: 12px 0 0; font-size: 12px; color: #87a9c0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wave-back, .wave-front { animation: none; }
+  .tank-level, .water-bar span { transition: none; }
+}
 
 /* ---------------- Secciones ---------------- */
 .sec-head { margin-bottom: 20px; }
@@ -477,6 +550,67 @@ html { scroll-behavior: smooth; }
 .ok-big { text-align: center; padding: 10px 0 0; }
 .ok-big .mark { font-size: 44px; color: var(--cta); }
 
+/* ---------------- Asistente sobre el agua ----------------
+   Por encima del fondo oscuro (40) y por debajo del carrito (50) y de los
+   diálogos (60): abrir el carrito tapa la burbuja en vez de chocar con ella. */
+.chat { position: fixed; right: 20px; bottom: 20px; z-index: 45; display: flex; flex-direction: column; align-items: flex-end; gap: 12px; }
+.chat-fab {
+  width: 58px; height: 58px; border-radius: 50%; border: 0;
+  display: grid; place-items: center;
+  background: var(--water); color: #fff; box-shadow: var(--shadow);
+  transition: transform .15s;
+}
+.chat-fab:hover { transform: scale(1.06); }
+.chat-fab:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.chat-fab svg { width: 26px; height: 26px; }
+.chat-panel {
+  width: min(380px, calc(100vw - 32px)); height: min(560px, calc(100vh - 120px));
+  display: flex; flex-direction: column;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); overflow: hidden;
+}
+.chat-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 14px 16px; background: var(--water); color: #fff;
+}
+.chat-head h2 { margin: 0; font-size: 17px; }
+.chat-head .x { color: #fff; }
+.chat-log { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
+.chat-msg {
+  margin: 0; padding: 9px 13px; border-radius: 14px; max-width: 85%;
+  font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.chat-msg.model { align-self: flex-start; background: var(--accent-soft); border-bottom-left-radius: 4px; }
+.chat-msg.user { align-self: flex-end; background: var(--water); color: #fff; border-bottom-right-radius: 4px; }
+.chat-msg.error { align-self: stretch; max-width: none; color: var(--danger); background: none; border: 1px dashed var(--danger); }
+.chat-msg.typing { color: var(--muted); font-style: italic; }
+.chat-suggest { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.chat-suggest button {
+  text-align: left; font-size: 13px; padding: 7px 12px; border-radius: 999px;
+  border: 1px solid var(--water); background: none; color: var(--water);
+}
+.chat-suggest button:hover { background: var(--water); color: #fff; }
+.chat-form { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.chat-form input {
+  flex: 1; min-width: 0; padding: 9px 12px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--field);
+}
+.chat-send {
+  flex: none; width: 40px; height: 40px; border-radius: 50%; border: 0;
+  display: grid; place-items: center; background: var(--water); color: #fff;
+}
+.chat-send svg { width: 18px; height: 18px; }
+.chat-send:disabled, .chat-form input:disabled { opacity: .55; cursor: default; }
+.chat-note { margin: 0; padding: 0 14px 10px; font-size: 11.5px; color: var(--muted); }
+/* En el teléfono el panel ocupa la pantalla: una ventanita flotante dejaría
+   el teclado tapando la conversación. */
+@media (max-width: 560px) {
+  .chat { right: 16px; bottom: 16px; }
+  .chat-panel { position: fixed; inset: 0; width: auto; height: auto; border-radius: 0; border: 0; }
+  .chat:has(.chat-panel:not([hidden])) .chat-fab { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .chat-fab { transition: none; } .chat-fab:hover { transform: none; } }
+
 /* ---------------- Aviso flotante ---------------- */
 .toast {
   position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 20px);
@@ -512,35 +646,61 @@ html { scroll-behavior: smooth; }
     background: linear-gradient(0deg, rgba(13,18,11,.96) 18%, rgba(13,18,11,.55) 62%, rgba(13,18,11,.35) 100%);
   }
   .steps-band ol { grid-template-columns: 1fr; gap: 16px; padding: 24px 20px; }
+  /* En una columna el panel baja bajo el texto y se acuesta: la gota a la
+     izquierda y la cifra a su lado, para no doblar el alto de la portada. */
+  .hero-in:has(.hero-water:not([hidden])) { grid-template-columns: 1fr; gap: 28px; }
+  .hero-water {
+    justify-self: stretch; max-width: 520px;
+    grid-template-columns: 84px 1fr; gap: 18px; align-items: center;
+    justify-items: start; text-align: left; padding: 18px;
+  }
+  .hero-water .tank { width: 84px; margin: 0; }
+  .water-reached { justify-content: flex-start; }
   .about-cards, .contact-list { grid-template-columns: 1fr; }
   .about-in, .contact-in { padding: 36px 20px; }
   .catalog { padding: 34px 20px 10px; }
+  .foot { padding: 20px; }
   .foot a { color: var(--accent); }
-
-.foot { padding: 20px; }
 
   /* Los filtros pasan a ser un bloque que se abre desde la barra: en una
      columna estrecha, una barra lateral fija se come la pantalla. */
-  .layout { grid-template-columns: 1fr; }
+  /* minmax(0, …) y no 1fr: una columna 1fr no baja de su contenido mínimo, y
+     la rejilla de tarjetas se negaba a partirse en dos en el teléfono. */
+  .layout { grid-template-columns: minmax(0, 1fr); }
   .side { position: static; max-height: none; overflow: visible; margin-bottom: 18px; }
   .side:not(.open) { display: none; }
   .filters-toggle { display: inline-flex; align-items: center; }
-}
 
-@media (max-width: 760px) {
-  .top { padding: 0 16px; gap: 12px; }
+  /* El menú pasa a hamburguesa ya aquí y no a 760 px: entre ambos anchos los
+     enlaces, «Instalar la app» y la sesión no caben en una fila y se partían
+     en dos líneas. Se despliega bajo la cabecera; cerrado no ocupa nada. */
   .burger { display: flex; }
-  /* El menú se despliega bajo la cabecera; cerrado no ocupa nada. */
   .nav {
     position: absolute; top: var(--head-h); left: 0; right: 0;
     flex-direction: column; gap: 0;
     background: var(--card); border-bottom: 1px solid var(--line);
-    padding: 6px 16px 14px;
+    padding: 6px 20px 14px;
   }
   .nav:not(.open) { display: none; }
   .nav a { padding: 12px 0; border-bottom: 1px solid var(--line); }
+  /* Desplegado, el menú tiene fondo de tarjeta: sobre la portada no puede
+     heredar el texto claro de la cabecera flotante. */
+  .top.over .nav a { color: var(--ink); }
+  .top.over .nav a:hover { color: var(--accent); border-color: var(--line); }
+  .top.over .nav .nav-install { color: #fff; }
+  /* Con el menú abierto la cabecera deja de flotar: una barra transparente
+     encima de un desplegable sólido se leía como dos piezas sueltas. */
+  .top.over:has(.nav.open) { background: var(--card); color: var(--ink); border-bottom-color: var(--line); }
+  .top.over:has(.nav.open) .brand b { color: var(--accent); }
+  .top.over:has(.nav.open) :is(.icon-btn, .ghost-btn) { color: var(--ink); border-color: var(--line); background: var(--card); }
+}
+
+@media (max-width: 760px) {
+  .top { padding: 0 16px; gap: 12px; }
   .install-btn { display: none; }
-  .nav-install {
+  /* `.nav .nav-install` y no solo la clase: `.nav a` pesa más y le ponía el
+     texto gris sobre el botón verde. */
+  .nav .nav-install {
     display: block; margin-top: 12px; border-bottom: 0;
     background: var(--cta); color: #fff; text-align: center;
     border-radius: 999px; padding: 11px 18px; font-weight: 600;
@@ -549,10 +709,33 @@ html { scroll-behavior: smooth; }
   .lockup span { letter-spacing: -1px; }
   .lede { font-size: 15.5px; }
   .hero-perks { gap: 16px; }
-  .grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  /* Dos columnas fijas: con una sola, cada prenda ocupaba la pantalla entera
+     y había que desplazar dieciséis pantallas para ver el catálogo. */
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .card .body { padding: 10px 10px 12px; }
+  .card .cta-btn { padding: 9px 8px; font-size: 13px; }
   .detail { grid-template-columns: 1fr; }
+  /* En una columna la foto 3:4 llenaba la pantalla y escondía el precio. */
+  .detail .gal img { aspect-ratio: 4/5; max-height: 52vh; }
+  /* La X cae encima de la foto: necesita fondo propio para verse. */
+  .x.float {
+    z-index: 2; width: 38px; height: 38px; border-radius: 50%;
+    background: var(--card); box-shadow: var(--shadow);
+    display: grid; place-items: center; font-size: 22px;
+  }
   .opts { grid-template-columns: 1fr; }
   .modal { padding: 20px; }
   .cat-toolbar { gap: 8px; }
   .sort span { display: none; }
+}
+
+/* Teléfonos estrechos (360–420 px): el logotipo se queda sin la palabra para
+   que la sesión, el carrito y el menú quepan en una fila. El nombre completo
+   ya está, grande, en la portada. */
+@media (max-width: 420px) {
+  .top { gap: 8px; }
+  .brand span { display: none; }
+  .catalog { padding-left: 16px; padding-right: 16px; }
+  .modal-wrap { padding: 12px; }
+  .modal { padding: 20px 16px; max-height: calc(100vh - 24px); }
 }
