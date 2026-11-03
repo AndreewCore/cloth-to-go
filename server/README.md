@@ -89,6 +89,10 @@ ve la base y no ejecuta nada. Todo lo que sabe va en el system prompt.
   `pnpm knowledge` (necesita `pdftotext`, de poppler). Genera un `.txt` por PDF;
   el servidor solo lee los `.txt` al arrancar. Revisa el texto en el diff antes
   del commit: es literalmente lo que el modelo sabrá.
+- **Los `.txt` revisados son la fuente**, no los PDF: tras extraerlos se
+  corrigen a mano (por ejemplo, «segunda mano» solo aparece en su pregunta
+  frecuente; lo vigila `test/conocimiento.test.js`). Los PDF no se versionan:
+  volver a extraerlos pisaría esas correcciones.
 - **Encendido:** necesita `GEMINI_API_KEY` y al menos un `.txt`. Si falta algo,
   `GET /api/chat/status` → `{ enabled: false }` y la web oculta la burbuja.
 - **Defensas:** validación (≤ 500 caracteres, historial de ≤ 6 turnos y solo
