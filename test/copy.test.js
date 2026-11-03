@@ -91,3 +91,64 @@ test("el marcado estático de index.html está limpio", () => {
   const { document: docLimpio } = loadDom();
   assert.doesNotMatch(visibleText(docLimpio.body), PROHIBIDO);
 });
+
+/* ---- El sitio web (web/) ----
+   Es otra superficie con su propio texto: el HTML de la portada y sus vistas.
+   La regla es la misma; antes de cubrirla aquí, «Prendas de segunda mano» llegó
+   a producción en la cabecera del catálogo. */
+
+const fs = require("node:fs");
+const path = require("node:path");
+const { JSDOM } = require("jsdom");
+
+/**
+ * Carga web/index.html con los scripts que no tienen efectos de arranque (todo
+ * menos chat, water y main, que piden red y cablean eventos).
+ *
+ * Todo va en un único eval con un trailer que expone lo que las pruebas
+ * necesitan: los `let`/`const` de un eval indirecto no se ven desde otro.
+ * @returns {Window} Ventana de jsdom; `window.__WEB__` da acceso al estado.
+ */
+function loadWeb() {
+  const ROOT = path.join(__dirname, "..");
+  const html = fs.readFileSync(path.join(ROOT, "web", "index.html"), "utf8");
+  const dom = new JSDOM(html, { runScripts: "outside-only", url: "http://localhost/web/" });
+  const archivos = ["js/icons.js", "js/data.js", "js/state.js", "js/api.js",
+                    "web/js/session.js", "web/js/catalog.js", "web/js/cart.js"];
+  const trailer = `
+    globalThis.__WEB__ = {
+      ids: () => PRODUCTS.map(p => p.id),
+      renderGrid, renderFilters, renderDetail,
+      showDetail(id){ detailId = id; detailImg = 0; renderDetail(); },
+      // Un pedido vigente con la prenda la marca como alquilada (isRented).
+      rent(id){ orders = id == null ? [] : [{ id: 1, items: [id], start: isoOffset(-1), end: isoOffset(5), status: "pending" }]; },
+    };`;
+  dom.window.eval(archivos.map(f => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n") + trailer);
+  return dom.window;
+}
+
+test("web: el marcado estático (portada, quiénes somos, contacto) está limpio", () => {
+  const w = loadWeb();
+  // Sin los <script>: su código no es texto que se vea.
+  w.document.querySelectorAll("script").forEach(s => s.remove());
+  assert.doesNotMatch(visibleText(w.document.body), PROHIBIDO);
+});
+
+test("web: la grilla y el detalle de TODAS las prendas, libres o alquiladas", () => {
+  const w = loadWeb();
+  const web = w.__WEB__;
+  web.renderFilters();
+  web.renderGrid();
+  assert.doesNotMatch(visibleText(w.document.getElementById("grid")), PROHIBIDO);
+
+  for (const id of web.ids()) {
+    for (const alquilada of [false, true]) {
+      web.rent(alquilada ? id : null);
+      web.showDetail(id);
+      const texto = visibleText(w.document.getElementById("detailBody"));
+      assert.ok(texto.length > 0, `el detalle de ${id} debe renderizar algo`);
+      if (alquilada) assert.match(texto, /alquilada ahora mismo/i, `${id}: debe pintar la rama de prenda alquilada`);
+      assert.doesNotMatch(texto, PROHIBIDO, `detalle de ${id}${alquilada ? " (alquilada)" : ""}`);
+    }
+  }
+});
