@@ -344,8 +344,8 @@ function renderDetail(){
         <p class="note">El depósito se devuelve al entregar la prenda. El precio baja
           por día y por cantidad de prendas; el total exacto sale en tu carrito.</p>
         ${alquilada
-          ? `<p class="note"><b>Esta prenda está alquilada ahora mismo.</b> Es una pieza única
-             de segunda mano: vuelve a mirarla cuando termine el alquiler.</p>`
+          ? `<p class="note"><b>Esta prenda está alquilada ahora mismo.</b> Es una pieza única:
+             vuelve a mirarla cuando termine el alquiler.</p>`
           : inCart(p.id)
             ? `<button class="cta-btn" data-action="openCart">Ya está en tu carrito · verlo</button>`
             : `<button class="cta-btn" data-action="add" data-id="${p.id}">Añadir al carrito</button>`}

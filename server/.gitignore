@@ -6,3 +6,7 @@ node_modules/
 *.db-wal
 *.db-shm
 prisma/dev.db*
+
+# Los PDF de la fundación solo sirven para extraer los .txt de knowledge/, que
+# son los que se revisan y se versionan (ver README, «Cargar los documentos»).
+knowledge/*.pdf
