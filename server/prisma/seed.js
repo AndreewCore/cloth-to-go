@@ -2,7 +2,8 @@
  * Siembra el catálogo inicial en la base.
  *
  * Estas prendas son las mismas que el frontend trae embebidas en `js/data.js`;
- * aquí la base pasa a ser la fuente de verdad. Las rutas de `imgs` son
+ * aquí la base pasa a ser la fuente de verdad, y cada una se parte en un
+ * modelo y su ejemplar. Las rutas de `imgs` son
  * relativas (img/products/N.webp) y las sirve el frontend: el navegador las
  * resuelve contra la página, no contra la API, así que siguen siendo locales.
  *
@@ -41,34 +42,86 @@ export const PRODUCTS = [
 ];
 
 /**
- * Inserta las prendas que falten y actualiza las que ya estén, sin borrar.
+ * Escala de una talla, deducida como en el frontend: numérica ⇒ calzado.
+ * @param {string} size Talla tal como la declara la lista.
+ * @returns {"ROPA"|"CALZADO"}
+ */
+export function scaleOf(size) {
+  return /^\d+$/.test(size) ? "CALZADO" : "ROPA";
+}
+
+/**
+ * Campos del MODELO de una prenda de la lista. Talla y color no están: son
+ * del ejemplar.
+ * @param {object} p Prenda de PRODUCTS.
+ * @param {string} categoryKey Clave de su categoría en la taxonomía.
+ * @returns {object} Datos para `products`.
+ */
+export function modelFields(p, categoryKey) {
+  return {
+    name: p.name,
+    desc: p.desc,
+    categoryKey,
+    material: p.material,
+    value: p.value,
+    stars: p.stars,
+    weightKg: p.weightKg,
+    imgs: p.imgs,
+  };
+}
+
+/**
+ * Inserta los modelos que falten y actualiza los que ya estén, sin borrar, y
+ * se asegura de que cada uno tenga su ejemplar de demostración.
+ *
+ * La lista sigue siendo plana (una prenda = un modelo con talla y color)
+ * porque es la misma que `js/data.js` y la vigila el guardarraíl del catálogo;
+ * aquí se parte en modelo + ejemplar. El ejemplar de demostración va SIN
+ * código de inventario (§5: estas prendas no existen físicamente), y es el
+ * primero sin código del modelo: los que tengan código son prendas reales
+ * dadas de alta por el inventario, y la semilla no los toca.
  *
  * Se puede correr tantas veces como haga falta y sobre una base con pedidos
  * vivos. Recibe el cliente en vez de crearlo para que las pruebas usen el mismo
  * de `src/db.js` y no abran una segunda conexión.
  * @param {import("@prisma/client").PrismaClient} db Cliente de Prisma.
  * @returns {Promise<{creadas: number, actualizadas: number, sobrantes: {id: number, name: string}[]}>}
- *   Recuento de la corrida y prendas de la base que ya no están en la lista.
+ *   Recuento de la corrida y modelos de la base que ya no están en la lista.
  */
 export async function seedCatalog(db) {
   let creadas = 0;
   let actualizadas = 0;
 
+  // La taxonomía la siembra la migración; aquí solo se traduce el nombre
+  // visible de la categoría a su clave.
+  const categorias = await db.category.findMany({ select: { key: true, name: true } });
+  const claveDe = new Map(categorias.map((c) => [c.name, c.key]));
+
   for (const p of PRODUCTS) {
-    // `id` es fijo en el catálogo (no autoincremental), así que sirve de clave
-    // natural para el upsert: la misma prenda conserva su id entre corridas y
-    // los pedidos que la referencian siguen apuntando a donde apuntaban.
-    const { id, ...campos } = p;
-    const previa = await db.product.findUnique({ where: { id }, select: { id: true } });
-    await db.product.upsert({ where: { id }, create: p, update: campos });
+    const categoryKey = claveDe.get(p.cat);
+    if (!categoryKey) throw new Error(`La categoría "${p.cat}" no existe en la taxonomía.`);
+    const campos = modelFields(p, categoryKey);
+
+    // `id` es fijo en la lista, así que sirve de clave natural para el upsert:
+    // el mismo modelo conserva su id entre corridas.
+    const previa = await db.product.findUnique({ where: { id: p.id }, select: { id: true } });
+    await db.product.upsert({ where: { id: p.id }, create: { id: p.id, ...campos }, update: campos });
     if (previa) actualizadas++;
     else creadas++;
+
+    const ejemplar = { sizeScale: scaleOf(p.size), size: p.size, color: p.color };
+    const demo = await db.item.findFirst({ where: { productId: p.id, code: null }, orderBy: { id: "asc" } });
+    if (demo) await db.item.update({ where: { id: demo.id }, data: ejemplar });
+    else await db.item.create({ data: { productId: p.id, ...ejemplar } });
   }
 
-  // Las prendas que ya no figuran en la lista NO se borran: pueden tener
-  // pedidos e historial contable colgando. Retirar una prenda del catálogo es
-  // un cambio de estado del ejemplar, no un DELETE, y eso llega con la
-  // separación modelo/ejemplar. Aquí solo se avisa de que están.
+  // Los ids de la lista se escriben a mano y no avanzan la secuencia: sin
+  // esto, el primer modelo dado de alta desde el panel chocaría con el id 1.
+  await db.$executeRaw`SELECT setval('products_id_seq', GREATEST((SELECT MAX("id") FROM "products"), 1))`;
+
+  // Los modelos que ya no figuran en la lista NO se borran: pueden tener
+  // pedidos e historial contable colgando. Retirar una prenda es un cambio de
+  // estado del ejemplar (RETIRADA), no un DELETE. Aquí solo se avisa.
   const sobrantes = await db.product.findMany({
     where: { id: { notIn: PRODUCTS.map((p) => p.id) } },
     select: { id: true, name: true },

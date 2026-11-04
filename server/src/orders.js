@@ -27,23 +27,14 @@ import {
   validateOrderAddresses,
 } from "./ledger.js";
 import { DELIVERY, RETURN_TO, rentalDays } from "./pricing.js";
-import { isAdmin } from "./auth.js";
+import { CAPABILITY, hasCapability, httpError, isStaff } from "./auth.js";
+import { UNRENTABLE, isoToDate, pricedItem } from "./catalog.js";
+import { releaseForOrder, reserveForOrder } from "./items.js";
+import { FINANCE_EVENT, logFinance } from "./logs.js";
 import { todayISO } from "./dates.js";
 
 /** Formato de fecha que acepta la API: día de calendario, sin hora ni zona. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-/**
- * Error con código HTTP para el `setErrorHandler` de app.js.
- * @param {number} status Código HTTP.
- * @param {string} message Mensaje para el cliente.
- * @returns {Error} Error con `statusCode`.
- */
-function httpError(status, message) {
-  const err = new Error(message);
-  err.statusCode = status;
-  return err;
-}
 
 /**
  * Convierte un pedido de la base en la respuesta que ve el cliente.
@@ -69,7 +60,10 @@ function orderToApi(order) {
     pay: order.pay,
     createdAt: order.createdAt,
     cancelledAt: order.cancelledAt,
-    items: (order.items ?? []).map((i) => i.productId),
+    // `items` sigue siendo la lista de modelos, que es como el frontend guarda
+    // un pedido; `itemIds` dice qué ejemplares concretos se reservaron.
+    items: (order.items ?? []).map((i) => i.item.productId),
+    itemIds: (order.items ?? []).map((i) => i.itemId),
     status: order.cancelledAt ? "cancelled" : paymentStatus(charges),
     totalCents: totalCents(charges),
     total: totalCents(charges) / 100,
@@ -82,7 +76,7 @@ function orderToApi(order) {
       amount: c.amountCents / 100,
       status: c.status,
       method: c.method,
-      productId: c.productId,
+      itemId: c.itemId,
       note: c.note,
       createdAt: c.createdAt,
     })),
@@ -90,7 +84,10 @@ function orderToApi(order) {
 }
 
 /** Qué relaciones hay que traer para poder derivar los totales. */
-const CON_LINEAS = { items: true, charges: { orderBy: { id: "asc" } } };
+const CON_LINEAS = {
+  items: { include: { item: { select: { productId: true } } }, orderBy: { id: "asc" } },
+  charges: { orderBy: { id: "asc" } },
+};
 
 /**
  * Busca un pedido y comprueba que quien pregunta puede verlo.
@@ -145,12 +142,12 @@ function parseOrderBody(body) {
     throw httpError(400, "El pedido no lleva ninguna prenda.");
   }
   if (!items.every((id) => Number.isInteger(id))) {
-    throw httpError(400, "Las prendas se identifican por id numérico.");
+    throw httpError(400, "Las prendas se identifican por el id numérico del ejemplar.");
   }
   if (new Set(items).size !== items.length) {
-    // Cada prenda es única (`disponibles` = 1): pedirla dos veces no es un
-    // pedido de dos unidades, es un error que además cobraría doble.
-    throw httpError(400, "El pedido repite una prenda, y cada prenda es única.");
+    // Un ejemplar es una pieza física: pedirlo dos veces no es un pedido de
+    // dos unidades, es un error que además cobraría doble.
+    throw httpError(400, "El pedido repite un ejemplar, y cada ejemplar es único.");
   }
 
   return {
@@ -171,27 +168,43 @@ function parseOrderBody(body) {
 }
 
 /**
- * Ids de prendas que ya están comprometidas en otro pedido vigente.
+ * Ejemplares que ya tienen una reserva viva solapada con `[start, end]`.
  *
- * Un pedido deja de retener prendas cuando se anula o cuando su período
- * termina. Es casi `isPastOrder()` del frontend, con una diferencia buscada:
- * allí un pedido cuyo período acabó pero sigue sin cobrar (efectivo pendiente)
- * TODAVÍA retiene la prenda. Aquí no. La prenda ya volvió físicamente al local,
- * y bloquear el catálogo porque falta confirmar un cobro castiga al siguiente
- * cliente por una gestión de mostrador.
- * @param {object} tx Cliente Prisma (o transacción).
- * @param {number[]} ids Prendas a comprobar.
- * @returns {Promise<Set<number>>} Ids no disponibles.
+ * Es solo la comprobación amable, para responder con un mensaje claro en el
+ * caso normal. La defensa de verdad es la restricción de exclusión de la base
+ * (`order_items_sin_solape`): dos checkouts simultáneos pasan los dos esta
+ * consulta, pero solo uno pasa la restricción (ver `isOverlapViolation`).
+ * Extremos inclusivos, como la restricción: devolver el día X ocupa el día X.
+ * @param {object} tx Transacción Prisma.
+ * @param {number[]} itemIds Ejemplares pedidos.
+ * @param {string} start Inicio (`YYYY-MM-DD`).
+ * @param {string} end Devolución (`YYYY-MM-DD`).
+ * @returns {Promise<boolean>}
  */
-async function heldProductIds(tx, ids) {
-  const ocupadas = await tx.orderItem.findMany({
+async function overlapsLiveReservation(tx, itemIds, start, end) {
+  const n = await tx.orderItem.count({
     where: {
-      productId: { in: ids },
-      order: { cancelledAt: null, end: { gte: todayISO() } },
+      itemId: { in: itemIds },
+      releasedAt: null,
+      start: { lte: isoToDate(end) },
+      end: { gte: isoToDate(start) },
     },
-    select: { productId: true },
   });
-  return new Set(ocupadas.map((o) => o.productId));
+  return n > 0;
+}
+
+/**
+ * Reconoce el error de Postgres por la restricción de solape (SQLSTATE 23P01).
+ *
+ * Prisma no tiene un código propio para las restricciones de exclusión y lo
+ * entrega como error desconocido con el texto de Postgres; se mira el nombre
+ * de la restricción para no confundirlo con ningún otro fallo.
+ * @param {unknown} err Error capturado.
+ * @returns {boolean}
+ */
+export function isOverlapViolation(err) {
+  const texto = `${err?.message ?? ""} ${JSON.stringify(err?.meta ?? {})}`;
+  return texto.includes("order_items_sin_solape") || texto.includes("23P01");
 }
 
 /**
@@ -199,9 +212,11 @@ async function heldProductIds(tx, ids) {
  * @param {import("fastify").FastifyInstance} app Instancia Fastify.
  * @param {object} guards preHandlers de autenticación.
  * @param {Function} guards.requireUser Exige usuario autenticado.
- * @param {Function} guards.requireAdmin Exige usuario administrador.
+ * @param {Function} guards.requireCapability Fabrica el guard de una capacidad.
  */
-export function registerOrderRoutes(app, { requireUser, requireAdmin }) {
+export function registerOrderRoutes(app, { requireUser, requireCapability }) {
+  const requireCaja = requireCapability(CAPABILITY.CAJA);
+
   // Pedidos del usuario autenticado, del más reciente al más antiguo.
   app.get("/api/orders", { preHandler: requireUser }, async (req) => {
     const pedidos = await prisma.order.findMany({
@@ -214,23 +229,40 @@ export function registerOrderRoutes(app, { requireUser, requireAdmin }) {
 
   // Crear pedido: el servidor calcula TODOS los importes desde el catálogo.
   app.post("/api/orders", { preHandler: requireUser }, async (req, reply) => {
+    // Un cliente no puede ser trabajador (§2.1): la cuenta del personal no
+    // alquila. Así ninguna acción de caja recae nunca sobre un pedido propio.
+    if (isStaff(req.user)) {
+      throw httpError(403, "Las cuentas del personal no pueden alquilar; usa una cuenta de cliente.");
+    }
     const datos = parseOrderBody(req.body);
 
-    const creado = await prisma.$transaction(async (tx) => {
-      // Las prendas se leen de la BASE, no del cuerpo: el precio sale de
-      // `value`, y aceptar el `value` del cliente sería regalarle la tarifa.
-      const prendas = await tx.product.findMany({ where: { id: { in: datos.items } } });
-      if (prendas.length !== datos.items.length) {
+    const crear = () => prisma.$transaction(async (tx) => {
+      // Los ejemplares y su modelo se leen de la BASE, no del cuerpo: el precio
+      // sale de `value`, y aceptar el del cliente sería regalarle la tarifa.
+      const items = await tx.item.findMany({
+        where: { id: { in: datos.items } },
+        include: { product: { include: { materialRef: true } } },
+      });
+      if (items.length !== datos.items.length) {
         throw httpError(400, "Alguna de las prendas no existe en el catálogo.");
       }
-
-      // La comprobación va DENTRO de la transacción porque dos checkouts
-      // simultáneos sobre la misma prenda es una carrera real: mirar antes y
-      // escribir después deja una ventana en la que ambos la ven libre.
-      const ocupadas = await heldProductIds(tx, datos.items);
-      if (ocupadas.size > 0) {
-        throw httpError(409, "Alguna de las prendas ya está alquilada.");
+      // Mismo mensaje para «no alquilable» que para «ocupada»: el cliente solo
+      // distingue Disponible de No Disponible (§3).
+      if (items.some((i) => UNRENTABLE.includes(i.status))) {
+        throw httpError(409, "Alguna de las prendas no está disponible.");
       }
+      if (items.some((i) => i.product.pricing !== "CTG")) {
+        // Las tarifas de socio llegan con la fase 6; hasta entonces el servidor
+        // no sabe cotizarlas y no cobra algo que no sabe cotizar.
+        throw httpError(409, "Alguna de las prendas no está disponible.");
+      }
+      if (await overlapsLiveReservation(tx, datos.items, datos.start, datos.end)) {
+        throw httpError(409, "Alguna de las prendas ya está reservada para esas fechas.");
+      }
+
+      // Mismo orden que pidió el cliente: las líneas RENTAL salen en ese orden.
+      const porId = new Map(items.map((i) => [i.id, i]));
+      const ordenados = datos.items.map((id) => porId.get(id));
 
       const order = await tx.order.create({
         data: {
@@ -242,15 +274,30 @@ export function registerOrderRoutes(app, { requireUser, requireAdmin }) {
           shipAddr: datos.shipAddr,
           retAddr: datos.retAddr,
           pay: datos.pay,
-          items: { create: datos.items.map((productId) => ({ productId })) },
-          charges: { create: initialCharges({ ...datos, items: prendas }) },
+          items: {
+            create: datos.items.map((itemId) => ({
+              itemId,
+              start: isoToDate(datos.start),
+              end: isoToDate(datos.end),
+            })),
+          },
+          charges: { create: initialCharges({ ...datos, items: ordenados.map(pricedItem) }) },
         },
         include: CON_LINEAS,
       });
+      await reserveForOrder(tx, ordenados, order.id);
       return order;
     });
 
-    return reply.code(201).send(orderToApi(creado));
+    try {
+      return reply.code(201).send(orderToApi(await crear()));
+    } catch (err) {
+      // Otro checkout ganó la carrera entre la comprobación y la escritura.
+      if (isOverlapViolation(err)) {
+        throw httpError(409, "Alguna de las prendas ya está reservada para esas fechas.");
+      }
+      throw err;
+    }
   });
 
   // Cambiar el modo de devolución: NO edita la línea anterior, añade el ajuste.
@@ -285,9 +332,9 @@ export function registerOrderRoutes(app, { requireUser, requireAdmin }) {
     return orderToApi(actualizado);
   });
 
-  // Solo admin: confirmar que el efectivo entró. El cliente nunca puede darse
+  // Solo caja: confirmar que el efectivo entró. El cliente nunca puede darse
   // por cobrado a sí mismo, que es la frontera entera de este endpoint.
-  app.post("/api/orders/:id/settle", { preHandler: requireAdmin }, async (req) => {
+  app.post("/api/orders/:id/settle", { preHandler: requireCaja }, async (req) => {
     const id = Number(req.params.id);
     const order = await findOrderFor(id, req.user, true);
     if (order.cancelledAt) throw httpError(409, "El pedido está anulado.");
@@ -297,15 +344,24 @@ export function registerOrderRoutes(app, { requireUser, requireAdmin }) {
 
     // Cambia el ESTADO de las líneas, no su importe: la línea sigue diciendo lo
     // mismo, lo que cambia es que ese dinero ya entró.
-    await prisma.charge.updateMany({
-      where: { orderId: id, status: CHARGE_STATUS.PENDING },
-      data: { status: CHARGE_STATUS.SETTLED },
+    await prisma.$transaction(async (tx) => {
+      await tx.charge.updateMany({
+        where: { orderId: id, status: CHARGE_STATUS.PENDING },
+        data: { status: CHARGE_STATUS.SETTLED },
+      });
+      await logFinance(tx, {
+        kind: FINANCE_EVENT.COBRO_CONFIRMADO,
+        actorId: req.user.id,
+        orderId: id,
+        amountCents: pendientes.reduce((s, c) => s + c.amountCents, 0),
+        note: `Cobro confirmado en ${order.pay === "cash" ? "efectivo" : "caja"}`,
+      });
     });
     return orderToApi(await findOrderFor(id, req.user, true));
   });
 
-  // Solo admin: liberar el depósito al recibir la prenda en buen estado.
-  app.post("/api/orders/:id/deposit-release", { preHandler: requireAdmin }, async (req) => {
+  // Solo caja: liberar el depósito al recibir la prenda en buen estado.
+  app.post("/api/orders/:id/deposit-release", { preHandler: requireCaja }, async (req) => {
     const id = Number(req.params.id);
     const order = await findOrderFor(id, req.user, true);
     if (order.cancelledAt) throw httpError(409, "El pedido está anulado.");
@@ -313,13 +369,22 @@ export function registerOrderRoutes(app, { requireUser, requireAdmin }) {
     const linea = depositReleaseCharge(order.charges, req.body?.note);
     if (!linea) throw httpError(409, "El pedido no tiene depósito retenido.");
 
-    await prisma.charge.create({ data: { ...linea, orderId: id } });
+    await prisma.$transaction([
+      prisma.charge.create({ data: { ...linea, orderId: id } }),
+      logFinance(prisma, {
+        kind: FINANCE_EVENT.GARANTIA_LIBERADA,
+        actorId: req.user.id,
+        orderId: id,
+        amountCents: -linea.amountCents,
+        note: linea.note ?? "Garantía liberada",
+      }),
+    ]);
     return orderToApi(await findOrderFor(id, req.user, true));
   });
 
-  // Solo admin: cobrar la penalización por devolución fuera de plazo. Existía
+  // Solo caja: cobrar la penalización por devolución fuera de plazo. Existía
   // en la interfaz desde el principio y no se cobraba en ninguna parte.
-  app.post("/api/orders/:id/late-penalty", { preHandler: requireAdmin }, async (req) => {
+  app.post("/api/orders/:id/late-penalty", { preHandler: requireCaja }, async (req) => {
     const id = Number(req.params.id);
     const order = await findOrderFor(id, req.user, true);
     if (order.cancelledAt) throw httpError(409, "El pedido está anulado.");
@@ -340,14 +405,25 @@ export function registerOrderRoutes(app, { requireUser, requireAdmin }) {
     );
     if (yaCobrada) throw httpError(409, "Esa penalización ya está cobrada en el pedido.");
 
-    await prisma.charge.create({ data: { ...linea, orderId: id } });
+    await prisma.$transaction([
+      prisma.charge.create({ data: { ...linea, orderId: id } }),
+      logFinance(prisma, {
+        kind: FINANCE_EVENT.PENALIZACION,
+        actorId: req.user.id,
+        orderId: id,
+        amountCents: linea.amountCents,
+        note: linea.note,
+      }),
+    ]);
     return orderToApi(await findOrderFor(id, req.user, true));
   });
 
   // Anular: revierte los cargos con líneas espejo y marca la fecha.
   app.post("/api/orders/:id/cancel", { preHandler: requireUser }, async (req) => {
     const id = Number(req.params.id);
-    const admin = isAdmin(req.user.googleSub);
+    // Anular un pedido ajeno es de Administración (§2.1), no de cualquier
+    // capacidad: es la frontera de las decisiones que hay que poder explicar.
+    const admin = hasCapability(req.user, CAPABILITY.ADMINISTRACION);
     const order = await findOrderFor(id, req.user, admin);
     if (order.cancelledAt) throw httpError(409, "El pedido ya estaba anulado.");
 
@@ -360,14 +436,38 @@ export function registerOrderRoutes(app, { requireUser, requireAdmin }) {
     }
 
     const reversos = cancellationCharges(order.charges, req.body?.note);
-    const anulado = await prisma.order.update({
-      where: { id },
-      data: {
-        cancelledAt: new Date(),
-        ...(reversos.length ? { charges: { create: reversos } } : {}),
-      },
-      include: CON_LINEAS,
+    const anulado = await prisma.$transaction(async (tx) => {
+      // Condición sobre `cancelledAt`: dos anulaciones simultáneas no pueden
+      // escribir dos juegos de reversos.
+      const { count } = await tx.order.updateMany({ where: { id, cancelledAt: null }, data: { cancelledAt: new Date() } });
+      if (count === 0) throw httpError(409, "El pedido ya estaba anulado.");
+      if (reversos.length) {
+        await tx.charge.createMany({ data: reversos.map((r) => ({ ...r, orderId: id })) });
+      }
+      await releaseForOrder(tx, id);
+      await logFinance(tx, {
+        kind: FINANCE_EVENT.ANULACION,
+        actorId: req.user.id,
+        orderId: id,
+        amountCents: reversos.reduce((s, r) => s + r.amountCents, 0),
+        note: req.body?.note
+          ? String(req.body.note).slice(0, 500)
+          : order.userId === req.user.id ? "Anulado por el cliente" : "Anulado por el local",
+      });
+      return tx.order.findUnique({ where: { id }, include: CON_LINEAS });
     });
     return orderToApi(anulado);
+  });
+
+  // Solo caja: la bitácora financiera de un pedido, de la más vieja a la más
+  // nueva. Nunca la ve el cliente (§3.1).
+  app.get("/api/orders/:id/finance-log", { preHandler: requireCaja }, async (req) => {
+    const id = Number(req.params.id);
+    await findOrderFor(id, req.user, true);
+    return prisma.financeLog.findMany({
+      where: { orderId: id },
+      orderBy: { id: "asc" },
+      include: { actor: { select: { name: true } } },
+    });
   });
 }
