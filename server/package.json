@@ -13,7 +13,8 @@
     "db:seed": "node prisma/seed.js",
     "db:reset": "prisma migrate reset --force --skip-seed && node prisma/seed.js",
     "knowledge": "node scripts/extract-knowledge.js",
-    "test": "node --test --test-concurrency=1"
+    "staff:grant": "node scripts/staff-grant.js",
+    "test": "node --test --test-concurrency=1 test/*.test.js"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.1",

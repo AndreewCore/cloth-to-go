@@ -84,11 +84,15 @@ export function garmentCycles(p) {
  * Coste de un alquiler para el negocio, sin importar cuántos días dure:
  * amortización + lavandería + gastos fijos del ciclo. Es POR CICLO, no por día
  * — lavar cuesta lo mismo si la prenda estuvo fuera 1 día o 10.
- * @param {{value: number, stars: number, material: string}} p Prenda.
+ *
+ * El lavado sale de `p.laundryCost` cuando la prenda viene de la base (tabla
+ * `materials`, que el panel puede editar); la constante queda para el frontend
+ * y para la prueba de paridad, que no tienen esa tabla.
+ * @param {{value: number, stars: number, material: string, laundryCost?: number}} p Prenda.
  * @returns {number} USD por ciclo.
  */
 export function cycleCost(p) {
-  const laundry = LAUNDRY_BY_MATERIAL[p.material] ?? LAUNDRY_BY_MATERIAL.algodon;
+  const laundry = p.laundryCost ?? LAUNDRY_BY_MATERIAL[p.material] ?? LAUNDRY_BY_MATERIAL.algodon;
   return p.value / garmentCycles(p) + laundry + OVERHEAD_PER_CYCLE;
 }
 
@@ -129,12 +133,15 @@ export function volumeDiscountRate(itemCount) {
 
 /**
  * Precio de lista por `days` días, antes de descuentos y del piso de coste.
+ *
+ * `p.priceOverride` es el ajuste manual del admin: sustituye al primer día
+ * que sale de las estrellas, y el resto de la escalera se calcula sobre él.
  * @param {object} p Prenda.
  * @param {number} days Días de alquiler.
  * @returns {number} USD.
  */
 export function rentalListPrice(p, days) {
-  const day1 = (DAY1_RATE_BY_STARS[p.stars] ?? DAY1_RATE_DEFAULT) * p.value;
+  const day1 = p.priceOverride ?? (DAY1_RATE_BY_STARS[p.stars] ?? DAY1_RATE_DEFAULT) * p.value;
   let total = day1;
   for (let d = 2; d <= days; d++) {
     total += day1 * DAY_TRAMOS.find((t) => d <= t.hasta).peso;
@@ -149,6 +156,28 @@ export function rentalListPrice(p, days) {
  */
 export function rentalFloor(p) {
   return cycleCost(p) * (1 + MIN_MARGIN);
+}
+
+/**
+ * Valida el ajuste manual del precio del primer día.
+ *
+ * Nunca por debajo de `cycleCost()`: el ajuste existe para mover el precio
+ * dentro del margen, no para alquilar a pérdida. (Al cobrar se aplica además
+ * el suelo de `rentalFloor()`, así que ni un ajuste bajo se cobra a pérdida.)
+ * @param {object} p Prenda, con su `laundryCost` si viene de la base.
+ * @param {number|null} override USD del primer día, o null para quitarlo.
+ * @returns {string|null} Motivo del rechazo, o null si vale.
+ */
+export function validatePriceOverride(p, override) {
+  if (override === null) return null;
+  if (typeof override !== "number" || !Number.isFinite(override) || override <= 0) {
+    return "El precio ajustado debe ser un importe positivo.";
+  }
+  const suelo = cycleCost(p);
+  if (override < suelo) {
+    return `El precio no puede bajar del coste por ciclo de la prenda (USD ${suelo.toFixed(2)}).`;
+  }
+  return null;
 }
 
 /**
@@ -178,10 +207,15 @@ export const DEPOSIT_ORDER_MAX = 40;
 
 /**
  * Depósito reembolsable de una prenda, derivado de su valor de reposición.
- * @param {{value: number}} p Prenda.
+ *
+ * Con garantía fija (`p.depositOverride`) manda esa cifra y no se le aplica
+ * el tope por prenda: fijarla a mano es justo decidir que la fórmula no vale
+ * para esta prenda. El tope por pedido sigue en `depositForItems()`.
+ * @param {{value: number, depositOverride?: number|null}} p Prenda.
  * @returns {number} USD redondeado a dólares enteros.
  */
 export function depositFor(p) {
+  if (p.depositOverride != null) return p.depositOverride;
   return Math.min(Math.round(DEPOSIT_RATE * p.value), DEPOSIT_MAX);
 }
 

@@ -13,6 +13,7 @@ import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { buildApp } from "../src/app.js";
 import prisma from "../src/db.js";
+import { demoItems, grant, purge } from "./helpers/db.js";
 
 const CLIENTE = "test-sub-cliente";
 const OTRO = "test-sub-otro-cliente";
@@ -21,7 +22,6 @@ const SUBS = [CLIENTE, OTRO, ADMIN];
 
 let app;
 let prendas;
-let adminSubsPrevio;
 
 /**
  * Fecha en formato `YYYY-MM-DD` desplazada `dias` desde hoy (hora de Guayaquil).
@@ -69,37 +69,28 @@ async function crearPedido(over = {}, sub = CLIENTE) {
   return res.json();
 }
 
-/** Borra todo lo que dejaron los tests, respetando las claves foráneas. */
+/** Borra todo lo que dejaron los tests, bitácoras incluidas. */
 async function limpiar() {
-  const users = await prisma.user.findMany({ where: { googleSub: { in: SUBS } } });
-  const ids = users.map((u) => u.id);
-  if (ids.length === 0) return;
-  const orders = await prisma.order.findMany({ where: { userId: { in: ids } }, select: { id: true } });
-  const orderIds = orders.map((o) => o.id);
-  await prisma.charge.deleteMany({ where: { orderId: { in: orderIds } } });
-  await prisma.orderItem.deleteMany({ where: { orderId: { in: orderIds } } });
-  await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
-  await prisma.user.deleteMany({ where: { id: { in: ids } } });
+  await purge({ subs: SUBS });
+  // El personal se crea con su capacidad: purge() se lo lleva con el resto.
+  await grant(ADMIN, ["ADMINISTRACION"]);
 }
 
 before(async () => {
-  adminSubsPrevio = process.env.ADMIN_SUBS;
-  process.env.ADMIN_SUBS = ADMIN;
   // El token falso es su propio `sub`: determinista y sin red, igual que en
   // auth.test.js.
   app = buildApp({ verifyGoogleToken: async (token) => ({ sub: token, email: `${token}@test`, name: token }) });
   await app.ready();
-  const res = await app.inject({ method: "GET", url: "/api/products" });
-  prendas = res.json();
+  // Un pedido reserva EJEMPLARES: `prendas[i].id` es el ejemplar de
+  // demostración de cada modelo.
+  prendas = await demoItems(app);
   assert.ok(prendas.length >= 3, "la base de pruebas necesita al menos tres prendas sembradas");
 });
 
 beforeEach(limpiar);
 
 after(async () => {
-  await limpiar();
-  if (adminSubsPrevio === undefined) delete process.env.ADMIN_SUBS;
-  else process.env.ADMIN_SUBS = adminSubsPrevio;
+  await purge({ subs: SUBS });
   await app.close();
   await prisma.$disconnect();
 });
@@ -182,7 +173,7 @@ test("las líneas iniciales cubren alquiler, logística y depósito", async () =
   // Cada alquiler queda atado a su prenda: sin eso el desglose no se puede leer.
   const rentals = pedido.charges.filter((c) => c.type === "RENTAL");
   assert.deepEqual(
-    rentals.map((c) => c.productId).sort((a, b) => a - b),
+    rentals.map((c) => c.itemId).sort((a, b) => a - b),
     [prendas[0].id, prendas[1].id].sort((a, b) => a - b)
   );
 });
@@ -506,7 +497,7 @@ test("un cargo no puede señalar a una prenda que no existe", async () => {
         type: "RENTAL",
         amountCents: 100,
         status: "SETTLED",
-        productId: 999999,
+        itemId: 999999,
       },
     })
   );

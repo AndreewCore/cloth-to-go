@@ -4,6 +4,13 @@
 // SQLite para probar: dos motores significan que las migraciones solo valen
 // para uno y que las pruebas no ejercitan el motor real — la misma divergencia
 // silenciosa que ya obligó a poner un guardarraíl al catálogo duplicado.
+//
+// Hay piezas de la base que Prisma no sabe expresar y viven solo en las
+// migraciones SQL (ver 20261104120000_modelo_ejemplar):
+// - la restricción de exclusión que impide dos reservas solapadas sobre el
+//   mismo ejemplar (`order_items_sin_solape`, con `btree_gist`);
+// - los disparadores que hacen de solo-añadir las dos bitácoras.
+// No se ven aquí, pero son las defensas de verdad: el código solo las adelanta.
 
 generator client {
   provider = "prisma-client-js"
@@ -47,53 +54,351 @@ enum ChargeMethod {
   CARD
 }
 
-/// Prenda del catálogo. Refleja los campos que ya usa el frontend (js/data.js).
-/// Segunda mano y única: `disponibles` es 1 por defecto.
+/* ======================================================================
+   Taxonomía: datos, no constantes. El panel (fase 4) las edita; hasta
+   entonces las siembra la migración. La clave es estable y es lo que se
+   guarda en las prendas; el nombre es lo que se enseña y puede cambiar.
+   ====================================================================== */
+
+/// Categoría del catálogo. Su `prefix` da el código de inventario de los
+/// ejemplares (FOR-26-0001) y no se reutiliza entre categorías.
+model Category {
+  key      String    @id
+  name     String    @unique
+  /// Tres letras mayúsculas. Un ejemplar guarda su código para siempre, así
+  /// que cambiar el prefijo después solo afecta a las altas nuevas.
+  prefix   String    @unique
+  sort     Int       @default(0)
+  products Product[]
+
+  @@map("categories")
+}
+
+/// Color de la paleta cerrada. Es una tabla y no texto libre por lo mismo que
+/// lo era la constante: el filtro compara por igualdad, y "azul marino" junto
+/// a "azul" son dos colores que el filtro no sabe juntar.
+model Color {
+  key   String @id
+  name  String
+  /// Muestra para la pastilla del filtro (`#rrggbb`).
+  hex   String
+  sort  Int    @default(0)
+  items Item[]
+
+  @@map("colors")
+}
+
+/// Material. Lleva el coste de lavado porque es el material quien lo decide
+/// (lana y cuero piden lavado en seco), y ese coste entra en `cycleCost()`.
+model Material {
+  key          String    @id
+  name         String
+  /// Coste de acondicionar la prenda entre dos alquileres, en centavos.
+  laundryCents Int
+  sort         Int       @default(0)
+  products     Product[]
+
+  @@map("materials")
+}
+
+/// Escala de tallas. Dos escalas y no una lista: "M" y "39" no son comparables.
+enum SizeScale {
+  ROPA
+  CALZADO
+}
+
+/// Talla dentro de su escala. La clave es la pareja, no la etiqueta sola: el
+/// día que exista una escala infantil, su "8" no puede chocar con nada.
+model Size {
+  scale SizeScale
+  label String
+  sort  Int       @default(0)
+  items Item[]
+
+  @@id([scale, label])
+  @@map("sizes")
+}
+
+/// Ocasión o temática (boda, graduación, Halloween…). Una prenda puede servir
+/// para varias, por eso es una relación y no un campo.
+model Occasion {
+  key      String    @id
+  name     String
+  sort     Int       @default(0)
+  products Product[]
+
+  @@map("occasions")
+}
+
+/// Temporada o clima para el que sirve la prenda.
+model Season {
+  key      String    @id
+  name     String
+  sort     Int       @default(0)
+  products Product[]
+
+  @@map("seasons")
+}
+
+/// Público al que va dirigida la prenda (mujer, hombre, unisex, niños).
+model Audience {
+  key      String    @id
+  name     String
+  sort     Int       @default(0)
+  products Product[]
+
+  @@map("audiences")
+}
+
+/* ======================================================================
+   Dueños. Existen desde el primer día aunque solo haya el Oficial, para no
+   migrar dos veces cuando lleguen los socios (fase 6).
+   ====================================================================== */
+
+/// De quién es la prenda.
+enum OwnerKind {
+  /// CLOTH TO GO. Lleva distintivo y filtro propio en el catálogo.
+  OFICIAL
+  /// Una tienda de alquiler: decide precio, garantía y política de daños.
+  LOCAL
+  /// Alguien que alquila su closet; la prenda queda en consignación en CTG.
+  USUARIO
+}
+
+/// Quién entrega las prendas de un local. Se fija por socio al aprobarlo.
+enum PartnerDelivery {
+  CTG
+  LOCAL
+  SOLO_RETIRO
+}
+
+/// Dueño de un modelo. Los campos de socio (comisión, entrega, política) van
+/// vacíos en el Oficial; están en el esquema para que la fase 6 los llene sin
+/// una migración que toque cada prenda.
+model Owner {
+  id                  Int              @id @default(autoincrement())
+  kind                OwnerKind
+  name                String
+  /// Socio que es dueño, cuando lo hay: tanto el local como el usuario son un
+  /// tipo de socio derivado de un cliente. Null en el Oficial.
+  userId              Int?             @unique
+  user                User?            @relation(fields: [userId], references: [id])
+  /// Comisión de CTG en puntos básicos (1500 = 15 %). Entero, como el dinero:
+  /// un porcentaje en float acaba en una liquidación con un centavo de más.
+  commissionBps       Int?
+  delivery            PartnerDelivery?
+  /// Política de daños del local, tal como la acepta el cliente en el checkout.
+  damagePolicy        String?
+  /// Versión de esa política: el pedido guardará la que se aceptó.
+  damagePolicyVersion Int?
+  createdAt           DateTime         @default(now())
+  products            Product[]
+
+  @@map("owners")
+}
+
+/// Cómo se calcula el precio de un modelo.
+enum PricingScheme {
+  /// `rentalPrice()` de CTG, con su suelo de `cycleCost()`.
+  CTG
+  /// Tarifa del socio (un local). Llega con la fase 6.
+  SOCIO
+}
+
+/* ======================================================================
+   Modelo y ejemplar (§1 de DECISIONES). El cliente ve modelos; el mostrador
+   maneja ejemplares.
+   ====================================================================== */
+
+/// **Modelo**: lo que se anuncia, se busca, se filtra y se reseña.
+///
+/// La tabla sigue llamándose `products` y la API `/api/products`: para el
+/// cliente un modelo ES el producto, y el frontend ya habla en esos términos.
+/// Talla, color y estado ya no viven aquí: son del ejemplar.
+///
 /// No guarda precio ni depósito: ambos se derivan de `value` (coste de
-/// reposición) mediante rentalPrice()/depositFor() en js/data.js.
+/// reposición) mediante rentalPrice()/depositFor(), salvo los dos ajustes
+/// manuales de abajo.
 model Product {
-  id          Int    @id
-  name        String
-  cat         String
-  value       Float
-  stars       Int
-  /// Talla en la escala que le corresponda: letras para la ropa (XS…XXL) y
-  /// número EU para el calzado ("39"). Va como texto por eso mismo — son dos
-  /// escalas distintas, y un Int dejaría fuera la mitad del catálogo.
-  size        String
-  /// Color dominante, como clave de la paleta cerrada del frontend
-  /// (COLOR_ORDER en js/data.js): "negro", "beige", … No es texto libre — el
-  /// filtro compara por igualdad, y "azul marino" no coincidiría con "azul".
-  color       String
-  disponibles Int    @default(1)
-  material    String
-  weightKg    Float
-  /// Fotos de la prenda (["img/products/1.webp", …]), de la portada a la
-  /// última. Lista de verdad desde el paso a Postgres: con SQLite se guardaba
-  /// serializado como JSON y la API tenía que deshacerlo en cada respuesta.
-  imgs        String[]
-  desc        String
-  orderItems  OrderItem[]
-  charges     Charge[]
+  id              Int           @id @default(autoincrement())
+  name            String
+  desc            String
+  categoryKey     String
+  category        Category      @relation(fields: [categoryKey], references: [key])
+  /// Clave del material. Se llama `material` y no `materialKey` porque así la
+  /// leen `cycleCost()` y `garmentWater()` desde siempre.
+  material        String
+  materialRef     Material      @relation(fields: [material], references: [key])
+  value           Float
+  stars           Int
+  weightKg        Float
+  /// Fotos de la prenda, de la portada a la última.
+  imgs            String[]
+  brand           String?
+  audienceKey     String?
+  audience        Audience?     @relation(fields: [audienceKey], references: [key])
+  seasonKey       String?
+  season          Season?       @relation(fields: [seasonKey], references: [key])
+  occasions       Occasion[]
+  ownerId         Int           @default(1)
+  owner           Owner         @relation(fields: [ownerId], references: [id])
+  pricing         PricingScheme @default(CTG)
+  /// Ajuste manual del admin: precio del PRIMER día en USD, en lugar del que
+  /// sale de las estrellas. Los días siguientes siguen la escalera y el suelo
+  /// de `rentalFloor()` se aplica igual, así que nunca baja de `cycleCost()`.
+  priceOverride   Float?
+  /// Garantía fija opcional, en USD enteros, en lugar del 40 % del valor.
+  depositOverride Int?
+  createdAt       DateTime      @default(now())
+  items           Item[]
 
   @@map("products")
+}
+
+/// Estado interno del ejemplar (§3). El cliente nunca lo ve: para él solo hay
+/// Disponible o No Disponible.
+enum ItemStatus {
+  DISPONIBLE
+  /// Automático: lo pone un pedido confirmado y lo quita su anulación.
+  RESERVADA
+  EN_ALQUILER
+  EN_LAVADO
+  /// Retirada o con desperfecto; el motivo va en `unrentableReason`.
+  NO_ALQUILABLE
+  PERDIDA
+}
+
+/// Por qué un ejemplar no se puede alquilar. Separarlo importa por quién lo
+/// decide: un desperfecto lo anota el mostrador, retirar es del admin.
+enum UnrentableReason {
+  DESPERFECTO
+  RETIRADA
+}
+
+/// Quién lava la prenda. Con proveedor externo es lo único que responde a
+/// «¿la perdió el cliente o la perdió la lavandería?».
+enum LaundryKind {
+  PROPIO
+  EXTERNO
+}
+
+/// Condición física de la pieza.
+enum ItemCondition {
+  NUEVA
+  COMO_NUEVA
+  BUENA
+  USO_VISIBLE
+}
+
+/// Dónde está físicamente la prenda: en el local de CTG (Oficial y
+/// consignación de usuario) o en el local del socio.
+enum Custody {
+  CTG
+  SOCIO
+}
+
+/// **Ejemplar**: la prenda física. Es lo que se entrega, se lava, se rompe y
+/// se pierde, y lo que reserva un pedido.
+///
+/// Condición y medidas van aquí y no en el modelo: dos ejemplares del mismo
+/// modelo en tallas distintas no miden lo mismo ni han tenido la misma vida.
+model Item {
+  id               Int               @id @default(autoincrement())
+  productId        Int
+  product          Product           @relation(fields: [productId], references: [id])
+  /// Código de inventario `CAT-AA-NNNN` (§5). Es una etiqueta, no la
+  /// identidad: la base usa `id`. Null en las 16 prendas de demostración, que
+  /// no existen físicamente. Nunca cambia ni se reutiliza.
+  code             String?           @unique
+  sizeScale        SizeScale
+  size             String
+  sizeRef          Size              @relation(fields: [sizeScale, size], references: [scale, label])
+  color            String
+  colorRef         Color             @relation(fields: [color], references: [key])
+  condition        ItemCondition?
+  /// Medidas en cm, p. ej. `{ "pecho": 96, "largo": 70 }`. Las piezas que
+  /// importan cambian con la prenda (un zapato no tiene pecho), por eso es un
+  /// objeto y no columnas fijas.
+  measurements     Json?
+  custody          Custody           @default(CTG)
+  status           ItemStatus        @default(DISPONIBLE)
+  /// Desde cuándo está en el estado actual: lo que mira el indicador de
+  /// rezagadas del panel.
+  statusSince      DateTime          @default(now())
+  unrentableReason UnrentableReason?
+  /// Solo mientras está En Lavado: quién lava y dónde está.
+  laundryKind      LaundryKind?
+  laundryPlace     String?
+  createdAt        DateTime          @default(now())
+  orderItems       OrderItem[]
+  charges          Charge[]
+  logs             ItemLog[]
+
+  @@index([productId])
+  @@map("items")
+}
+
+/// Contador de códigos de inventario por prefijo y año. El número es
+/// correlativo y nunca se reutiliza: un alta cancelada deja hueco, y es normal.
+model InventorySequence {
+  prefix String
+  /// Año de dos dígitos (`26`).
+  year   String
+  last   Int    @default(0)
+
+  @@id([prefix, year])
+  @@map("inventory_sequences")
+}
+
+/* ======================================================================
+   Personas y capacidades (§2.2).
+   ====================================================================== */
+
+/// Lo que puede hacer una persona del personal. Se autoriza siempre por
+/// capacidad, nunca por nombre de cargo: «trabajador» y «administrador» son
+/// plantillas de alta, no valores guardados.
+enum Capability {
+  /// Entregar y recibir prendas, estados físicos, incidencias.
+  MOSTRADOR
+  /// Confirmar cobros y decidir retenciones dentro de la tabla.
+  CAJA
+  /// Altas de ejemplares, códigos, edición de modelos.
+  INVENTARIO
+  /// Todo lo anterior + retirar, marcar pérdidas, anular, dar de alta personal.
+  ADMINISTRACION
+  /// Cola de reseñas.
+  MODERACION
+  /// Solicitudes de socios, prendas externas y liquidaciones.
+  SOCIOS
 }
 
 /// Usuario autenticado con Google. `googleSub` es el identificador estable
 /// que Google garantiza (el email puede cambiar; el sub no). Se registra
 /// (upsert) la primera vez que /api/auth/google verifica su ID token, y se
 /// actualiza en cada login por si el nombre/foto cambiaron en Google.
+///
+/// Con alguna capacidad es personal; sin ninguna, cliente. Un cliente no
+/// puede ser trabajador (§2.1): las cuentas van separadas.
 model User {
-  id        Int      @id @default(autoincrement())
-  googleSub String   @unique
-  email     String
-  name      String
-  picture   String?
-  createdAt DateTime @default(now())
-  orders    Order[]
+  id           Int          @id @default(autoincrement())
+  googleSub    String       @unique
+  email        String
+  name         String
+  picture      String?
+  capabilities Capability[] @default([])
+  createdAt    DateTime     @default(now())
+  orders       Order[]
+  owner        Owner?
+  itemLogs     ItemLog[]
+  financeActs  FinanceLog[] @relation("FinanceActor")
+  financeAbout FinanceLog[] @relation("FinanceSubject")
 
   @@map("users")
 }
+
+/* ======================================================================
+   Pedidos y libro de cargos.
+   ====================================================================== */
 
 /// Alquiler confirmado.
 ///
@@ -112,9 +417,9 @@ model User {
 /// DateTime las convertiría a UTC y en UTC−5 el alquiler empezaría el día
 /// anterior.
 model Order {
-  id          Int       @id @default(autoincrement())
+  id          Int          @id @default(autoincrement())
   userId      Int
-  user        User      @relation(fields: [userId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
   /// Primer día del alquiler (`YYYY-MM-DD`).
   start       String
   /// Día de devolución (`YYYY-MM-DD`).
@@ -129,7 +434,7 @@ model Order {
   retAddr     String?
   /// Método de pago: `cash` | `credit` | `debit` (PAY_METHOD del frontend).
   pay         String
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime     @default(now())
   cancelledAt DateTime?
   /// Litros que este pedido sumó al contador de agua (WaterCounter), o null
   /// si todavía no los sumó. Es la marca que impide acreditarlo dos veces, y
@@ -139,27 +444,40 @@ model Order {
   waterLiters Int?
   items       OrderItem[]
   charges     Charge[]
+  itemLogs    ItemLog[]
+  financeLogs FinanceLog[]
 
   @@index([userId])
   @@map("orders")
 }
 
-/// Qué prendas lleva el pedido. Sin importes: el dinero de cada prenda es su
-/// línea RENTAL en `charges`, y duplicarlo aquí sería tener dos precios para lo
-/// mismo — exactamente lo que el ledger viene a evitar.
+/// Qué ejemplar reserva el pedido y durante qué días. **Es la reserva**: la
+/// base rechaza dos filas vivas del mismo ejemplar con días solapados
+/// (restricción de exclusión `order_items_sin_solape`, en la migración). Así
+/// la regla aguanta dos checkouts simultáneos, que una comprobación previa en
+/// el código no aguanta.
 ///
-/// Una prenda es única (`disponibles` = 1), así que no hay cantidad: la misma
-/// prenda no puede aparecer dos veces en el mismo pedido, y el índice único lo
-/// impone en la base en vez de confiarlo al código.
+/// `start`/`end` repiten las del pedido como `date` de Postgres porque la
+/// restricción necesita un rango de verdad; el texto del pedido sigue siendo
+/// la referencia de cara al cliente. Los extremos son INCLUSIVOS: el día de
+/// devolución está ocupado, y el siguiente alquiler empieza como pronto al
+/// día siguiente (margen para recibir y lavar).
+///
+/// Sin importes: el dinero de cada ejemplar es su línea RENTAL en `charges`.
 model OrderItem {
-  id        Int     @id @default(autoincrement())
-  orderId   Int
-  order     Order   @relation(fields: [orderId], references: [id])
-  productId Int
-  product   Product @relation(fields: [productId], references: [id])
+  id         Int       @id @default(autoincrement())
+  orderId    Int
+  order      Order     @relation(fields: [orderId], references: [id])
+  itemId     Int
+  item       Item      @relation(fields: [itemId], references: [id])
+  start      DateTime  @db.Date
+  end        DateTime  @db.Date
+  /// Cuándo dejó de reservar (anulación). Una fila liberada no cuenta para el
+  /// solape, pero se conserva: es historia del pedido.
+  releasedAt DateTime?
 
-  @@unique([orderId, productId])
-  @@index([productId])
+  @@unique([orderId, itemId])
+  @@index([itemId])
   @@map("order_items")
 }
 
@@ -177,30 +495,91 @@ model OrderItem {
 /// el vocabulario del código, pero ya no son la única defensa: la base rechaza
 /// cualquier valor fuera de la lista.
 model Charge {
-  id          Int      @id @default(autoincrement())
+  id          Int           @id @default(autoincrement())
   orderId     Int
-  order       Order    @relation(fields: [orderId], references: [id])
+  order       Order         @relation(fields: [orderId], references: [id])
   type        ChargeType
   amountCents Int
   status      ChargeStatus
   /// Null en las líneas que no mueven dinero por sí solas.
   method      ChargeMethod?
-  /// Prenda a la que corresponde la línea, cuando la hay (las RENTAL). El
-  /// depósito no la lleva: tiene tope POR PEDIDO, así que no es repartible
+  /// Ejemplar al que corresponde la línea, cuando lo hay (las RENTAL). El
+  /// depósito no lo lleva: tiene tope POR PEDIDO, así que no es repartible
   /// entre prendas sin inventarse un reparto.
   ///
   /// Va con relación de verdad y no como un Int suelto: un desglose que apunta
   /// a una prenda inexistente es un cargo que nadie puede explicar, y ese es
   /// justo el momento en que hace falta poder explicarlo.
-  productId   Int?
-  product     Product? @relation(fields: [productId], references: [id])
+  itemId      Int?
+  item        Item?         @relation(fields: [itemId], references: [id])
   /// Por qué existe esta línea, en lenguaje humano: "cambio de devolución:
   /// local → domicilio". Es lo que se le enseña a un cliente que reclama.
   note        String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime      @default(now())
 
   @@index([orderId])
   @@map("charges")
+}
+
+/* ======================================================================
+   Bitácoras (§3.1). Dos y separadas, las dos de solo añadir: un disparador
+   de la base rechaza UPDATE y DELETE. Ninguna es visible para el cliente.
+   ====================================================================== */
+
+/// Bitácora de prendas: dónde estuvo un ejemplar y por qué cambió de estado.
+/// La leen Mostrador e Inventario.
+model ItemLog {
+  id           Int          @id @default(autoincrement())
+  itemId       Int
+  item         Item         @relation(fields: [itemId], references: [id])
+  /// Quién lo hizo. Null = el sistema (reserva o anulación automática).
+  actorId      Int?
+  actor        User?        @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  /// Null en el alta del ejemplar, que no viene de ningún estado.
+  from         ItemStatus?
+  to           ItemStatus
+  note         String?
+  laundryKind  LaundryKind?
+  laundryPlace String?
+  /// Pedido que provocó el cambio, cuando lo hay: une esta bitácora con la
+  /// financiera sin compartir entradas.
+  orderId      Int?
+  order        Order?       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  createdAt    DateTime     @default(now())
+
+  @@index([itemId])
+  @@map("item_logs")
+}
+
+/// Qué tipo de hecho registra la bitácora financiera.
+enum FinanceEvent {
+  COBRO_CONFIRMADO
+  GARANTIA_LIBERADA
+  PENALIZACION
+  ANULACION
+  /// Alta, cambio o baja de capacidades de una persona del personal.
+  CAPACIDADES
+}
+
+/// Bitácora financiera: por qué se movió (o no) dinero de un pedido, y quién
+/// dio de alta a quién. La leen Caja y Administración.
+model FinanceLog {
+  id            Int          @id @default(autoincrement())
+  kind          FinanceEvent
+  /// Quién lo hizo. Null = consola o sistema.
+  actorId       Int?
+  actor         User?        @relation("FinanceActor", fields: [actorId], references: [id], onDelete: Restrict)
+  orderId       Int?
+  order         Order?       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  /// Persona afectada cuando no es un pedido (las altas de personal).
+  subjectUserId Int?
+  subjectUser   User?        @relation("FinanceSubject", fields: [subjectUserId], references: [id], onDelete: Restrict)
+  amountCents   Int?
+  note          String
+  createdAt     DateTime     @default(now())
+
+  @@index([orderId])
+  @@map("finance_logs")
 }
 
 /// Litros de agua ahorrados entre TODOS los perfiles: el contador de la web.
