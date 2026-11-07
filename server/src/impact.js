@@ -52,11 +52,11 @@ export async function runWaterCut(now = new Date()) {
 
     const cumplidos = await tx.order.findMany({
       where: { cancelledAt: null, waterLiters: null, start: { lt: todayISO(now) } },
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { item: { include: { product: true } } } } },
     });
     let delta = 0;
     for (const o of cumplidos) {
-      const litros = o.items.reduce((s, it) => s + garmentWater(it.product), 0);
+      const litros = o.items.reduce((s, it) => s + garmentWater(it.item.product), 0);
       await tx.order.update({ where: { id: o.id }, data: { waterLiters: litros } });
       delta += litros;
     }

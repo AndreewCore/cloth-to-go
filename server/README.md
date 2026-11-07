@@ -104,6 +104,40 @@ ve la base y no ejecuta nada. Todo lo que sabe va en el system prompt.
   Respuestas: **429** al pasarse del límite y **503** si Gemini falla o agota la cuota.
 - El texto de los usuarios **no se registra** en los logs.
 
+### Catálogo: modelo y ejemplar
+
+El cliente ve **modelos** (`products`); el mostrador maneja **ejemplares**
+(`items`), que son las prendas físicas con su talla, color, estado y código.
+
+- `GET /api/products` — público. Un modelo por entrada con la forma que el
+  frontend ya consume (`cat`, `size`, `color`, `disponibles`…) y, al lado,
+  `items` (cada ejemplar con `available: true|false`), `owner`/`official`,
+  marca, público, temporada y ocasiones. **Nunca** sale el estado interno ni el
+  código: el cliente solo distingue Disponible de No Disponible.
+- `GET /api/taxonomy` — público. Categorías (con su prefijo), colores, materiales,
+  tallas por escala, ocasiones, temporadas, públicos y condiciones. Son tablas:
+  las siembra la migración y las editará el panel.
+- `POST /api/products/:id/items` — **Inventario**. Alta de un ejemplar con código
+  `CAT-AA-NNNN` (prefijo de la categoría, año, correlativo que nunca se reutiliza).
+  Los 16 ejemplares de demostración no llevan código.
+- `PATCH /api/products/:id/pricing` — **Administración**. Ajuste manual del precio
+  del primer día (`priceOverride`, nunca por debajo de `cycleCost()`) y garantía
+  fija opcional (`depositOverride`).
+- `GET /api/items/:id` — **Mostrador** o **Inventario**. Ficha interna con su bitácora.
+- `POST /api/items/:id/status` — **Mostrador**. Cambio manual de estado. Reservada
+  la ponen y la quitan los pedidos; En Lavado exige `laundry: {kind, place}`;
+  Perdida y la retirada son de Administración.
+
+**Sin solape de reservas.** Cada fila de `order_items` es una reserva con sus
+días; una restricción de exclusión de Postgres (`btree_gist`) rechaza dos
+reservas vivas del mismo ejemplar que se toquen, con extremos **inclusivos**: el
+día de devolución está ocupado. Aguanta dos checkouts simultáneos, que una
+comprobación en el código no aguanta.
+
+**Bitácoras.** `item_logs` (prendas) y `finance_logs` (dinero y personal) son de
+solo añadir: un disparador rechaza `UPDATE` y `DELETE`. Ninguna se devuelve al
+cliente.
+
 ### Pedidos y libro de cargos
 
 Todas las rutas de `/api/orders` exigen el **ID token de Google** en
@@ -127,8 +161,14 @@ catálogo de la base.
   como `DEPOSIT_RELEASE`; la respuesta trae `revenueCents` (sin depósito) aparte
   de `totalCents` justamente para que nadie facture la garantía.
 - **Confirmar que entró dinero es del negocio.** `settle`, `deposit-release` y
-  `late-penalty` exigen estar en `ADMIN_SUBS`; el cliente no puede darse por
-  cobrado a sí mismo.
+  `late-penalty` exigen la capacidad **Caja**; el cliente no puede darse por
+  cobrado a sí mismo. Cada uno deja su entrada en la bitácora financiera, que
+  Caja lee en `GET /api/orders/:id/finance-log`.
+- **Un pedido reserva ejemplares**: `items` son ids de ejemplar. La respuesta
+  trae `items` (los modelos, como los guarda el frontend) e `itemIds`. Anular
+  libera la reserva y devuelve el ejemplar a Disponible si no llegó a entregarse.
+  Anular un pedido ajeno es de **Administración**.
+- **Las cuentas del personal no alquilan** (un cliente no puede ser trabajador).
 - El estado de pago **se deriva**: un pedido está `settled` cuando no le queda
   ninguna línea `PENDING`.
 
@@ -144,8 +184,26 @@ XSS se ataja escapando al pintar (`escapeHTML()`), que es la única defensa que
 vale para todos los destinos, y un filtro aquí rompería direcciones legítimas.
 
 Códigos: **400** entrada inválida · **401** sin credencial o expirada · **403**
-hace falta ser del local · **404** no existe o no es tuyo · **409** conflicto de
-estado (prenda ya alquilada, pedido anulado, depósito ya devuelto).
+hace falta una capacidad del local · **404** no existe o no es tuyo · **409**
+conflicto de estado (fechas solapadas, pedido anulado, depósito ya devuelto).
+
+### Personal y capacidades
+
+Las capacidades viven en la base (`users.capabilities`): **Mostrador**, **Caja**,
+**Inventario**, **Administración** (cuenta como todas), **Moderación** y
+**Socios**. Se autoriza siempre por capacidad, nunca por cargo, y se leen en cada
+petición, así que quitarle una a alguien surte efecto al instante. No hay ruta
+que ascienda a nadie; se cambian desde la consola:
+
+```bash
+pnpm staff:grant persona@correo.com admin          # Administración
+pnpm staff:grant persona@correo.com trabajador     # Mostrador + Caja
+pnpm staff:grant persona@correo.com MOSTRADOR,INVENTARIO
+pnpm staff:grant persona@correo.com ninguna        # baja
+```
+
+La persona tiene que haber entrado una vez con Google. Una cuenta con pedidos no
+se convierte en personal. Cada cambio queda en la bitácora financiera.
 
 > Cupones y puntos **todavía no**: el pedido aún no acepta `couponId`. Es la §2
 > del plan de backend, y sin el ledger de puntos aceptar un descuento del
@@ -158,8 +216,9 @@ estado (prenda ya alquilada, pedido anulado, depósito ya devuelto).
 | `pnpm dev` | Arranca el servidor (con logs). |
 | `pnpm db:migrate` | Crea una migración nueva a partir del cambio en el esquema (desarrollo). |
 | `pnpm db:deploy` | Aplica el historial de migraciones tal cual (CI y producción). |
-| `pnpm db:seed` | Siembra el catálogo. **Idempotente**: inserta lo que falte, actualiza lo que ya esté y no borra nada, así que puede correrse sobre una base con pedidos vivos. Avisa de las prendas de la base que ya no están en la lista, sin tocarlas. |
+| `pnpm db:seed` | Siembra el catálogo: cada prenda de la lista es un modelo con un ejemplar de demostración sin código. **Idempotente**: inserta lo que falte, actualiza lo que ya esté y no borra nada, así que puede correrse sobre una base con pedidos vivos. Avisa de los modelos de la base que ya no están en la lista, sin tocarlos. La taxonomía no la siembra: viene en la migración. |
 | `pnpm db:reset` | Recrea la base desde cero y siembra (**borra datos**). |
+| `pnpm staff:grant <correo> <capacidades>` | Da, cambia o quita capacidades del personal (ver arriba). |
 | `pnpm test` | Corre las pruebas (`node:test`) contra la app en memoria. |
 
 > Los tests asumen que la base fue migrada y sembrada antes de correrlos.
@@ -173,7 +232,6 @@ estado (prenda ya alquilada, pedido anulado, depósito ya devuelto).
 | `PORT` | Puerto del servidor (por defecto `3000`). |
 | `CORS_ORIGINS` | Orígenes autorizados a leer la API, separados por comas: `CORS_ORIGINS="https://clothtogo.app"`. Vacía refleja cualquier origen — cómodo en desarrollo y para abrir el frontend por `file://`. **Con `NODE_ENV=production` es obligatoria: si falta, el servidor no arranca** (#18), para que un despliegue no quede abierto a todos los orígenes sin avisar. |
 | `GOOGLE_CLIENT_ID` | Client ID de Google Cloud Console usado como `audience` al verificar el ID token en `POST /api/auth/google`. Debe coincidir con el `GOOGLE_CLIENT_ID` de `js/auth.js`. Sin esta variable, la ruta responde `500` en vez de arrancar rota. |
-| `ADMIN_SUBS` | `googleSub` del personal del local, separados por comas. Son los únicos que pueden confirmar cobros, liberar depósitos y cobrar atrasos. Va en el entorno y no en una columna `role` a propósito: **no hay endpoint que ascienda a nadie**, así que el permiso no se puede escalar desde la propia API. Vacía = nadie es admin, y esas tres rutas responden `403` a todo el mundo. |
 
 > CORS limita quién puede **leer** la respuesta, no quién puede **enviar** la
 > petición, así que no protege contra CSRF. Cuando se agregue autenticación, la
