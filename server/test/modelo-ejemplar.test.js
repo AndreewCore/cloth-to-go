@@ -276,6 +276,19 @@ test("Disponible otra vez con un alquiler esperando queda Reservada", async () =
   assert.equal(res.json().status, "RESERVADA");
 });
 
+test("una reserva que ya empezó también espera: la prenda devuelta tarde queda Reservada", async () => {
+  // El cliente anterior devolvió tarde y el siguiente alquiler empezó ayer sin
+  // la prenda. Sigue esperándola, así que no puede volver como Disponible.
+  const item = (await altaEjemplar(prendas[0].productId)).json().id;
+  await mover(MOSTRADOR, item, { to: "EN_LAVADO", laundry: { kind: "PROPIO", place: "Local CTG" } });
+  const pedido = await pedir({ items: [item], start: fecha(0), end: fecha(2) });
+  assert.equal(pedido.statusCode, 201);
+  // La API no acepta inicios en el pasado: se adelanta la reserva a mano.
+  await prisma.orderItem.updateMany({ where: { orderId: pedido.json().id }, data: { start: isoToDate(fecha(-1)) } });
+  const res = await mover(MOSTRADOR, item, { to: "DISPONIBLE" });
+  assert.equal(res.json().status, "RESERVADA");
+});
+
 test("perdida y retirada son de Administración; el mostrador anota desperfectos", async () => {
   const item = (await altaEjemplar(prendas[0].productId)).json().id;
   assert.equal((await mover(MOSTRADOR, item, { to: "PERDIDA", note: "no aparece" })).statusCode, 403);

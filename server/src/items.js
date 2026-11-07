@@ -91,9 +91,12 @@ export function planTransition(item, { to, note, reason, laundry }, user) {
 }
 
 /**
- * Indica si el ejemplar tiene una reserva viva que todavía no empezó (o empieza
- * hoy). Es lo que convierte un «disponible otra vez» en «reservada»: la prenda
- * volvió al local, pero ya tiene el siguiente cliente esperando.
+ * Indica si el ejemplar tiene una reserva viva que todavía no terminó. Es lo
+ * que convierte un «disponible otra vez» en «reservada»: la prenda volvió al
+ * local, pero ya tiene el siguiente cliente esperando.
+ *
+ * Se mira el FIN y no el inicio: si el cliente anterior devolvió tarde, la
+ * reserva siguiente ya empezó sin la prenda y es la que más la espera.
  * @param {object} tx Transacción Prisma.
  * @param {number} itemId Ejemplar.
  * @param {number} [exceptOrderId] Pedido que no cuenta (el que se está anulando).
@@ -104,7 +107,7 @@ async function hasPendingReservation(tx, itemId, exceptOrderId) {
     where: {
       itemId,
       releasedAt: null,
-      start: { gte: isoToDate(todayISO()) },
+      end: { gte: isoToDate(todayISO()) },
       ...(exceptOrderId ? { orderId: { not: exceptOrderId } } : {}),
     },
   });
