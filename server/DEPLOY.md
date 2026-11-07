@@ -29,9 +29,9 @@ Necesitás en la mano:
 - Cuenta de **Supabase**, de **Render** y acceso a **Google Cloud Console** del
   proyecto que emite el Client ID.
 - El repo clonado y `server/` con dependencias instaladas (`pnpm install`).
-- El **`googleSub`** de quien vaya a operar el local (para `ADMIN_SUBS`). Si no
-  lo tenés todavía, se puede dejar vacío y añadirlo después: sin él nadie es
-  admin y `settle` / `deposit-release` / `late-penalty` responden `403`.
+- El **correo** de quien vaya a operar el local. Después del despliegue entra
+  una vez con Google y se le da la capacidad con `pnpm staff:grant` (§1.4).
+  Mientras nadie la tenga, las rutas del local responden `403`.
 
 Y con todo limpio antes de tocar nada externo:
 
@@ -114,8 +114,28 @@ pnpm db:seed                      # siembra las 16 prendas
   para propagar un cambio de catálogo; avisa de las prendas que ya no están en
   la lista, sin tocarlas.
 
-**Comprobalo** en Supabase → **Table Editor**: deben existir `Product` (16
-filas), `User`, `Order`, `OrderItem` y `Charge`.
+**Comprobalo** en Supabase → **Table Editor**: deben existir `products` (16
+filas), `items` (16, sin código), `users`, `orders`, `order_items`, `charges`,
+las tablas de taxonomía (`categories`, `colors`, `materials`, `sizes`…), `owners`
+(una fila, la Oficial) y las dos bitácoras (`item_logs`, `finance_logs`).
+
+> La migración `modelo_ejemplar` hace `CREATE EXTENSION btree_gist`: es la que
+> permite la restricción que impide dos reservas solapadas sobre un ejemplar.
+> Supabase la trae disponible; si el `db:deploy` fallara ahí, se activa en
+> **Database → Extensions** y se vuelve a correr.
+
+### 1.4 Dar de alta al personal
+
+Las capacidades viven en la base (ya no hay `ADMIN_SUBS`). Con `server/.env`
+apuntando a producción, y después de que la persona haya entrado una vez con
+Google en la app o la web:
+
+```bash
+pnpm staff:grant persona@correo.com admin
+```
+
+Queda anotado en la bitácora financiera. Si `ADMIN_SUBS` sigue en Render de una
+versión anterior, se puede borrar: ya no se lee.
 
 > Las migraciones se aplican **a mano** y no en el build de Render a propósito:
 > «migraciones automáticas al desplegar» sigue siendo una decisión aplazada
@@ -148,7 +168,7 @@ proyecto de Supabase en *East US* igualmente.
 ### 2.2 Variables de entorno
 
 En el servicio → **Environment**. `NODE_ENV=production` y `NODE_VERSION=22` ya
-vienen del blueprint; estas cinco las escribís vos, más las dos del asistente
+vienen del blueprint; estas cuatro las escribís vos, más las dos del asistente
 de la web:
 
 | Variable | Valor |
@@ -157,7 +177,6 @@ de la web:
 | `DIRECT_URL` | La del session pooler (5432). |
 | `CORS_ORIGINS` | `https://andreewcore.github.io` — **exacto, sin barra final y sin comodines**. |
 | `GOOGLE_CLIENT_ID` | `115840486389-f3vitcouhua5eckn3grn1gk9kqb7ccjs.apps.googleusercontent.com` (idéntico al de `js/auth.js`). |
-| `ADMIN_SUBS` | El `googleSub` del personal, separados por comas. Vacía = nadie es admin. |
 | `GEMINI_API_KEY` | *(Opcional)* Clave gratuita de [Google AI Studio](https://aistudio.google.com/apikey). Sin ella el asistente de la web queda apagado. |
 | `TRUST_PROXY` | `1`. Sin esto, el límite por IP del asistente ve a todos los visitantes como la IP del proxy de Render. Tras desplegar, el `remoteAddress` de los logs debe ser tu IP pública; si es una del proxy, súbelo a `2`. |
 

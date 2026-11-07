@@ -6,10 +6,11 @@
  */
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import prisma from "./db.js";
 import { createGoogleVerifier } from "./googleAuth.js";
 import { createAuthGuards, upsertUser } from "./auth.js";
 import { registerOrderRoutes } from "./orders.js";
+import { registerCatalogRoutes } from "./catalog.js";
+import { registerItemRoutes } from "./items.js";
 import { registerImpactRoutes } from "./impact.js";
 import { registerChatRoutes, createGeminiAsk, createChatLimiter, loadKnowledge } from "./chat.js";
 
@@ -91,12 +92,6 @@ export function buildApp(opts = {}) {
   // Salud del servicio: útil para monitoreo y para probar que está vivo.
   app.get("/api/health", async () => ({ status: "ok" }));
 
-  // Catálogo completo, ordenado por id. Solo lectura por ahora.
-  // La fila sale tal cual: `imgs` ya es una lista en la base, así que no queda
-  // nada que traducir entre el almacén y el cliente (con SQLite había que
-  // deshacer un JSON serializado en cada respuesta).
-  app.get("/api/products", async () => prisma.product.findMany({ orderBy: { id: "asc" } }));
-
   // Verifica el ID token de Google en el servidor (el frontend solo lo
   // decodifica, sin comprobar firma) y registra/actualiza al usuario.
   // Éxito → { user }; token inválido/ausente → 401 sin detalle interno.
@@ -129,9 +124,12 @@ export function buildApp(opts = {}) {
     };
   });
 
-  // Pedidos y libro de cargos. Todas exigen credencial; las de confirmar cobro
-  // y liberar depósito, además, ser del personal del local.
-  registerOrderRoutes(app, createAuthGuards(verify));
+  // Catálogo, taxonomía, ejemplares y pedidos. Las de lectura del catálogo son
+  // públicas; el resto exige credencial y, las del local, una capacidad.
+  const guards = createAuthGuards(verify);
+  registerCatalogRoutes(app, guards);
+  registerItemRoutes(app, guards);
+  registerOrderRoutes(app, guards);
 
   // Contador común de agua ahorrada (sección de impacto de la web). Pública.
   registerImpactRoutes(app);

@@ -16,6 +16,7 @@ import prisma from "../src/db.js";
 import { readWaterCounter, runWaterCut, hourStart } from "../src/impact.js";
 import { garmentWater, communityGoal } from "../src/water.js";
 import { todayISO } from "../src/dates.js";
+import { isoToDate } from "../src/catalog.js";
 
 const SUB = "test-sub-agua";
 const HORA = 60 * 60 * 1000;
@@ -36,10 +37,16 @@ function fecha(dias) {
 
 /**
  * Crea un pedido del usuario de prueba sin pasar por la API.
- * @param {object} datos `start`, `end`, `items` (ids) y lo que se quiera pisar.
+ * @param {object} datos `start`, `end`, `items` (ids de ejemplar) y lo que se quiera pisar.
  * @returns {Promise<object>} Pedido creado.
  */
 function pedido({ items, ...datos }) {
+  // Un pedido anulado no reserva: su fila nace liberada, como la dejaría la API.
+  const reserva = {
+    start: isoToDate(datos.start),
+    end: isoToDate(datos.end),
+    releasedAt: datos.cancelledAt ?? null,
+  };
   return prisma.order.create({
     data: {
       userId: usuario.id,
@@ -47,7 +54,7 @@ function pedido({ items, ...datos }) {
       ret: "store",
       pay: "cash",
       ...datos,
-      items: { create: items.map((productId) => ({ productId })) },
+      items: { create: items.map((itemId) => ({ itemId, ...reserva })) },
     },
   });
 }
@@ -68,7 +75,14 @@ async function limpiar() {
 before(async () => {
   app = buildApp({ verifyGoogleToken: async (t) => ({ sub: t }) });
   await app.ready();
-  prendas = await prisma.product.findMany({ orderBy: { id: "asc" } });
+  // Cada «prenda» es el ejemplar de demostración de un modelo, con los datos
+  // del modelo (material y peso, que es lo que mide el agua) y el id del ejemplar.
+  const ejemplares = await prisma.item.findMany({
+    where: { code: null },
+    include: { product: true },
+    orderBy: { productId: "asc" },
+  });
+  prendas = ejemplares.map((i) => ({ ...i.product, id: i.id }));
   usuario = await prisma.user.upsert({
     where: { googleSub: SUB },
     update: {},
