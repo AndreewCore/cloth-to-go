@@ -12,7 +12,9 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import prisma from "../src/db.js";
-import { seedCatalog, PRODUCTS } from "../prisma/seed.js";
+import { seedCatalog, modelFields, PRODUCTS } from "../prisma/seed.js";
+import { isoToDate } from "../src/catalog.js";
+import { purge } from "./helpers/db.js";
 
 const SUB = "test-sub-semilla";
 /** Id fuera del catálogo, para la prenda que simula una retirada del listado. */
@@ -20,15 +22,7 @@ const ID_SOBRANTE = 990001;
 
 /** Borra el usuario de prueba con sus pedidos, cargos y la prenda sobrante. */
 async function limpiar() {
-  const user = await prisma.user.findUnique({ where: { googleSub: SUB } });
-  if (user) {
-    const orders = await prisma.order.findMany({ where: { userId: user.id }, select: { id: true } });
-    const orderIds = orders.map((o) => o.id);
-    await prisma.charge.deleteMany({ where: { orderId: { in: orderIds } } });
-    await prisma.orderItem.deleteMany({ where: { orderId: { in: orderIds } } });
-    await prisma.order.deleteMany({ where: { id: { in: orderIds } } });
-    await prisma.user.delete({ where: { id: user.id } });
-  }
+  await purge({ subs: [SUB] });
   await prisma.product.deleteMany({ where: { id: ID_SOBRANTE } });
 }
 
@@ -58,6 +52,7 @@ test("sembrar con un pedido vivo no revienta ni se lleva el historial por delant
   // Este es el caso exacto que rompía: un OrderItem y un Charge apuntando a una
   // prenda del catálogo impiden borrarla.
   const prenda = PRODUCTS[0];
+  const demo = await prisma.item.findFirst({ where: { productId: prenda.id, code: null } });
   const user = await prisma.user.create({
     data: { googleSub: SUB, email: "semilla@test", name: "Semilla" },
   });
@@ -69,14 +64,14 @@ test("sembrar con un pedido vivo no revienta ni se lleva el historial por delant
       delivery: "pickup",
       ret: "store",
       pay: "credit",
-      items: { create: { productId: prenda.id } },
+      items: { create: { itemId: demo.id, start: isoToDate("2026-08-10"), end: isoToDate("2026-08-13") } },
       charges: {
         create: {
           type: "RENTAL",
           amountCents: 1234,
           status: "SETTLED",
           method: "CARD",
-          productId: prenda.id,
+          itemId: demo.id,
           note: "alquiler de prueba",
         },
       },
@@ -88,11 +83,11 @@ test("sembrar con un pedido vivo no revienta ni se lleva el historial por delant
   // El pedido, su línea y su cargo siguen enteros y apuntando a la misma prenda.
   const items = await prisma.orderItem.findMany({ where: { orderId: order.id } });
   assert.equal(items.length, 1);
-  assert.equal(items[0].productId, prenda.id);
+  assert.equal(items[0].itemId, demo.id);
 
   const charges = await prisma.charge.findMany({ where: { orderId: order.id } });
   assert.equal(charges.length, 1);
-  assert.equal(charges[0].productId, prenda.id, "el cargo se quedó sin prenda: ya no se puede explicar");
+  assert.equal(charges[0].itemId, demo.id, "el cargo se quedó sin prenda: ya no se puede explicar");
   assert.equal(charges[0].amountCents, 1234);
 });
 
@@ -110,7 +105,7 @@ test("corrige a la lista una prenda editada a mano en la base", async () => {
 test("una prenda fuera de la lista se conserva y se reporta como sobrante", async () => {
   const modelo = PRODUCTS[0];
   await prisma.product.create({
-    data: { ...modelo, id: ID_SOBRANTE, name: "Prenda retirada del listado" },
+    data: { ...modelFields(modelo, "formal"), id: ID_SOBRANTE, name: "Prenda retirada del listado" },
   });
 
   const { sobrantes } = await seedCatalog(prisma);

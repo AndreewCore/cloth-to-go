@@ -18,6 +18,7 @@ import assert from "node:assert/strict";
 import { buildApp } from "../src/app.js";
 import prisma from "../src/db.js";
 import { ADDRESS_MAX } from "../src/ledger.js";
+import { demoItems, purge } from "./helpers/db.js";
 
 const CLIENTE = "test-sub-validacion";
 const DIRECCION = "Av. Principal 123 y Segunda";
@@ -56,14 +57,7 @@ function crear(over = {}) {
 
 /** Borra lo que dejaron las pruebas, respetando las claves foráneas. */
 async function limpiar() {
-  const user = await prisma.user.findUnique({ where: { googleSub: CLIENTE } });
-  if (!user) return;
-  const orders = await prisma.order.findMany({ where: { userId: user.id }, select: { id: true } });
-  const ids = orders.map((o) => o.id);
-  await prisma.charge.deleteMany({ where: { orderId: { in: ids } } });
-  await prisma.orderItem.deleteMany({ where: { orderId: { in: ids } } });
-  await prisma.order.deleteMany({ where: { id: { in: ids } } });
-  await prisma.user.delete({ where: { id: user.id } });
+  await purge({ subs: [CLIENTE] });
 }
 
 before(async () => {
@@ -71,8 +65,7 @@ before(async () => {
     verifyGoogleToken: async (token) => ({ sub: token, email: `${token}@test`, name: token }),
   });
   await app.ready();
-  const res = await app.inject({ method: "GET", url: "/api/products" });
-  prendas = res.json();
+  prendas = await demoItems(app);
 });
 
 beforeEach(limpiar);

@@ -85,7 +85,8 @@ export function settlementFor(pay) {
  * prendas y qué fechas; cuánto cuesta eso lo decide el servidor.
  *
  * @param {object} pedido Datos ya validados del pedido.
- * @param {Array<object>} pedido.items Prendas del catálogo (filas de Product).
+ * @param {Array<object>} pedido.items Ejemplares con los datos de precio de su
+ *   modelo (`pricedItem()` de catalog.js): `itemId`, `name`, `value`…
  * @param {string} pedido.start Inicio del alquiler (`YYYY-MM-DD`).
  * @param {string} pedido.end Devolución (`YYYY-MM-DD`).
  * @param {string} pedido.delivery `ship` | `pickup`.
@@ -104,7 +105,7 @@ export function initialCharges({ items, start, end, delivery, ret, pay }) {
       amountCents: cents(rentalPrice(p, dias, items.length)),
       status,
       method,
-      productId: p.id,
+      itemId: p.itemId,
       note: `Alquiler de ${p.name} · ${dias} día(s)`,
     });
   }
@@ -116,7 +117,7 @@ export function initialCharges({ items, start, end, delivery, ret, pay }) {
       amountCents: cents(envio),
       status,
       method,
-      productId: null,
+      itemId: null,
       note: "Envío a domicilio",
     });
   }
@@ -128,7 +129,7 @@ export function initialCharges({ items, start, end, delivery, ret, pay }) {
       amountCents: cents(retiro),
       status,
       method,
-      productId: null,
+      itemId: null,
       note: "Retiro a domicilio",
     });
   }
@@ -140,7 +141,7 @@ export function initialCharges({ items, start, end, delivery, ret, pay }) {
     amountCents: cents(depositForItems(items)),
     status,
     method,
-    productId: null,
+    itemId: null,
     note: "Depósito de garantía (reembolsable)",
   });
 
@@ -170,7 +171,7 @@ export function returnChangeAdjustment(antes, ahora, pay) {
     amountCents: delta,
     status,
     method,
-    productId: null,
+    itemId: null,
     note: `Cambio de devolución: ${etiqueta(antes)} → ${etiqueta(ahora)}`,
   };
 }
@@ -186,7 +187,7 @@ export function latePenaltyCharge(note) {
     amountCents: cents(LATE_PENALTY),
     status: CHARGE_STATUS.PENDING,
     method: null,
-    productId: null,
+    itemId: null,
     note: note ?? "Devolución fuera del plazo de gracia",
   };
 }
@@ -210,7 +211,7 @@ export function depositReleaseCharge(charges, note) {
     amountCents: -retenido,
     status: CHARGE_STATUS.SETTLED,
     method: null,
-    productId: null,
+    itemId: null,
     note: note ?? "Depósito devuelto: prenda recibida en buen estado",
   };
 }
@@ -292,7 +293,7 @@ export function cancellationCharges(charges, motivo) {
       amountCents: -c.amountCents,
       status: CHARGE_STATUS.SETTLED,
       method: c.method,
-      productId: c.productId ?? null,
+      itemId: c.itemId ?? null,
       note: `${nota} · reverso de ${c.type}`,
     }));
 }
