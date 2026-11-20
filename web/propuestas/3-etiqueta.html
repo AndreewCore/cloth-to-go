@@ -162,7 +162,7 @@ img { max-width: 100%; display: block; }
     <dt>Material</dt><dd>${escapeHTML(materialLabel(p.material))}</dd>
     <dt>Color</dt><dd>${escapeHTML(colorLabel(p.color))}</dd>
     <dt>Estado</dt><dd>${escapeHTML(conditionLabel(p.stars))}</dd>
-    <dt>Garantía</dt><dd>$${depositFor(p).toFixed(2)}</dd>`;
+    <dt>Garantía</dt><dd>$${demoDeposit(p).toFixed(2)}</dd>`;
   document.getElementById("labelPrice").textContent = `$${demoDay(p)}`;
 
   document.getElementById("rows").innerHTML = demoProducts(5).map(q => `
@@ -180,7 +180,7 @@ img { max-width: 100%; display: block; }
       </div>
       <div class="mini">
         <b>$${demoDay(q)}</b><span>por día</span>
-        <span class="dep">Garantía $${depositFor(q).toFixed(2)} · se devuelve</span>
+        <span class="dep">Garantía $${demoDeposit(q).toFixed(2)} · se devuelve</span>
       </div>
     </article>`).join("");
 

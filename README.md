@@ -36,7 +36,7 @@ bundler y **sin dependencias en tiempo de ejecución**. Se abre directamente con
 |  | Estado |
 |---|---|
 | **Catálogo** | Real. Embebido en `js/data.js`; si el backend está levantado, se sirve desde la API. |
-| **Precios y depósitos** | Reales: se **derivan** del valor de cada prenda (ver [Modelo de precios](#-modelo-de-precios)). |
+| **Precios y depósitos** | Reales: los calcula **solo el servidor** a partir del valor de cada prenda (ver [Modelo de precios](#-modelo-de-precios)); la app y la web solo los muestran. |
 | **Inicio de sesión** | Real con **Google**, verificado en el servidor. Sin backend o por `file://`, se entra como invitado. |
 | **Mapas** | Real con Google Maps, si hay clave. Sin clave, el checkout cae al campo de dirección escrito a mano. |
 | **Pago** | **Simulado.** No hay pasarela: los datos de tarjeta no se procesan ni se guardan. |
@@ -120,7 +120,10 @@ del servidor— en cada push y cada pull request.
 ## 💵 Modelo de precios
 
 Ninguna prenda guarda un precio. Cada una lleva su **valor de reposición** (`value`) y
-todo lo demás se **deriva** de ahí, en `js/data.js`:
+todo lo demás se **deriva** de ahí, en `server/src/pricing.js`, **el único sitio que
+cotiza**: la API devuelve con cada prenda su escalera de 1 a 14 días y
+`POST /api/quote` cotiza el carrito con la misma función que después cobra el pedido.
+La app y la web solo pintan esos números; sin API no enseñan precio ni dejan alquilar.
 
 - **Tarifa por tramos.** El primer día cuesta un porcentaje del valor según la calidad;
   los días 2–3 pesan un 50 % de ese primer día, los 4–7 un 30 % y del 8 en adelante un
@@ -156,7 +159,7 @@ HTML. Los eventos usan **delegación** mediante atributos `data-action`.
 |---|---|
 | `js/icons.js` | Set de iconos SVG en línea y el helper `icon()`. Sin dependencias de red. |
 | `js/prefs.js` | Tema (claro/oscuro/auto) y preferencias de accesibilidad, persistidas aparte del resto. |
-| `js/data.js` | Catálogo, constantes de negocio, **modelo de precios** y helpers puros (formato, validaciones, agua). |
+| `js/data.js` | Catálogo, constantes de negocio, lectura de los precios que manda la API y helpers puros (formato, validaciones, agua). |
 | `js/state.js` | Estado global, cálculos derivados y persistencia en `localStorage`. |
 | `js/dom.js` | Referencias al DOM, panel deslizante (sheet), toast y modal de confirmación. |
 | `js/catalog.js` | Grilla, filtros/orden, panel de filtros, detalle y agregar al carrito. |
@@ -185,6 +188,7 @@ base en Supabase:
 | `POST` | `/api/auth/google` | Verifica el ID token de Google y registra al usuario. |
 | `GET` | `/api/impact/water` | Litros de agua ahorrados por los alquileres entregados. |
 | `GET` | `/api/config` | Días cerrados y feriados: el calendario no ofrece fines de semana ni feriados. |
+| `POST` | `/api/quote` | Cotiza el carrito (alquiler, logística, garantía, premio y puntos). |
 | `GET` · `POST` | `/api/chat/status` · `/api/chat` | Asistente sobre la huella hídrica (Gemini), solo con los documentos de `server/knowledge/`. |
 | `GET` · `POST` | `/api/orders` | Pedidos del usuario, con su libro de cargos. |
 | `PATCH` · `POST` | `/api/orders/:id/…` | Cambiar la devolución, cancelar y, solo personal, cobrar o liberar garantía. |

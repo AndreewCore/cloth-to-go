@@ -141,11 +141,3 @@ test("starStr sigue existiendo, reservado para las reseñas", () => {
   const A = loadApp();
   assert.equal(A.starStr(3), "★★★☆☆");
 });
-
-test("el aviso de premio explica la calidad en palabras, no con ★", () => {
-  const A = loadApp();
-  const premium = A.REWARDS.find(r => r.type === "premiumDays");
-  if (!premium) return;   // el catálogo de premios puede cambiar
-  const msg = A.rewardIssue(premium.id, { items: [], days: 1, delivery: "pickup", ret: "local" });
-  if (msg) assert.doesNotMatch(msg, /[★☆]/);
-});

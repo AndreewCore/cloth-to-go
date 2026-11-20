@@ -1,24 +1,17 @@
 /**
- * Modelo de precios del servidor.
+ * Modelo de precios: el ÚNICO sitio que pone precio a un alquiler.
  *
- * COPIA DELIBERADA del bloque de precios de `js/data.js`. Existe porque el
- * importe que se cobra lo tiene que calcular el servidor: si el checkout
- * enviara `{ discount: 4.50 }` o `{ total: 32.10 }`, esos números serían una
- * sugerencia hostil — cualquiera abre la consola y los cambia. El cliente
- * manda qué prendas, cuántos días y qué cupón; el dinero sale de aquí.
+ * Hasta la fase 3 esto era una copia del bloque de precios de `js/data.js`,
+ * atada por una prueba de paridad. Desde entonces solo cotiza el servidor: la
+ * API manda con cada prenda su escalera de precios (`priceSummary` en
+ * catalog.js) y `POST /api/quote` cotiza el carrito con la misma función que
+ * escribe las líneas del pedido (`priceOrder` en quote.js). El cliente manda
+ * qué prendas, cuántos días y qué cupón; el dinero sale de aquí, y un importe
+ * que llegue en el cuerpo es una sugerencia hostil que no se lee.
  *
- * Por qué copia y no un archivo compartido: el frontend son classic scripts
- * (sin `import`/`export`) para poder abrirse con `file://`, y el servidor es
- * ESM. Un único archivo que sirva a ambos tendría que declararse global y
- * exportarse a la vez, y esa doble personalidad se paga en cada lectura.
- *
- * Lo que evita que las dos copias se separen NO es la buena intención, es
- * `test/pricing-paridad.test.js`: recorre el catálogo entero por duraciones y
- * cantidades y falla al primer centavo de diferencia. Es la misma decisión que
- * se tomó con el catálogo duplicado (`test/catalogo-backend.test.js`).
- *
- * Todo lo de aquí es puro: sin Prisma, sin red y sin estado. Por eso la suite
- * del frontend puede importarlo sin levantar nada.
+ * Todo lo de aquí es puro: sin Prisma, sin red y sin estado. Por eso las
+ * pruebas de vistas del frontend pueden cargarlo (test/helpers/fake-api.js)
+ * para que su API falsa responda con los números de verdad.
  */
 
 /* ---- Cargos logísticos ---- */
@@ -112,7 +105,7 @@ const DAY_TRAMOS = [
 ];
 
 const VOLUME_DISCOUNT_PER_ITEM = 0.05; // 5% menos por cada prenda adicional
-const VOLUME_DISCOUNT_MAX = 0.2; // tope: hasta 20%
+export const VOLUME_DISCOUNT_MAX = 0.2; // tope: hasta 20%
 
 /**
  * Descuento por alquilar varias prendas a la vez: el producto real no es una

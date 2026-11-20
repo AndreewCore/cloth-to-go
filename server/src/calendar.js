@@ -9,6 +9,7 @@
  */
 import prisma from "./db.js";
 import { CLOSED_WEEKDAYS, addDaysISO, todayISO } from "./dates.js";
+import { SHIPPING_FEE, VOLUME_DISCOUNT_MAX } from "./pricing.js";
 
 /** Cuánto calendario se sirve hacia delante: el checkout no reserva más lejos. */
 const HORIZONTE_DIAS = 400;
@@ -39,6 +40,10 @@ export function registerCalendarRoutes(app) {
       today: hoy,
       closedWeekdays: CLOSED_WEEKDAYS,
       holidays: filas.map((f) => ({ date: f.date.toISOString().slice(0, 10), name: f.name })),
+      // Para los textos del cliente ("envío $4.50", "hasta un 20 % por
+      // volumen"): se dicen, pero el cálculo es siempre del servidor.
+      shippingFee: SHIPPING_FEE,
+      volumeDiscountMax: VOLUME_DISCOUNT_MAX,
     };
   });
 }

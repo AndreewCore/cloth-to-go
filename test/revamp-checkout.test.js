@@ -178,7 +178,9 @@ test("la tarjeta no pide ninguna imagen ni mapa a Google", () => {
 /* ============================================================
    3. La nota del depósito ya no se repite
    ============================================================ */
-test("el resumen del checkout no repite lo que ya dice el total", () => {
+test("el resumen del checkout no repite lo que ya dice el total", async () => {
+  checkoutCon({ delivery: "ship", address: "Av. Principal 123 y Segunda", returnMethod: "store" });
+  await app.requestQuote();   // el total y la garantía salen de la cotización
   const html = checkoutCon({
     delivery: "ship", address: "Av. Principal 123 y Segunda", returnMethod: "store",
   });
@@ -188,8 +190,9 @@ test("el resumen del checkout no repite lo que ya dice el total", () => {
     "y ya no se repite debajo con otras palabras");
 });
 
-test("el carrito tampoco repite la nota, pero sí conserva el ahorro conseguido", () => {
+test("el carrito tampoco repite la nota, pero sí conserva el ahorro conseguido", async () => {
   app.cart = [{ id: 7 }, { id: 8 }, { id: 9 }];
+  await app.requestQuote();   // el ahorro por volumen lo cotiza el servidor
   win.renderCart();
   const html = doc.getElementById("sheetBody").innerHTML;
 

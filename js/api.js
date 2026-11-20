@@ -457,3 +457,39 @@ async function refreshAccount() {
   if (!o.ok || !p.ok || !Array.isArray(o.data)) return null;
   return { goals: applyAccount({ orders: o.data.map(orderFromApi), points: p.data }) };
 }
+
+/* ============================================================
+   Cotización del carrito (fase 3): solo el servidor pone precio.
+   ============================================================ */
+
+// Clave del carrito que se está cotizando ahora mismo y su petición: quien pida
+// la misma cotización mientras la primera no ha vuelto espera a esa, en vez de
+// lanzar otra.
+let quoteInFlight = "";
+let quotePromise = null;
+
+/**
+ * Pide al servidor la cotización del carrito tal como está, si la vigente no
+ * es la suya. Las vistas la llaman al pintarse y enseñan "—" mientras tanto;
+ * al llegar, `onQuoteUpdated` (cada superficie define el suyo) las repinta.
+ * Una respuesta vieja —el carrito cambió mientras viajaba— se descarta.
+ * @returns {Promise<boolean>} true si llegó una cotización nueva.
+ */
+async function requestQuote() {
+  if (!cart.length || quoteReady() || !catalogFromApi || !backend.enabled) return false;
+  const body = cartQuoteBody();
+  if (!body.items) return false;              // alguna prenda sin ejemplar libre
+  const key = JSON.stringify(body);
+  if (key === quoteInFlight) return quotePromise;
+  quoteInFlight = key;
+  quotePromise = (async () => {
+    const r = await apiFetch("/api/quote", { method: "POST", body });
+    if (quoteInFlight === key) quoteInFlight = "";
+    if (!r.ok || key !== currentQuoteKey()) return false;
+    quote = r.data;
+    quoteKey = key;
+    if (typeof onQuoteUpdated === "function") onQuoteUpdated();
+    return true;
+  })();
+  return quotePromise;
+}

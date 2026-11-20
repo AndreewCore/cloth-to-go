@@ -67,6 +67,8 @@ function setBusinessCalendar(cfg){
   if(!cfg) return;
   if(Array.isArray(cfg.closedWeekdays)) businessCalendar.closedWeekdays = cfg.closedWeekdays.slice();
   if(Array.isArray(cfg.holidays)) businessCalendar.holidays = new Set(cfg.holidays.map(h => h.date));
+  if(typeof cfg.shippingFee === "number") pricingTexts.shippingFee = cfg.shippingFee;
+  if(typeof cfg.volumeDiscountMax === "number") pricingTexts.volumeDiscountMax = cfg.volumeDiscountMax;
 }
 /** Día de la semana de una fecha `YYYY-MM-DD` (0 = domingo), sin zona horaria. */
 function weekdayISO(iso){
@@ -96,161 +98,51 @@ function returnByISO(start, end){
 }
 
 /* ============================================================
-   MODELO DE PRECIOS
+   PRECIOS: los pone el servidor (fase 3)
    ============================================================
-   El precio de alquiler se calcula; NO se guarda por prenda. Se guarda
-   `value` (lo que costaría reponer la prenda en Ecuador, segunda mano) y de
-   ahí sale todo.
+   El modelo de precios (tramos por día, volumen, piso de coste, garantía)
+   vive SOLO en server/src/pricing.js. La API devuelve con cada prenda su
+   escalera de 1 a 14 días (`p.price`) y `POST /api/quote` cotiza el carrito
+   (ver `quote` en state.js). Aquí solo se lee lo que llegó; con el catálogo
+   embebido (sin API) no hay precio que enseñar, y tampoco se puede alquilar.
+   ============================================================ */
 
-   Idea central: el coste de un alquiler es POR CICLO, no por día. Lavar,
-   planchar, revisar y empacar cuesta lo mismo si la prenda estuvo fuera 1 día
-   o 10. Por eso los días adicionales pueden abaratarse mucho sin perder
-   dinero, y por eso existe un piso por debajo del cual ningún alquiler es
-   rentable por corto que sea.
-
-   Tarifa de cara al cliente (tramos sobre el valor de la prenda):
-     día 1      → τ · value        (τ según calidad)
-     días 2–3   → 50 % de τ · value  cada uno
-     días 4–7   → 30 % de τ · value  cada uno
-     días 8+    → 15 % de τ · value  cada uno
-   …menos el descuento por volumen, y nunca por debajo del piso de coste. */
-
-/* ---- Coste real de un ciclo de alquiler ---- */
-
-// Coste de acondicionar la prenda entre un alquiler y el siguiente (USD,
-// precios de lavandería en Guayaquil). Lana y cuero piden lavado en seco o
-// tratamiento especial, de ahí la diferencia con el algodón.
-const LAUNDRY_BY_MATERIAL = { algodon:1.50, sintetico:1.50, lino:2.50, lana:5.00, cuero:3.00 };
-
-// Empaque, transporte interno y provisión por merma/no devolución, por ciclo.
-const OVERHEAD_PER_CYCLE = 0.50;
-
-// Ciclos de alquiler que le quedan a una prenda por cada estrella de calidad.
-// Una prenda de 5★ aguanta ~30 alquileres antes de retirarse; una de 2★, ~12.
-const CYCLES_PER_STAR = 6;
-
-// Margen sobre coste que debe dejar cualquier alquiler, por corto que sea.
-const MIN_MARGIN = 0.35;
+/** Textos de tarifas que llegan de GET /api/config (envío, volumen máximo). */
+const pricingTexts = { shippingFee: SHIPPING_FEE, volumeDiscountMax: 0.20 };
 
 /**
- * Ciclos de alquiler que le quedan a la prenda antes de retirarla del catálogo.
- * Sobre este número se amortiza su valor de reposición.
+ * Precio de una prenda suelta por `days` días, según la API, o null si el
+ * catálogo no trae precios (embebido, sin conexión).
+ * @param {object} p Prenda.
+ * @param {number} days Días (1 a 14; más allá se usa el último tramo).
+ * @returns {number|null} USD.
  */
-function garmentCycles(p){ return CYCLES_PER_STAR * p.stars; }
-
-/**
- * Coste de un alquiler para el negocio, sin importar cuántos días dure:
- * amortización de la prenda + lavandería + gastos fijos del ciclo.
- * @returns {number} USD por ciclo.
- */
-function cycleCost(p){
-  const laundry = LAUNDRY_BY_MATERIAL[p.material] ?? LAUNDRY_BY_MATERIAL.algodon;
-  return p.value / garmentCycles(p) + laundry + OVERHEAD_PER_CYCLE;
-}
-
-/* ---- Tarifa de cara al cliente ---- */
-
-// Porcentaje del valor de la prenda que se cobra el primer día, según calidad.
-// Una prenda gastada se cobra más barata: le quedan menos ciclos y el cliente
-// asume su desgaste visible.
-// DAY1_RATE_DEFAULT es la tarifa de la prenda sin calidad reconocible (un
-// `stars` ausente o fuera de 1–5, que puede llegar de la API): se cobra como la
-// más gastada, que es el lado seguro. Va nombrada porque el respaldo se
-// duplicaba a mano en rentalListPrice y podía quedarse en la tarifa vieja.
-const DAY1_RATE_DEFAULT = 0.06;
-const DAY1_RATE_BY_STARS = { 5:0.10, 4:0.08, 3:DAY1_RATE_DEFAULT, 2:DAY1_RATE_DEFAULT, 1:DAY1_RATE_DEFAULT };
-
-// Peso de cada día adicional respecto al primero, por tramos. Alquilar dos
-// semanas no puede costar catorce veces un día: el coste del negocio apenas
-// crece con el tiempo (ver cycleCost), así que el precio tampoco debe hacerlo.
-const DAY_TRAMOS = [
-  { hasta: 3,        peso: 0.50 },  // días 2–3
-  { hasta: 7,        peso: 0.30 },  // días 4–7
-  { hasta: Infinity, peso: 0.15 },  // días 8 en adelante
-];
-
-const VOLUME_DISCOUNT_PER_ITEM = 0.05;  // 5% menos por cada prenda adicional
-const VOLUME_DISCOUNT_MAX      = 0.20;  // tope: hasta 20%
-
-/**
- * Descuento por alquilar varias prendas a la vez. Existe porque el producto
- * real no es una prenda suelta sino un conjunto: las prendas baratas solo
- * salen rentables acompañadas (chocan contra el piso de coste por sí solas).
- * @param {number} itemCount Prendas en el pedido.
- * @returns {number} Tasa entre 0 y VOLUME_DISCOUNT_MAX.
- */
-function volumeDiscountRate(itemCount){
-  const extra = Math.max(0, itemCount - 1);
-  return Math.min(extra * VOLUME_DISCOUNT_PER_ITEM, VOLUME_DISCOUNT_MAX);
-}
-
-/**
- * Precio de lista por `days` días, antes de descuentos y del piso de coste.
- * @returns {number} USD.
- */
-function rentalListPrice(p, days){
-  const day1 = (DAY1_RATE_BY_STARS[p.stars] ?? DAY1_RATE_DEFAULT) * p.value;
-  let total = day1;
-  for(let d = 2; d <= days; d++){
-    total += day1 * DAY_TRAMOS.find(t => d <= t.hasta).peso;
-  }
-  return total;
-}
-
-/**
- * Precio mínimo al que se puede alquilar la prenda sin perder dinero.
- * @returns {number} USD.
- */
-function rentalFloor(p){ return cycleCost(p) * (1 + MIN_MARGIN); }
-
-/**
- * Precio final de alquilar una prenda: tramos por día, menos el descuento por
- * volumen, con el piso de coste como suelo duro.
- * @param {object} p Prenda del catálogo.
- * @param {number} days Días de alquiler (mínimo 1).
- * @param {number} [itemCount=1] Prendas del pedido, para el descuento.
- * @returns {number} USD con 2 decimales.
- */
-function rentalPrice(p, days, itemCount = 1){
+function catalogPrice(p, days){
+  const ladder = p && p.price && p.price.ladder;
+  if(!Array.isArray(ladder) || !ladder.length) return null;
   const d = Math.max(1, days);
-  const listed = rentalListPrice(p, d) * (1 - volumeDiscountRate(itemCount));
-  return Math.round(Math.max(listed, rentalFloor(p)) * 100) / 100;
+  if(d <= ladder.length) return ladder[d - 1];
+  // Pasados los 14 días cada día extra cuesta lo mismo que el último tramo.
+  const ultimo = ladder[ladder.length - 1] - ladder[ladder.length - 2];
+  return Math.round((ladder[ladder.length - 1] + ultimo * (d - ladder.length)) * 100) / 100;
 }
-
+/** Lo que añade el segundo día a una prenda, o null sin precios. */
+function catalogNextDay(p){ return p && p.price ? p.price.nextDay : null; }
+/** Garantía de una prenda suelta, o null sin precios. */
+function catalogDeposit(p){ return p && p.price ? p.price.deposit : null; }
 /**
- * Cuánto sube el precio al añadir un día más al alquiler mínimo. Puede ser 0:
- * en las prendas ancladas a su piso de coste los primeros días extra no
- * encarecen nada, y eso conviene decirlo en la tarjeta.
- * @returns {number} USD del segundo día.
+ * Importe listo para pintar: "$12.50", o "—" cuando todavía no se sabe (sin
+ * API, o mientras llega la cotización).
+ * @param {number|null|undefined} usd Importe.
+ * @returns {string}
  */
-function nextDayPrice(p){ return Math.round((rentalPrice(p, 2) - rentalPrice(p, 1)) * 100) / 100; }
-
-/* ---- Depósito de garantía ----
-   Cubre el riesgo de no recuperar la prenda, así que se deriva de su valor y
-   NO baja por volumen: más prendas es más riesgo, no menos. El tope existe
-   porque inmovilizar más de eso espanta al cliente aunque sea reembolsable;
-   por encima del tope el riesgo se cubrirá con pre-autorización de tarjeta. */
-const DEPOSIT_RATE      = 0.40;   // 40% del valor de reposición
-const DEPOSIT_MAX       = 25;     // tope por prenda, en USD
-const DEPOSIT_ORDER_MAX = 40;     // tope por pedido, en USD
-
-/**
- * Depósito reembolsable de una prenda, derivado de su valor de reposición.
- * @returns {number} USD redondeado a dólares enteros.
- */
-function depositFor(p){ return Math.min(Math.round(DEPOSIT_RATE * p.value), DEPOSIT_MAX); }
-
-/**
- * Depósito de un pedido completo, con tope propio: un pedido de cinco prendas
- * no es cinco veces más probable de no volver que uno de una, y pasado cierto
- * monto el depósito espanta al cliente aunque se le devuelva entero.
- * @param {Array<object>} items Prendas del pedido.
- * @returns {number} USD.
- */
-function depositForItems(items){
-  const sum = items.reduce((s, p) => s + depositFor(p), 0);
-  return Math.min(sum, DEPOSIT_ORDER_MAX);
-}
+function money(usd){ return typeof usd === "number" && Number.isFinite(usd) ? `$${usd.toFixed(2)}` : "—"; }
+/** Precio por día de un importe de `d` días; null si el importe no se sabe. */
+function perDay(usd, d){ return usd === null || usd === undefined ? null : usd / Math.max(1, d); }
+/** Suma de importes; null si alguno todavía no se sabe. */
+function sumOrNull(...usds){ return usds.some(v => v === null || v === undefined) ? null : usds.reduce((s, v) => s + v, 0); }
+/** Clave para ordenar por precio del primer día (sin precio, como gratis: al principio). */
+function sortPrice(p){ return catalogPrice(p, 1) ?? 0; }
 
 /* ---- Ahorro de agua por reutilización (moda circular) ----
    Fabricar ropa NUEVA consume enormes cantidades de agua: riego del cultivo
@@ -541,112 +433,10 @@ const REWARDS = [
 const REWARD_BY_ID = new Map(REWARDS.map(r => [r.id, r]));
 function rewardById(id){ return REWARD_BY_ID.get(id); }
 
-/* Prenda destacada más cara del contexto, o null si no hay ninguna.
-   El premio premium se aplica a la de mayor precio que califica: es la lectura
-   que el cliente espera de "gratis" y la única que no sorprende. */
-function premiumItem(items, days, minStars){
-  const candidatos = items.filter(p => p.stars >= minStars);
-  if(!candidatos.length) return null;
-  return candidatos.reduce((mejor, p) =>
-    rentalPrice(p, days, items.length) > rentalPrice(mejor, days, items.length) ? p : mejor);
-}
-
-/**
- * Tarifa del alquiler del contexto, en CENTAVOS, para valorar un premio.
- * El descuento por volumen se aplica siempre sobre el pedido entero (`n`): un
- * premio no puede cambiar cuántas prendas se llevan, así que tampoco el tramo.
- * @param {object[]} items Prendas del alquiler.
- * @returns {{precio:function, suma:function}} `precio(p, d)` en USD (una prenda,
- *   `d` días) y `suma(d)` en centavos (todas las prendas).
- */
-function rewardQuote(items){
-  const n = items.length;
-  const precio = (p, d) => rentalPrice(p, Math.max(1, d), n);
-  return { precio, suma: d => items.reduce((s, p) => s + cents(precio(p, d)), 0) };
-}
-
-/* Cuánto vale EN BRUTO cada tipo de premio, en centavos y antes del tope.
-   Una tabla y no un `switch` porque este es el punto de extensión real del
-   programa de puntos: dar de alta un premio nuevo es añadir una entrada aquí y
-   otra en REWARDS, sin abrir una función que ya mezclaba cuatro aritméticas
-   distintas con el tope que comparten. La clave es el `type` de REWARDS; un
-   tipo desconocido no vale nada, igual que antes hacía el `switch` sin `default`.
-   @type {Object<string, function(object, object, {precio:function, suma:function}): number>} */
-const REWARD_GROSS = {
-  // Cubre UNA tarifa de logística: el premio dice "envío O retiro", no ambos.
-  shipping: (rw, ctx) =>
-    (deliveryFeeFor(ctx.delivery) || returnFeeFor(ctx.ret)) ? cents(SHIPPING_FEE) : 0,
-
-  // Un día menos de alquiler. Con un solo día no hay nada que regalar sin
-  // dejar el alquiler en cero, así que el premio se reserva para otro pedido.
-  freeDay: (rw, ctx, q) =>
-    ctx.days >= 2 ? q.suma(ctx.days) - q.suma(ctx.days - 1) : 0,
-
-  percent: (rw, ctx, q) => Math.round(q.suma(ctx.days) * rw.rate),
-
-  // La prenda destacada sale gratis hasta `rw.days` días; si el alquiler dura
-  // menos, se regala solo lo que realmente se cobró por ella.
-  premiumDays: (rw, ctx, q) => {
-    const p = premiumItem(ctx.items, ctx.days, rw.minStars);
-    return p ? cents(q.precio(p, Math.min(ctx.days, rw.days))) : 0;
-  },
-};
-
-/**
- * Traduce un premio a un descuento en dólares sobre un alquiler concreto.
- *
- * Es puro y se calcula, nunca se guarda: así un pedido que cambia (p. ej. su
- * modo de devolución) recalcula el premio junto con el resto del cobro, igual
- * que el precio y el depósito.
- *
- * El descuento NUNCA toca el depósito: es dinero reembolsable, no ingreso, y
- * rebajarlo dejaría a la empresa cubriendo menos riesgo del que asumió. Por eso
- * el tope se calcula aquí, fuera de REWARD_GROSS: es común a todos los premios
- * y ningún tipo nuevo debe poder saltárselo.
- *
- * @param {object} rw Premio de REWARDS.
- * @param {{items:object[], days:number, delivery:string, ret:string}} ctx
- *   Prendas, días del período y modos de entrega/devolución del alquiler.
- * @returns {number} Descuento en USD (0 si el premio no aplica a este pedido).
- */
-function rewardDiscount(rw, ctx){
-  if(!rw) return 0;
-  const { items, days, delivery, ret } = ctx;
-  if(!items.length) return 0;
-
-  const q = rewardQuote(items);
-  const calc = REWARD_GROSS[rw.type];
-  const bruto = calc ? calc(rw, ctx, q) : 0;
-
-  // Tope: el premio puede dejar el alquiler en $0, nunca en negativo (que sería
-  // devolverle al cliente parte del depósito).
-  const cobrable = q.suma(days)
-    + cents(deliveryFeeFor(delivery))
-    + cents(returnFeeFor(ret));
-  return Math.max(0, Math.min(bruto, cobrable)) / 100;
-}
-
-/**
- * Motivo por el que un premio no rebajaría nada en este alquiler, o null si sí
- * aplica. Sirve para explicarlo en el checkout en vez de mostrar un "-$0.00"
- * mudo que parece un error de la app.
- * @param {object} rw Premio de REWARDS.
- * @param {{items:object[], days:number, delivery:string, ret:string}} ctx
- * @returns {string|null}
- */
-function rewardIssue(rw, ctx){
-  if(!rw) return null;
-  const { items, days, delivery, ret } = ctx;
-  if(rw.type === "shipping" && delivery !== DELIVERY.SHIP && ret !== RETURN_TO.HOME)
-    return "Solo aplica si eliges envío a domicilio o retiro a domicilio.";
-  if(rw.type === "freeDay" && days < 2)
-    return "Necesitas un alquiler de 2 días o más para regalar uno.";
-  if(rw.type === "premiumDays" && !premiumItem(items, days, rw.minStars))
-    // En palabras y no con el medidor: este texto va en un toast y en avisos,
-    // donde no hay HTML que pintar.
-    return `Ninguna prenda del carrito es destacada (calidad ${rw.minStars}/5 o más).`;
-  return null;
-}
+/* El valor de un premio en un alquiler lo calcula el servidor
+   (server/src/rewards.js); el checkout lo recibe en la cotización. REWARDS
+   queda aquí solo para pintar nombres, costes y descripciones, y
+   test/premios-paridad.test.js vigila que coincida con el del servidor. */
 
 /* Índice id → producto para acceso O(1) (evita PRODUCTS.find repetido). */
 const PRODUCT_BY_ID = new Map(PRODUCTS.map(p => [p.id, p]));

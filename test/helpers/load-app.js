@@ -19,16 +19,15 @@ const JS_DIR = path.join(__dirname, "..", "..", "js");
 // puede leer y reasignar las const/let/function declaradas arriba.
 const EXPORT_TRAILER = `
 globalThis.__APP__ = {
-  // --- Precios (data.js) ---
-  rentalPrice, rentalListPrice, rentalFloor, nextDayPrice, cycleCost,
-  garmentCycles, volumeDiscountRate, depositFor, depositForItems,
+  // --- Precios: los pone el servidor (fase 3); aquí solo se leen ---
+  catalogPrice, catalogNextDay, catalogDeposit, money, perDay, sumOrNull, sortPrice,
   // --- Constantes ---
-  SHIPPING_FEE, DEPOSIT_MAX, DEPOSIT_ORDER_MAX, MIN_MARGIN,
+  SHIPPING_FEE,
   // --- Helpers puros (data.js) ---
   escapeHTML, fmtDate, daysBetween, starStr, conditionLabel, materialLabel,
   qualityLevel, qualityMeter, qualityMeterText,
   productImages, coverImage, imgPlaceholder,
-  REWARDS, rewardById, rewardIssue,
+  REWARDS, rewardById,
   garmentWater, litersToGallons, WATER_PER_KG,
   isValidEmail, isValidPhone, isValidName, isValidAddress,
   ALLOWED_EMAIL_DOMAINS, emailDomain, isAllowedEmailDomain, isValidContactEmail,
@@ -42,7 +41,8 @@ globalThis.__APP__ = {
   canCancelOrder, isDelivered, isRented, unitsAvailable, inCart,
   totalWaterSaved,
   subtotal, subtotalBeforeVolume, volumeSavings, depositTotal, grandTotal,
-  orderItemsSubtotal, orderDeposit, orderTotal, paymentStatusLabel, orderPoints,
+  orderDeposit, orderItemPrice, paymentStatusLabel, orderPoints, quoteReady,
+  setQuote(q){ quote = q; quoteKey = q ? currentQuoteKey() : ""; },
   // --- Control del estado mutable para los tests ---
   setState(patch){
     if ('cart'         in patch) cart = patch.cart;

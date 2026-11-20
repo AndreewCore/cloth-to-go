@@ -11,6 +11,7 @@ import { createAuthGuards, isStaff, upsertUser } from "./auth.js";
 import { createSession, revokeSession } from "./sessions.js";
 import { registerOrderRoutes } from "./orders.js";
 import { registerPointsRoutes } from "./points.js";
+import { registerQuoteRoutes } from "./quote.js";
 import { registerCatalogRoutes } from "./catalog.js";
 import { registerItemRoutes } from "./items.js";
 import { registerImpactRoutes } from "./impact.js";
@@ -156,6 +157,7 @@ export function buildApp(opts = {}) {
   registerItemRoutes(app, guards);
   registerOrderRoutes(app, guards);
   registerPointsRoutes(app, guards);
+  registerQuoteRoutes(app, guards);
 
   // Contador común de agua ahorrada (sección de impacto de la web). Pública.
   registerImpactRoutes(app);

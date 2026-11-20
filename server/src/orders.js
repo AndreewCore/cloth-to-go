@@ -14,7 +14,6 @@ import prisma from "./db.js";
 import {
   cancellationCharges,
   depositReleaseCharge,
-  initialCharges,
   paymentStatus,
   returnChangeAdjustment,
   CHARGE_STATUS,
@@ -33,7 +32,8 @@ import { releaseForOrder, reserveForOrder } from "./items.js";
 import { FINANCE_EVENT, logFinance } from "./logs.js";
 import { isBusinessDay, returnByDate, todayISO } from "./dates.js";
 import { holidaySet } from "./calendar.js";
-import { orderPoints, rewardById, rewardDiscountCents, rewardIssue } from "./rewards.js";
+import { rewardById, rewardDiscountCents } from "./rewards.js";
+import { priceOrder } from "./quote.js";
 import { countsForRewards, lockUser, revokeOrderRewards, settleRewards } from "./points.js";
 
 /** Formato de fecha que acepta la API: día de calendario, sin hora ni zona. */
@@ -299,37 +299,13 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
       // Mismo orden que pidió el cliente: las líneas RENTAL salen en ese orden.
       const porId = new Map(items.map((i) => [i.id, i]));
       const ordenados = datos.items.map((id) => porId.get(id));
-      const priced = ordenados.map(pricedItem);
-      const lineas = initialCharges({ ...datos, items: priced });
-
-      // El premio: se valida contra la base (de esta cuenta, sin usar, no
-      // revocado) y se valora aquí. Uno que no rebaja nada NO se consume: el
-      // pedido sale sin él y la respuesta dice por qué.
-      let cupon = null;
-      let couponIssue = null;
-      if (datos.couponId !== null) {
-        cupon = await tx.coupon.findFirst({
-          where: { id: datos.couponId, userId: req.user.id, usedInOrderId: null, revokedAt: null },
-        });
-        if (!cupon) throw httpError(409, "Ese premio ya no está disponible.");
-        const rw = rewardById(cupon.rewardId);
-        const ctx = { items: priced, days: rentalDays(datos.start, datos.end), delivery: datos.delivery, ret: datos.ret };
-        const rebaja = rewardDiscountCents(rw, ctx);
-        if (rebaja > 0) {
-          lineas.push(discountCharge(rebaja, datos.pay, `Premio: ${rw.name}`));
-        } else {
-          couponIssue = rewardIssue(rw, ctx) ?? "El premio no rebaja nada en este alquiler.";
-          cupon = null;
-        }
-      }
-
-      // Puntos por lo pagado de verdad: sin depósito y sin lo que cubrió el
-      // premio. Se fijan ahora y se acreditan al entregar.
-      const pointsEarned = orderPoints({
-        spendCents: revenueCents(lineas),
-        days: rentalDays(datos.start, datos.end),
-        itemCount: priced.length,
-      });
+      // El mismo cálculo que enseña la cotización (quote.js): lo que se cobra
+      // no puede separarse de lo que se mostró, porque no hay dos cálculos.
+      // Un premio que no rebaja nada NO se consume: el pedido sale sin él y la
+      // respuesta dice por qué; uno que ya no existe para esta cuenta, 409.
+      const { lineas, cupon, couponIssue, couponMissing, pointsEarned } =
+        await priceOrder(tx, { ...datos, items: ordenados }, req.user.id);
+      if (couponMissing) throw httpError(409, "Ese premio ya no está disponible.");
 
       const order = await tx.order.create({
         data: {

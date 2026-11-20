@@ -43,9 +43,9 @@ function webCover(p){ return webImg(coverImage(p)); }
 function webSortProducts(list){
   const arr = list.slice();
   switch(sortBy){
-    case "price-asc":  arr.sort((a,b) => rentalPrice(a,1) - rentalPrice(b,1)); break;
-    case "price-desc": arr.sort((a,b) => rentalPrice(b,1) - rentalPrice(a,1)); break;
-    case "stars-desc": arr.sort((a,b) => b.stars - a.stars || rentalPrice(a,1) - rentalPrice(b,1)); break;
+    case "price-asc":  arr.sort((a,b) => sortPrice(a) - sortPrice(b)); break;
+    case "price-desc": arr.sort((a,b) => sortPrice(b) - sortPrice(a)); break;
+    case "stars-desc": arr.sort((a,b) => b.stars - a.stars || sortPrice(a) - sortPrice(b)); break;
     default: break;
   }
   return arr;
@@ -182,7 +182,7 @@ function renderFilters(){
 function cardHTML(p){
   const alquilada = isRented(p.id);
   const enCarrito = inCart(p.id);
-  const dia2 = nextDayPrice(p);
+  const dia2 = catalogNextDay(p) ?? 0;
   const accion = alquilada
     ? `<span class="tag-out">Alquilada ahora</span>`
     : enCarrito
@@ -203,7 +203,7 @@ function cardHTML(p){
           <span>${qualityMeter(p.stars)}</span>
         </div>
         <div class="price">
-          $${rentalPrice(p, 1).toFixed(2)} <small>el primer día${
+          ${money(catalogPrice(p, 1))} <small>el primer día${
             dia2 > 0 ? ` · +$${dia2.toFixed(2)} por día extra` : " · días extra sin costo"}</small>
         </div>
         ${accion}
@@ -259,7 +259,7 @@ function renderHeroFacts(){
   // Se anuncia el mejor caso con "hasta", que es lo que el dato soporta.
   const ahorro = document.getElementById("heroSaving");
   if(ahorro && PRODUCTS.length){
-    const mejor = Math.max(...PRODUCTS.map(p => 1 - rentalPrice(p, 3) / p.value));
+    const mejor = Math.max(0, ...PRODUCTS.filter(p => catalogPrice(p, 3) !== null).map(p => 1 - catalogPrice(p, 3) / p.value));
     ahorro.textContent = `Hasta ${Math.round(mejor * 100)}% menos`;
   }
 
@@ -333,10 +333,10 @@ function renderDetail(){
           <li><span>Color</span><b>${escapeHTML(colorLabel(p.color))}</b></li>
           <li><span>Material</span><b>${escapeHTML(materialLabel(p.material))}</b></li>
           <li><span>Estado</span><b>${qualityMeter(p.stars)} ${escapeHTML(conditionLabel(p.stars))}</b></li>
-          <li><span>1 día</span><b>$${rentalPrice(p, 1).toFixed(2)}</b></li>
-          <li><span>3 días</span><b>$${rentalPrice(p, 3).toFixed(2)}</b></li>
-          <li><span>7 días</span><b>$${rentalPrice(p, 7).toFixed(2)}</b></li>
-          <li><span>Depósito reembolsable</span><b>$${depositFor(p).toFixed(2)}</b></li>
+          <li><span>1 día</span><b>${money(catalogPrice(p, 1))}</b></li>
+          <li><span>3 días</span><b>${money(catalogPrice(p, 3))}</b></li>
+          <li><span>7 días</span><b>${money(catalogPrice(p, 7))}</b></li>
+          <li><span>Depósito reembolsable</span><b>${money(catalogDeposit(p))}</b></li>
         </ul>
         <p class="water">${icon("droplet", { size: 16 })}
           Alquilarla evita fabricar una prenda nueva: ahorras
