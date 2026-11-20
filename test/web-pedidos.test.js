@@ -46,6 +46,7 @@ test("un pedido hecho en la web aparece en «Mis pedidos» de la app", async () 
   const web = cargarWeb();
   web.win.__WEB__.setCart([7]);
   web.win.__WEB__.setCheckout({ delivery: "pickup", ret: "store", pay: "credit" });
+  await web.win.requestQuote();   // sin cotización la web no deja confirmar
   assert.equal(await web.win.placeWebOrder(), true);
 
   const post = web.fake.calls.find(c => c.method === "POST" && c.path === "/api/orders");

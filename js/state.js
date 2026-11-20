@@ -179,62 +179,85 @@ function cartItemIds(){
 // Los montos se SUMAN en centavos (enteros) para evitar el arrastre de
 // error de los float (p. ej. 0.1 + 0.2). Se devuelven en USD para la vista.
 const cents = v => Math.round(v * 100);
-// Precio de una prenda del carrito con los días y el volumen actuales.
-function cartItemPrice(p){ return rentalPrice(p, rentalDays(), cart.length); }
-function subtotal(){
-  return cart.reduce((s,c) => s + cents(cartItemPrice(productById(c.id))), 0) / 100;
+/* ---------------- Cotización del carrito (fase 3) ----------------
+   Solo el servidor cotiza: `POST /api/quote` devuelve el alquiler de cada
+   prenda, la logística, la garantía, el premio, los puntos y la escalera del
+   carrito para el calendario. `quote` es la última respuesta y `quoteKey` dice
+   de qué carrito/fechas/modos/premio es: si no coincide con lo que hay en
+   pantalla, los importes valen null y la vista enseña "—" hasta que llegue la
+   nueva (la pide requestQuote, en api.js). Nada de esto se guarda. */
+let quote = null;
+let quoteKey = "";
+
+/** Lo que se manda a cotizar: lo mismo que viajará al confirmar el pedido. */
+function cartQuoteBody(){
+  return {
+    items: cartItemIds(),
+    start: rentalStart,
+    end: rentalEnd,
+    delivery: delivery || undefined,
+    ret: returnMethod || undefined,
+    couponId: appliedCoupon ?? undefined,
+  };
 }
+/** Clave del carrito tal como está ahora (cambia con cualquier dato cotizable). */
+function currentQuoteKey(){ return JSON.stringify(cartQuoteBody()); }
+/** ¿La cotización guardada es la del carrito que se ve? */
+function quoteReady(){ return !!quote && cart.length > 0 && quoteKey === currentQuoteKey(); }
+/** Centavos → USD de un campo de la cotización vigente, o null. */
+function quoteUsd(campo){ return quoteReady() ? quote[campo] / 100 : null; }
+
+// Precio de una prenda del carrito: su línea RENTAL en la cotización.
+function cartItemPrice(p){
+  if(!quoteReady()) return null;
+  const ids = cartItemIds() || [];
+  const idx = cart.findIndex(c => c.id === p.id);
+  const linea = quote.lines.find(l => l.type === "RENTAL" && l.itemId === ids[idx]);
+  return linea ? linea.amountCents / 100 : null;
+}
+function subtotal(){ return quoteUsd("rentalCents"); }
 /**
  * Subtotal del carrito si el alquiler durase exactamente `days` días, sin tocar
- * las fechas elegidas. Base de las tarifas por día del calendario.
+ * las fechas elegidas. Base de las tarifas por día del calendario: sale de la
+ * escalera que manda la cotización.
  * @param {number} days Días de alquiler (mínimo 1).
- * @returns {number} USD.
+ * @returns {number|null} USD.
  */
 function subtotalForDays(days){
-  const d = Math.max(1, days);
-  return cart.reduce((s,c) => s + cents(rentalPrice(productById(c.id), d, cart.length)), 0) / 100;
+  if(!quoteReady() || !Array.isArray(quote.ladderCents)) return null;
+  const d = Math.min(Math.max(1, days), quote.ladderCents.length);
+  return quote.ladderCents[d - 1] / 100;
 }
 
 /**
  * Cuánto añade al total el día n-ésimo del alquiler (el día 1 es la base, no un
- * incremento). Sale de restar dos subtotales, así que respeta por construcción
- * los tramos, el descuento por volumen y el piso de coste: en las prendas
- * ancladas a su piso los días extra devuelven 0, que es justo lo que el
- * calendario quiere hacer visible.
+ * incremento). Resta dos peldaños de la escalera del servidor, así que respeta
+ * los tramos, el volumen y el piso de coste sin conocerlos: en las prendas
+ * ancladas a su piso los días extra devuelven 0.
  * @param {number} n Índice del día dentro del alquiler (1 = primero).
- * @returns {number} USD que suma ese día.
+ * @returns {number|null} USD que suma ese día.
  */
 function dayMarginalCost(n){
-  if(n <= 1) return subtotalForDays(1);
-  return (cents(subtotalForDays(n)) - cents(subtotalForDays(n - 1))) / 100;
+  const hoy = subtotalForDays(n);
+  if(hoy === null) return null;
+  if(n <= 1) return hoy;
+  return (cents(hoy) - cents(subtotalForDays(n - 1))) / 100;
 }
 
-// Precio del carrito SIN el descuento por volumen, para poder mostrar cuánto
-// se ahorra el cliente por llevar varias prendas.
+// Precio del carrito SIN el descuento por volumen, para enseñar el ahorro.
 function subtotalBeforeVolume(){
-  const days = rentalDays();
-  return cart.reduce((s,c) => s + cents(rentalPrice(productById(c.id), days, 1)), 0) / 100;
+  return quoteReady() ? (quote.rentalCents + quote.volumeSavingsCents) / 100 : null;
 }
-// Tasa de descuento por volumen del carrito actual.
-function volumeRate(){ return volumeDiscountRate(cart.length); }
-// Ahorro en dólares por el descuento por volumen. Puede ser 0 aunque la tasa
-// no lo sea: las prendas ancladas a su piso de coste no pueden bajar más.
-function volumeSavings(){
-  return (cents(subtotalBeforeVolume()) - cents(subtotal())) / 100;
-}
-// Depósito del carrito. Se deriva del valor de cada prenda y no baja por
-// volumen ni por días: cubre riesgo, no uso.
-function depositTotal(){
-  return depositForItems(cart.map(c => productById(c.id)));
-}
-// Cargos logísticos del CHECKOUT en curso; la regla de cuáles se cobran vive
-// en data.js (deliveryFeeFor/returnFeeFor), compartida con el pedido guardado.
+// Ahorro por el descuento por volumen. Puede ser 0 aunque haya varias prendas:
+// las ancladas a su piso de coste no pueden bajar más.
+function volumeSavings(){ return quoteUsd("volumeSavingsCents"); }
+// Garantía del carrito: la de la cotización. No baja por volumen ni por días.
+function depositTotal(){ return quoteUsd("depositCents"); }
+// Cargos logísticos del CHECKOUT en curso: tarifa fija que se puede enseñar
+// antes de cotizar; el cobro real viaja en la cotización.
 function shippingFee(){ return deliveryFeeFor(delivery); }
 function returnFee(){ return returnFeeFor(returnMethod); }
-function grandTotal(){
-  return (cents(subtotal()) + cents(depositTotal()) + cents(shippingFee())
-        + cents(returnFee()) - cents(couponDiscount())) / 100;
-}
+function grandTotal(){ return quoteUsd("totalCents"); }
 
 /* ---------------- Premios canjeados (cupones) ----------------
    Un canje se guarda en profile.redeemed y vive ahí hasta que un pedido lo
@@ -247,38 +270,15 @@ function couponById(id){ return profile.redeemed.find(c => c.id === id) || null;
 // (lo hace el servidor al anular un pedido ya premiado) ya devolvió sus puntos: deja de ser gastable.
 function availableCoupons(){ return profile.redeemed.filter(c => !c.usedIn && !c.revoked); }
 
-/* Contexto con el que se valora un premio. Hay dos fuentes —el checkout en
-   curso y un pedido ya confirmado— y una sola forma; van juntas a propósito,
-   porque si una gana un campo y la otra no, el descuento del pedido deja de
-   coincidir con el que se le enseñó al cliente al pagar. */
-
-// Contexto de descuento del CARRITO (checkout en curso).
-function cartRewardCtx(){
-  return {
-    items: cart.map(c => productById(c.id)),
-    days: rentalDays(),
-    delivery,
-    ret: returnMethod
-  };
-}
-// Contexto de descuento de un PEDIDO ya confirmado.
-function orderRewardCtx(o){
-  return {
-    items: o.items.map(id => productById(id)),
-    days: daysBetween(o.start, o.end),
-    delivery: o.delivery,
-    ret: o.ret
-  };
-}
-// Descuento del premio aplicado al checkout actual (0 si no hay ninguno).
+// Descuento del premio aplicado al checkout actual, según la cotización (0 si
+// no hay premio o no rebaja nada; null mientras no haya cotización).
 function couponDiscount(){
-  const c = couponById(appliedCoupon);
-  return c ? rewardDiscount(rewardById(c.rewardId), cartRewardCtx()) : 0;
+  if(appliedCoupon == null) return 0;
+  return quoteUsd("discountCents");
 }
 // Motivo por el que el premio aplicado no rebaja nada aquí (o null).
 function couponIssue(){
-  const c = couponById(appliedCoupon);
-  return c ? rewardIssue(rewardById(c.rewardId), cartRewardCtx()) : null;
+  return appliedCoupon != null && quoteReady() ? quote.couponIssue : null;
 }
 
 // Litros de agua ahorrados por una lista de prendas (ids) al reutilizarlas en
@@ -357,49 +357,17 @@ function applyAccount({ orders: lista, points } = {}){
 // Si `applyAccount` ya recibió el estado de esta sesión al menos una vez.
 let accountSynced = false;
 
-// Puntos que otorga el pedido actual: según el monto pagado (no reembolsable),
-// los días de alquiler y la cantidad de prendas.
-// Lo cubierto por un premio no vuelve a puntuar: si lo hiciera, canjear
-// alimentaría el siguiente canje.
-function orderPoints(){
-  const spend = (cents(subtotal()) + cents(shippingFee()) + cents(returnFee())
-               - cents(couponDiscount())) / 100;           // gasto no reembolsable
-  return Math.round(spend * 10) + rentalDays() * 2 + cart.length * 5;
-}
+// Puntos que otorgará el pedido actual: los calcula el servidor al cotizar,
+// con la misma fórmula con que los fijará al crear el pedido.
+function orderPoints(){ return quoteReady() ? quote.points : null; }
 
-/* ---------------- Cálculos por PEDIDO (orders) ----------------
-   Operan sobre un pedido ya confirmado (no sobre el carrito/checkout). */
-function orderItemsSubtotal(o){
-  const days = daysBetween(o.start, o.end);
-  return o.items.reduce((s,id) => s + cents(rentalPrice(productById(id), days, o.items.length)), 0) / 100;
-}
-// Garantía del pedido: la que retuvo el servidor (`deposit`, de orderFromApi). Un
-// pedido sin ese dato (armado a mano en una prueba) cae a la fórmula.
-function orderDeposit(o){
-  return typeof o.deposit === "number" ? o.deposit : depositForItems(o.items.map(id => productById(id)));
-}
-// Precio cobrado por una prenda del pedido: la línea RENTAL del servidor.
-function orderItemPrice(o, p){
-  if(o.itemPrices && p.id in o.itemPrices) return o.itemPrices[p.id];
-  return rentalPrice(p, daysBetween(o.start, o.end), o.items.length);
-}
-// Descuento que el premio del pedido le rebaja. Se recalcula (no se lee de un
-// campo guardado) para que editar el pedido no deje el premio desactualizado:
-// un "envío gratis" deja de valer si la devolución pasa a ser en el local.
-function orderDiscount(o){
-  if(!o.couponId) return 0;
-  const c = couponById(o.couponId);
-  if(!c) return 0;
-  return rewardDiscount(rewardById(c.rewardId), orderRewardCtx(o));
-}
-// Valor total del cobro de un pedido (incluye depósito reembolsable + envío +
-// devolución, menos el premio aplicado). Se usa para guardar/actualizar o.total.
-function orderTotal(o){
-  const ship = deliveryFeeFor(o.delivery);
-  const ret  = returnFeeFor(o.ret);
-  return (cents(orderItemsSubtotal(o)) + cents(orderDeposit(o)) + cents(ship)
-        + cents(ret) - cents(orderDiscount(o))) / 100;
-}
+/* ---------------- Importes de un PEDIDO ya confirmado ----------------
+   Vienen de la API (orderFromApi): el servidor los escribió en su libro de
+   cargos. Aquí no se recalcula ninguno. */
+// Garantía retenida del pedido.
+function orderDeposit(o){ return typeof o.deposit === "number" ? o.deposit : 0; }
+// Precio cobrado por una prenda del pedido: su línea RENTAL.
+function orderItemPrice(o, p){ return o.itemPrices && p.id in o.itemPrices ? o.itemPrices[p.id] : null; }
 // Estado del cobro del pedido — solo dos valores:
 //   "Cancelado" = ya pagado/cobrado (status 'settled', sea efectivo o tarjeta).
 //   "Pendiente" = aún por cobrar/pagar.

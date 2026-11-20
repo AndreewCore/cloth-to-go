@@ -11,7 +11,7 @@ const assert = require("node:assert");
 const { loadDom } = require("./helpers/load-dom");
 
 /** Monta la app con un checkout completo y listo para confirmar. */
-function listo(opts = {}) {
+async function listo(opts = {}) {
   const { window, document, app, fake, flush } = loadDom();
   app.cart = (opts.ids || [1, 7]).map(id => ({ id }));
   app.setCheckout({
@@ -20,12 +20,14 @@ function listo(opts = {}) {
     payMethod: "cash",
     ...opts.checkout,
   });
+  // Los importes del resumen salen de la cotización del servidor (fase 3).
+  await app.requestQuote();
   return { window, document, app, fake, flush };
 }
 
 test("el botón de pago abre el resumen en vez de cobrar", async (t) => {
-  await t.test("abre el diálogo y no crea el pedido todavía", () => {
-    const { app } = listo();
+  await t.test("abre el diálogo y no crea el pedido todavía", async () => {
+    const { app } = await listo();
     app.confirmOrder();
     assert.ok(app.modalOpen, "el diálogo debería estar abierto");
     assert.equal(app.orders.length, 0, "no puede haber pedido sin confirmar");
@@ -33,7 +35,7 @@ test("el botón de pago abre el resumen en vez de cobrar", async (t) => {
   });
 
   await t.test("aceptar registra el pedido y vacía el carrito", async () => {
-    const { app, flush } = listo();
+    const { app, flush } = await listo();
     app.confirmOrder();
     app.confirmModalOk(); await flush();
     assert.equal(app.orders.length, 1);
@@ -41,8 +43,8 @@ test("el botón de pago abre el resumen en vez de cobrar", async (t) => {
     assert.equal(app.view, "done");
   });
 
-  await t.test("cerrar sin aceptar no deja rastro", () => {
-    const { app, window } = listo();
+  await t.test("cerrar sin aceptar no deja rastro", async () => {
+    const { app, window } = await listo();
     app.confirmOrder();
     window.closeModal();
     assert.equal(app.orders.length, 0);
@@ -50,21 +52,21 @@ test("el botón de pago abre el resumen en vez de cobrar", async (t) => {
     assert.notEqual(app.view, "done");
   });
 
-  await t.test("ofrece 'Cancelar': es una decisión, no un aviso", () => {
-    const { app } = listo();
+  await t.test("ofrece 'Cancelar': es una decisión, no un aviso", async () => {
+    const { app } = await listo();
     app.confirmOrder();
     assert.equal(app.modalCancelHidden, false);
   });
 
-  await t.test("no se abre si el checkout está incompleto", () => {
-    const { app } = listo({ checkout: { payMethod: null } });
+  await t.test("no se abre si el checkout está incompleto", async () => {
+    const { app } = await listo({ checkout: { payMethod: null } });
     app.confirmOrder();
     assert.equal(app.modalOpen, false, "sin método de pago no hay nada que confirmar");
     assert.equal(app.orders.length, 0);
   });
 
-  await t.test("no se abre con tarjeta a medio llenar", () => {
-    const { app } = listo({
+  await t.test("no se abre con tarjeta a medio llenar", async () => {
+    const { app } = await listo({
       checkout: { payMethod: "credit", card: { number: "4111", name: "", expiry: "", cvv: "" } },
     });
     app.confirmOrder();
@@ -73,8 +75,8 @@ test("el botón de pago abre el resumen en vez de cobrar", async (t) => {
 });
 
 test("lo que el resumen enseña coincide con lo que se cobra", async (t) => {
-  await t.test("el importe del botón es el total real del pedido", () => {
-    const { app } = listo();
+  await t.test("el importe del botón es el total real del pedido", async () => {
+    const { app } = await listo();
     const esperado = app.grandTotal();
     app.confirmOrder();
     assert.match(app.modalOkLabel, new RegExp(`\\$${esperado.toFixed(2)}\\b`));
@@ -83,15 +85,15 @@ test("lo que el resumen enseña coincide con lo que se cobra", async (t) => {
   await t.test("'Pagas ahora' cuadra con el total que se guarda en el pedido", async () => {
     // La prueba de fuego del resumen: se compara contra el o.total que
     // placeOrder() acaba escribiendo, no contra un número recalculado a mano.
-    const { app, flush } = listo();
+    const { app, flush } = await listo();
     const mostrado = app.grandTotal();
     app.confirmOrder();
     app.confirmModalOk(); await flush();
     assert.equal(app.orders[0].total, mostrado);
   });
 
-  await t.test("muestra el período elegido", () => {
-    const { app } = listo();
+  await t.test("muestra el período elegido", async () => {
+    const { app } = await listo();
     const html = app.confirmDetailHTML();
     assert.match(html, /oc-dates/);
     assert.ok(html.includes(app.fmtDate(app.rentalStart)));
@@ -99,8 +101,8 @@ test("lo que el resumen enseña coincide con lo que se cobra", async (t) => {
     assert.match(html, new RegExp(`${app.rentalDays()} días`));
   });
 
-  await t.test("lista una fila por prenda con su precio", () => {
-    const { app } = listo({ ids: [1, 2, 3] });
+  await t.test("lista una fila por prenda con su precio", async () => {
+    const { app } = await listo({ ids: [1, 2, 3] });
     const html = app.confirmDetailHTML();
     assert.equal((html.match(/class="oc-item"/g) || []).length, 3);
     for (const c of app.cart) {
@@ -109,8 +111,8 @@ test("lo que el resumen enseña coincide con lo que se cobra", async (t) => {
     }
   });
 
-  await t.test("separa el depósito reembolsable del importe a pagar", () => {
-    const { app } = listo();
+  await t.test("separa el depósito reembolsable del importe a pagar", async () => {
+    const { app } = await listo();
     const html = app.confirmDetailHTML();
     const dep = app.depositTotal();
     assert.ok(dep > 0, "el caso de prueba necesita depósito");
@@ -119,18 +121,18 @@ test("lo que el resumen enseña coincide con lo que se cobra", async (t) => {
     assert.match(html, /se te devuelven|Se te devuelven/);
   });
 
-  await t.test("sin depósito no promete ninguna devolución", () => {
-    const { app } = listo({ ids: [] });
+  await t.test("sin depósito no promete ninguna devolución", async () => {
+    const { app } = await listo({ ids: [] });
     app.cart = [];
     const html = app.confirmDetailHTML();
     assert.ok(!html.includes("oc-refund"), "no hay nada que devolver");
   });
 
-  await t.test("el envío solo aparece cuando se cobra", () => {
-    const sinEnvio = listo({ checkout: { delivery: "pickup", returnMethod: "store" } });
+  await t.test("el envío solo aparece cuando se cobra", async () => {
+    const sinEnvio = await listo({ checkout: { delivery: "pickup", returnMethod: "store" } });
     assert.ok(!sinEnvio.app.confirmDetailHTML().includes("Envío y retiro"));
 
-    const conEnvio = listo({
+    const conEnvio = await listo({
       checkout: { delivery: "ship", address: "Av. Principal 123", returnMethod: "store" },
     });
     assert.ok(conEnvio.app.confirmDetailHTML().includes("Envío y retiro"));
@@ -141,7 +143,7 @@ test("el resumen no consume nada por sí solo", async (t) => {
   await t.test("abrirlo y cerrarlo no gasta el premio canjeado", async () => {
     // El canje solo debe marcarse usado al confirmar. Si mirar el resumen lo
     // quemara, el cliente perdería el premio por curiosear.
-    const { app, fake, flush } = listo();
+    const { app, fake, flush } = await listo();
     const r = app.REWARDS.find(x => x.type === "shipping") || app.REWARDS[0];
     fake.state.balance = 100000;   // el saldo lo tiene el servidor
     await app.syncAccount();
@@ -156,7 +158,7 @@ test("el resumen no consume nada por sí solo", async (t) => {
   });
 
   await t.test("abrirlo dos veces no duplica pedidos", async () => {
-    const { app, flush } = listo();
+    const { app, flush } = await listo();
     app.confirmOrder();
     app.confirmOrder();
     app.confirmModalOk(); await flush();
@@ -165,8 +167,8 @@ test("el resumen no consume nada por sí solo", async (t) => {
 });
 
 test("seguridad del marcado del resumen", async (t) => {
-  await t.test("los nombres de prenda se escapan", () => {
-    const { app } = listo({ ids: [1] });
+  await t.test("los nombres de prenda se escapan", async () => {
+    const { app } = await listo({ ids: [1] });
     app.products[0].name = '<img src=x onerror="alert(1)">';
     app.cart = [{ id: app.products[0].id }];
     const html = app.confirmDetailHTML();

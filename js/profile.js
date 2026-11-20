@@ -175,7 +175,7 @@ function orderCardHTML(o, i, archived){
                role="button" tabindex="0" aria-label="Ver detalle de ${escapeHTML(p.name)}">${imgPlaceholder(p)}</div>
           <div class="oi-info">
             <div class="oi-name">${escapeHTML(p.name)}</div>
-            <div class="oi-meta">Talla ${escapeHTML(p.size)} · $${orderItemPrice(o, p).toFixed(2)}</div>
+            <div class="oi-meta">Talla ${escapeHTML(p.size)} · ${money(orderItemPrice(o, p))}</div>
           </div>
         </div>`; }).join("")}
 

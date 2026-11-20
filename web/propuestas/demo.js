@@ -34,11 +34,23 @@ function demoProducts(n, ids = [7, 2, 4, 1, 13, 14, 8, 10]){
   return [...elegidas, ...resto].slice(0, n);
 }
 
+/**
+ * Precio ilustrativo de la maqueta para `days` días. Las maquetas cargan el
+ * catálogo embebido, que desde la fase 3 no trae precios (los pone el
+ * servidor): esto es decorado para el diseño, no el modelo de precios.
+ * @param {object} p Prenda.
+ * @param {number} days Días.
+ * @returns {number} USD.
+ */
+function demoPrice(p, days){
+  return catalogPrice(p, days) ?? Math.round(p.value * 0.08 * (1 + 0.5 * (days - 1)) * 100) / 100;
+}
+
 /** Precio del primer día, formateado. */
-function demoDay(p){ return rentalPrice(p, 1).toFixed(2); }
+function demoDay(p){ return demoPrice(p, 1).toFixed(2); }
 
 /** Precio de un fin de semana (3 días), formateado. */
-function demoWeekend(p){ return rentalPrice(p, 3).toFixed(2); }
+function demoWeekend(p){ return demoPrice(p, 3).toFixed(2); }
 
 /**
  * Cuánto se ahorra frente a comprar la prenda, en porcentaje entero.
@@ -46,7 +58,7 @@ function demoWeekend(p){ return rentalPrice(p, 3).toFixed(2); }
  * @param {number} [days=3] Días del alquiler con el que se compara.
  * @returns {number} 0–100.
  */
-function demoSaving(p, days = 3){ return Math.round((1 - rentalPrice(p, days) / p.value) * 100); }
+function demoSaving(p, days = 3){ return Math.round((1 - demoPrice(p, days) / p.value) * 100); }
 
 /** Litros de agua que ahorra la prenda, con separador de miles. */
 function demoWater(p){ return fmtLiters(garmentWater(p)); }
@@ -81,3 +93,10 @@ function initDemoTheme(botonId){
   }
   pintar();
 }
+
+/**
+ * Garantía ilustrativa de la maqueta (la real la pone el servidor).
+ * @param {object} p Prenda.
+ * @returns {number} USD.
+ */
+function demoDeposit(p){ return catalogDeposit(p) ?? Math.min(Math.round(0.4 * p.value), 25); }

@@ -13,7 +13,7 @@
  * en el mismo scope léxico (ejecutados por separado no se verían entre sí).
  */
 const vm = require("node:vm");
-const { installFakeApi, ITEM_BASE } = require("./fake-api.js");
+const { installFakeApi, ITEM_BASE, priceSummary } = require("./fake-api.js");
 const fs = require("node:fs");
 const path = require("node:path");
 const { JSDOM } = require("jsdom");
@@ -88,8 +88,8 @@ globalThis.__APP__ = {
   mapsApiKey, adoptMapsKeyFromUrl, MAPS_OVERRIDE_KEY, addressReady, addressFieldHTML,
   ADDRESS_FIELDS, addressField, addressFieldByInput,
   // Premios: el catálogo y los derivados del canje aplicado.
-  REWARDS, SHIPPING_FEE, rewardById, rewardDiscount, rewardIssue,
-  couponById, availableCoupons, couponDiscount, couponIssue, cartRewardCtx, orderDiscount,
+  REWARDS, SHIPPING_FEE, rewardById,
+  couponById, availableCoupons, couponDiscount, couponIssue,
   get products(){ return PRODUCTS; },
   // Filtros y orden: son variables let de state.js, invisibles fuera del scope.
   setFilters(p){
@@ -134,7 +134,7 @@ globalThis.__APP__ = {
   get productCount(){ return PRODUCTS.length; },
   get activeStorageKey(){ return activeStorageKey; },
   // Puros, para aserciones sin recalcular a mano.
-  orderPoints, orderTotal, orderDeposit, isoOffset, productById,
+  orderPoints, orderDeposit, isoOffset, productById,
   storageKeyFor, decodeJwt, resolveApiBase, backendForHost, isMixedContent,
   SHEET_BACK,
   getPrefs, setPref, toggleTheme, effectiveTheme, applyPrefs, loadPrefs,
@@ -149,6 +149,9 @@ globalThis.__APP__ = {
   applyAccount, refreshAccount, syncAccount, onSessionExpired, askLoginToRent,
   resumePendingRental, canRentOnline, readSessionToken, storeSessionToken, orderFromApi,
   hydrateCatalog, cartItemIds,
+  // Cotización del servidor (fase 3).
+  requestQuote, quoteReady, catalogPrice, catalogDeposit, catalogNextDay, money,
+  get quote(){ return quote; },
   get pendingRental(){ return pendingRental; },
   renderProfile, renderSheet, fmtLiters, countsForRewards,
   waterPointsCredited(){
@@ -159,7 +162,7 @@ globalThis.__APP__ = {
   // Compartido por el checkout y el calendario: fechas y derivados de precio.
   // Son variables let del scope común, invisibles desde fuera.
   subtotal, subtotalForDays, depositTotal, couponDiscount, grandTotal,
-  waterSavedForItems, SHIPPING_FEE, rentalPrice,
+  waterSavedForItems, SHIPPING_FEE,
   rentalDays, renderSheet, fmtDate,
   get rentalStart(){ return rentalStart; },
   get rentalEnd(){ return rentalEnd; },
@@ -270,10 +273,12 @@ function loadDom(opts = {}) {
   }
   vm.runInContext(source, ctx, { filename: "app-bundle.js" });
   if (conCuenta) {
+    // El precio de catálogo que la API manda con cada prenda (fase 3).
+    dom.window.__priceSummary = (p) => JSON.parse(JSON.stringify(priceSummary(p)));
     vm.runInContext(`
       storeSessionToken("sesion-de-prueba");
       currentUser = { sub: "test-user", name: "Ana Ruiz", email: "ana@test.com", picture: "" };
-      replaceCatalog(PRODUCTS.map(p => ({ ...p, items: [{ id: ${ITEM_BASE} + p.id, available: true }] })));
+      replaceCatalog(PRODUCTS.map(p => ({ ...p, price: __priceSummary(p), items: [{ id: ${ITEM_BASE} + p.id, available: true }] })));
     `, ctx);
   }
 

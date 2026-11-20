@@ -8,8 +8,9 @@
    claves de localStorage, así que lo que se confirma aquí aparece en
    "Mis pedidos" del móvil y viceversa.
 
-   Todo el dinero lo calculan js/data.js y js/state.js (rentalPrice,
-   depositForItems, grandTotal, orderTotal…). Aquí no se multiplica nada.
+   Todo el dinero lo pone el servidor: el catálogo trae el precio de cada
+   prenda y la cotización (POST /api/quote, ver `quote` en js/state.js) el del
+   carrito. Aquí no se multiplica nada; mientras llega, se enseña "—".
    ============================================================ */
 
 // Paso del checkout: "datos" (fechas, entrega y devolución) → "pago" → "listo".
@@ -122,10 +123,10 @@ function cartLineHTML(p){
       <div class="l-body">
         <b>${escapeHTML(p.name)}</b>
         <div class="meta">Talla ${escapeHTML(p.size)} · ${escapeHTML(materialLabel(p.material))}</div>
-        <div class="meta">Depósito $${depositFor(p).toFixed(2)} (se devuelve)</div>
+        <div class="meta">Depósito ${money(catalogDeposit(p))} (se devuelve)</div>
       </div>
       <div>
-        <div class="l-price">$${cartItemPrice(p).toFixed(2)}</div>
+        <div class="l-price">${money(cartItemPrice(p))}</div>
         <button class="link-btn" data-action="remove" data-id="${p.id}">Quitar</button>
       </div>
     </div>`;
@@ -135,7 +136,23 @@ function cartLineHTML(p){
  * Pinta el carrito: prendas, período, desglose y el botón que lleva al
  * alquiler (el que pasa por la puerta de sesión).
  */
+/**
+ * Llegó la cotización del carrito (requestQuote, en js/api.js): repinta el
+ * panel y, si está abierto, el checkout, que hasta ahora enseñaban "—".
+ */
+function onQuoteUpdated(){
+  renderCart();
+  const modal = document.getElementById("checkoutModal");
+  if(!modal || modal.hidden || checkoutStep === "listo") return;
+  // Si se está escribiendo (dirección, tarjeta), repintar el cuerpo le quitaría
+  // el foco al campo: basta con el pie, que es donde vive el total a confirmar.
+  const escribiendo = document.activeElement && document.activeElement.matches("input, textarea")
+    && modal.contains(document.activeElement);
+  if(escribiendo) renderCheckoutFoot(); else renderCheckout();
+}
+
 function renderCart(){
+  requestQuote();   // los importes los pone el servidor; al llegar, se repinta
   const body = document.getElementById("cartBody");
   const foot = document.getElementById("cartFoot");
   if(!body || !foot) return;
@@ -169,13 +186,13 @@ function renderCart(){
 
     <div class="rows">
       <div class="row"><span>Alquiler (${prendas.length} ${prendas.length === 1 ? "prenda" : "prendas"})</span>
-        <span>$${subtotal().toFixed(2)}</span></div>
+        <span>${money(subtotal())}</span></div>
       ${ahorro > 0
         ? `<div class="row"><span class="sub">Descuento por ${prendas.length} prendas</span>
              <span class="sub">−$${ahorro.toFixed(2)}</span></div>`
         : ""}
-      <div class="row"><span>Depósito reembolsable</span><span>$${depositTotal().toFixed(2)}</span></div>
-      <div class="row total"><span>Total</span><span>$${grandTotal().toFixed(2)}</span></div>
+      <div class="row"><span>Depósito reembolsable</span><span>${money(depositTotal())}</span></div>
+      <div class="row total"><span>Total</span><span>${money(grandTotal())}</span></div>
     </div>
     <p class="note">El envío o retiro a domicilio ($${SHIPPING_FEE.toFixed(2)} cada uno) se suma
       al elegir cómo recibes y devuelves las prendas. El depósito se te devuelve al entregarlas.</p>`;
@@ -248,6 +265,7 @@ function checkoutPayValid(){
 
 /** Pinta el paso del checkout que toque. */
 function renderCheckout(){
+  requestQuote();
   const body = document.getElementById("checkoutBody");
   const foot = document.getElementById("checkoutFoot");
   if(!body || !foot) return;
@@ -275,13 +293,14 @@ function renderCheckout(){
 function renderCheckoutFoot(){
   const foot = document.getElementById("checkoutFoot");
   if(!foot || checkoutStep === "listo") return;
-  const puedeSeguir = checkoutStep === "datos" ? checkoutDataValid() : checkoutPayValid();
+  // Confirmar exige además la cotización vigente: sin ella no hay importe.
+  const puedeSeguir = checkoutStep === "datos" ? checkoutDataValid() : checkoutPayValid() && quoteReady();
   foot.innerHTML = `
     ${checkoutStep === "pago"
       ? `<button class="ghost-btn" data-action="checkoutBack">Atrás</button>` : ""}
     <button class="cta-btn" data-action="${checkoutStep === "datos" ? "checkoutNext" : "placeOrder"}"
       ${puedeSeguir ? "" : "disabled"}>
-      ${checkoutStep === "datos" ? "Continuar al pago" : `Confirmar alquiler · $${grandTotal().toFixed(2)}`}
+      ${checkoutStep === "datos" ? "Continuar al pago" : `Confirmar alquiler · ${money(grandTotal())}`}
     </button>`;
 }
 
@@ -301,7 +320,7 @@ function checkoutDataHTML(){
           <input class="field" type="date" data-action="date" data-value="end"
                  value="${rentalEnd}" min="${addDaysISO(rentalStart, 1)}"></label>
       </div>
-      <p class="note">${dias} ${dias === 1 ? "día" : "días"} · alquiler $${subtotal().toFixed(2)}</p>
+      <p class="note">${dias} ${dias === 1 ? "día" : "días"} · alquiler ${money(subtotal())}</p>
       ${returnWindowNoteHTML()}
     </div>
 
@@ -370,11 +389,11 @@ function checkoutPayHTML(){
 
     <div class="block rows">
       <div class="row"><span>Alquiler · ${rentalDays()} ${rentalDays() === 1 ? "día" : "días"}</span>
-        <span>$${subtotal().toFixed(2)}</span></div>
-      <div class="row"><span>Depósito reembolsable</span><span>$${depositTotal().toFixed(2)}</span></div>
-      ${shippingFee() ? `<div class="row"><span>Envío a domicilio</span><span>$${shippingFee().toFixed(2)}</span></div>` : ""}
-      ${returnFee() ? `<div class="row"><span>Retiro a domicilio</span><span>$${returnFee().toFixed(2)}</span></div>` : ""}
-      <div class="row total"><span>Total</span><span>$${grandTotal().toFixed(2)}</span></div>
+        <span>${money(subtotal())}</span></div>
+      <div class="row"><span>Depósito reembolsable</span><span>${money(depositTotal())}</span></div>
+      ${shippingFee() ? `<div class="row"><span>Envío a domicilio</span><span>${money(shippingFee())}</span></div>` : ""}
+      ${returnFee() ? `<div class="row"><span>Retiro a domicilio</span><span>${money(returnFee())}</span></div>` : ""}
+      <div class="row total"><span>Total</span><span>${money(grandTotal())}</span></div>
     </div>`;
 }
 
@@ -415,6 +434,7 @@ async function placeWebOrder(){
   if(!checkoutDataValid() || !checkoutPayValid()){ renderCheckout(); return false; }
   if(webPlacing) return false;
   if(!canRentOnline()){ toast("Para alquilar hace falta conexión con el servidor."); return false; }
+  if(!quoteReady()){ toast("Calculando el precio… inténtalo en un momento."); requestQuote(); return false; }
   const items = cartItemIds();
   if(!items){ toast("Alguna prenda del carrito ya no está disponible."); return false; }
   const litros = cartWaterSaved();

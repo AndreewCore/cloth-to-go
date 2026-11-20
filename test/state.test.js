@@ -20,43 +20,10 @@ beforeEach(() => {
   });
 });
 
-test("subtotal de una prenda = su tarifa del día", () => {
-  A.setState({ cart: [{ id: 7 }] }); // Esmoquin, 1 día → 15.00
-  assert.equal(A.subtotal(), 15.0);
-});
 
-test("grandTotal = subtotal + depósito + envío + devolución", () => {
-  A.setState({ cart: [{ id: 7 }] });
-  // Sin envío ni devolución a domicilio: 15 + depósito(25).
-  assert.equal(A.grandTotal(), 15.0 + 25.0);
-  A.setState({ delivery: "ship", returnMethod: "home" });
-  assert.equal(A.grandTotal(), 15.0 + 25.0 + A.SHIPPING_FEE * 2);
-});
 
-test("el descuento por volumen reduce el subtotal del carrito", () => {
-  A.setState({ cart: [{ id: 7 }, { id: 4 }] }); // Esmoquin + Abrigo (ambos por encima del piso)
-  assert.ok(A.subtotal() < A.subtotalBeforeVolume());
-  assert.ok(A.volumeSavings() > 0);
-});
 
-test("el depósito del carrito respeta el tope de pedido (40)", () => {
-  A.setState({ cart: [{ id: 7 }, { id: 4 }] }); // 25 + 25 = 50 → 40
-  assert.equal(A.depositTotal(), A.DEPOSIT_ORDER_MAX);
-});
 
-test("orderTotal incluye el depósito y cambia con el modo de devolución", () => {
-  const base = {
-    items: [7],
-    start: A.isoOffset(0),
-    end: A.isoOffset(3), // 3 días → tarifa 30.00
-    delivery: "pickup",
-    ret: "store"
-  };
-  // 30 (tarifa 3 días) + 25 (depósito) + 0 + 0.
-  assert.equal(A.orderTotal(base), 30.0 + 25.0);
-  // Devolución a domicilio suma la tarifa de envío.
-  assert.equal(A.orderTotal({ ...base, ret: "home" }), 30.0 + 25.0 + A.SHIPPING_FEE);
-});
 
 test("paymentStatusLabel: settled = Cancelado, resto = Pendiente", () => {
   assert.equal(A.paymentStatusLabel({ status: "settled" }), "Cancelado");
@@ -70,23 +37,7 @@ test("rentalDays = días entre las fechas del carrito (mínimo 1)", () => {
   assert.equal(A.rentalDays(), 1); // mismo día → mínimo 1
 });
 
-test("orderPoints = gasto·10 + días·2 + prendas·5 (el depósito no puntúa)", () => {
-  A.setState({
-    cart: [{ id: 7 }], // Esmoquin, 3 días → subtotal 30
-    delivery: null,
-    returnMethod: null,
-    rentalStart: A.isoOffset(0),
-    rentalEnd: A.isoOffset(3)
-  });
-  // round(30·10) + 3·2 + 1·5 = 300 + 6 + 5. El depósito (reembolsable) no cuenta.
-  assert.equal(A.orderPoints(), 311);
-});
 
-test("orderItemsSubtotal / orderDeposit: cálculos sobre un pedido confirmado", () => {
-  const o = { items: [7], start: A.isoOffset(0), end: A.isoOffset(3) };
-  assert.equal(A.orderItemsSubtotal(o), 30.0); // 3 días
-  assert.equal(A.orderDeposit(o), 25.0); // depósito del esmoquin (tope por prenda)
-});
 
 test("isLate: la fecha límite del alquiler ya pasó", () => {
   assert.ok(!A.isLate({ end: A.isoOffset(2) })); // vence en el futuro

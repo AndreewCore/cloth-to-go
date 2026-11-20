@@ -11,7 +11,7 @@ import prisma from "./db.js";
 import { CAPABILITY, httpError } from "./auth.js";
 import { logItem } from "./logs.js";
 import { todayISO } from "./dates.js";
-import { validatePriceOverride } from "./pricing.js";
+import { depositFor, rentalPrice, validatePriceOverride } from "./pricing.js";
 
 /** Id del dueño Oficial (CTG), sembrado por la migración. */
 export const OFFICIAL_OWNER_ID = 1;
@@ -99,6 +99,26 @@ const MODELO_COMPLETO = {
   items: { orderBy: { id: "asc" } },
 };
 
+/** Días que cubre la escalera de precios de una prenda en el catálogo. */
+export const LADDER_DAYS = 14;
+
+/**
+ * Precio de una prenda suelta para el catálogo: la escalera de 1 a 14 días,
+ * lo que suma un día más y la garantía. Sin descuento por volumen, que depende
+ * del carrito y lo da `POST /api/quote`.
+ * @param {object} p Prenda con los datos de `pricedItem()`.
+ * @returns {{ladder: number[], nextDay: number, deposit: number}} USD.
+ */
+export function priceSummary(p) {
+  const ladder = Array.from({ length: LADDER_DAYS }, (_, i) => rentalPrice(p, i + 1, 1));
+  return {
+    ladder,
+    // Lo que añade el segundo día: el "+$x por día extra" de la tarjeta.
+    nextDay: Math.round((ladder[1] - ladder[0]) * 100) / 100,
+    deposit: depositFor(p),
+  };
+}
+
 /**
  * Indica si un ejemplar debe aparecer en el catálogo. Lo perdido y lo retirado
  * desaparecen; un desperfecto se queda, como No Disponible, porque puede volver.
@@ -150,6 +170,9 @@ export function productToApi(p, busy) {
     size: portada.size,
     color: portada.color,
     disponibles: listados.filter((i) => i.available).length,
+    // El precio lo pone el servidor (fase 3): la app y la web solo lo muestran.
+    // null en las prendas que no cotiza CTG (tarifas de socio, fase 6).
+    price: p.pricing === "CTG" ? priceSummary(pricedItem({ id: null, product: p })) : null,
     owner: { kind: p.owner.kind, name: p.owner.name },
     official: p.owner.kind === "OFICIAL",
     items: listados,

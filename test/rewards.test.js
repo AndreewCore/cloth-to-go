@@ -62,107 +62,37 @@ test("canjear guarda un cupón disponible con su premio asociado", async () => {
   assert.equal(app.availableCoupons().length, 1);
 });
 
-/* ---- Cada premio rebaja lo que promete ---- */
-test("envío gratis descuenta exactamente una tarifa de logística", async () => {
+/* ---- El checkout enseña lo que cotiza el servidor ----
+   Cuánto rebaja cada premio lo calcula server/src/rewards.js (sus reglas se
+   prueban en server/test/premios.test.js). Aquí: que el checkout pinte la
+   cifra de la cotización y explique el motivo cuando no rebaja nada. */
+test("el premio aplicado rebaja lo que dice la cotización", async () => {
   carritoConEnvio();
   const c = await canjear(1);
+  await app.requestQuote();
   const sinPremio = win.grandTotal();
   app.setCheckout({ appliedCoupon: c.id });
+  assert.equal(app.couponDiscount(), null, "mientras no llega la cotización nueva, no se inventa");
+  await app.requestQuote();
 
   assert.equal(app.couponDiscount(), app.SHIPPING_FEE);
   assert.equal(win.grandTotal().toFixed(2), (sinPremio - app.SHIPPING_FEE).toFixed(2));
+  app.view = "checkout";
+  win.renderSheet();
+  assert.match(win.document.getElementById("sheetBody").innerHTML, /−\$4\.50/);
 });
 
-test("envío gratis no descuenta nada si no hay envío ni retiro a domicilio", async () => {
+test("un premio que no rebaja nada aquí explica por qué y avisa que no se gasta", async () => {
   carritoConEnvio();
   const c = await canjear(1);
   app.setCheckout({ appliedCoupon: c.id, delivery: "pickup", returnMethod: "store" });
+  await app.requestQuote();
 
   assert.equal(app.couponDiscount(), 0);
-  // Y se explica el motivo en vez de mostrar un "-$0.00" mudo.
   assert.match(app.couponIssue(), /envío a domicilio o retiro/);
-});
-
-test("1 día gratis descuenta la diferencia entre el período y un día menos", async () => {
-  carritoConEnvio(4);
-  const c = await canjear(2);
-  const conCuatro = win.subtotal();
-  app.setCheckout({ rentalEnd: app.isoOffset(3) });
-  const conTres = win.subtotal();
-  app.setCheckout({ rentalEnd: app.isoOffset(4), appliedCoupon: c.id });
-
-  assert.equal(app.couponDiscount().toFixed(2), (conCuatro - conTres).toFixed(2));
-});
-
-test("1 día gratis no aplica a un alquiler de un solo día", async () => {
-  carritoConEnvio(0); // inicio = fin → 1 día
-  const c = await canjear(2);
-  app.setCheckout({ appliedCoupon: c.id });
-
-  assert.equal(win.rentalDays(), 1);
-  assert.equal(app.couponDiscount(), 0);
-});
-
-test("el 10% se aplica al subtotal del alquiler, no al depósito ni al envío", async () => {
-  carritoConEnvio();
-  const c = await canjear(3);
-  app.setCheckout({ appliedCoupon: c.id });
-
-  const esperado = Math.round(win.subtotal() * 100 * 0.1) / 100;
-  assert.equal(app.couponDiscount().toFixed(2), esperado.toFixed(2));
-});
-
-test("la prenda premium sale gratis solo por los días que cubre el premio", async () => {
-  const { premium } = carritoConEnvio(10); // 10 días, el premio cubre 2
-  const c = await canjear(4);
-  app.setCheckout({ appliedCoupon: c.id });
-
-  const dosDias = win.rentalPrice(premium, 2, app.cart.length);
-  assert.equal(app.couponDiscount().toFixed(2), dosDias.toFixed(2));
-  // Y nunca regala más de lo que esa prenda cuesta en el pedido.
-  assert.ok(app.couponDiscount() <= win.rentalPrice(premium, 10, app.cart.length));
-});
-
-test("sin prendas destacadas, el premio premium no descuenta nada", async () => {
-  const normal = app.products.filter(p => p.stars < 5).slice(0, 2);
-  app.cart = normal.map(p => ({ id: p.id }));
-  app.setCheckout({
-    delivery: "pickup",
-    returnMethod: "store",
-    payMethod: "cash",
-    rentalStart: app.isoOffset(0),
-    rentalEnd: app.isoOffset(4)
-  });
-  const c = await canjear(4);
-  app.setCheckout({ appliedCoupon: c.id });
-
-  assert.equal(app.couponDiscount(), 0);
-});
-
-/* ---- El depósito es intocable ---- */
-test("ningún premio rebaja el depósito ni deja el total por debajo de él", async () => {
-  // Carrito barato + premio caro: el descuento se topa en lo cobrable.
-  const barata = app.products.reduce((m, p) => (p.value < m.value ? p : m));
-  app.cart = [{ id: barata.id }];
-  app.setCheckout({
-    delivery: "pickup",
-    returnMethod: "store",
-    payMethod: "cash",
-    rentalStart: app.isoOffset(0),
-    rentalEnd: app.isoOffset(1)
-  });
-  for (const rw of app.REWARDS) {
-    const c = await canjear(rw.id);
-    app.setCheckout({ appliedCoupon: c.id });
-    assert.ok(
-      app.couponDiscount() <= win.subtotal() + 0.001,
-      `${rw.name} descuenta más que el alquiler`
-    );
-    assert.ok(
-      win.grandTotal() >= win.depositTotal() - 0.001,
-      `${rw.name} deja el total por debajo del depósito`
-    );
-  }
+  app.view = "checkout";
+  win.renderSheet();
+  assert.match(win.document.getElementById("sheetBody").innerHTML, /No se gastará/);
 });
 
 /* ---- Un canje se gasta una sola vez ---- */
@@ -206,17 +136,6 @@ test("anular el pedido devuelve el premio a la cartera", async () => {
   assert.equal(app.orders[0].status, "cancelled");
   assert.equal(app.availableCoupons().length, 1);
   assert.equal(app.couponById(c.id).usedIn, null);
-});
-
-/* ---- Puntos: lo cubierto por un premio no vuelve a puntuar ---- */
-test("el premio reduce los puntos que otorga el pedido", async () => {
-  carritoConEnvio();
-  const c = await canjear(1);
-  const sinPremio = win.orderPoints();
-  app.setCheckout({ appliedCoupon: c.id });
-
-  assert.ok(win.orderPoints() < sinPremio, "un alquiler más barato no puede dar los mismos puntos");
-  assert.equal(win.orderPoints(), sinPremio - Math.round(app.SHIPPING_FEE * 10));
 });
 
 /* ---- Lo guardado en el navegador ya no compra nada ---- */

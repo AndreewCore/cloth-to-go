@@ -104,7 +104,7 @@ export function httpError(status, message) {
  * Recibe el verificador en vez de importarlo para que los tests puedan inyectar
  * uno falso, igual que hace `buildApp` con el login.
  * @param {(idToken: string) => Promise<object>} [verify] Verificador de tokens.
- * @returns {{requireUser: Function, requireCapability: Function}} preHandlers.
+ * @returns {{requireUser: Function, requireCapability: Function, optionalUser: Function}} preHandlers.
  */
 export function createAuthGuards(verify) {
   /**
@@ -168,5 +168,21 @@ export function createAuthGuards(verify) {
     };
   }
 
-  return { requireUser, requireCapability };
+  /**
+   * Como `requireUser`, pero sin exigir nada: si la credencial falta o no
+   * vale, sigue como invitado (`req.user = null`). Para rutas públicas que dan
+   * algo más a quien tiene cuenta (la cotización valora su premio).
+   * @param {import("fastify").FastifyRequest} req Petición.
+   */
+  async function optionalUser(req) {
+    req.user = null;
+    if (!req.headers.authorization) return;
+    try {
+      await requireUser(req);
+    } catch {
+      req.user = null;
+    }
+  }
+
+  return { requireUser, requireCapability, optionalUser };
 }

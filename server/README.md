@@ -44,7 +44,8 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | POST | `/api/orders/:id/settle` | **Solo local**: confirma que el efectivo entró. |
 | POST | `/api/orders/:id/deposit-release` | **Solo local**: libera el depósito. |
 | GET | `/api/impact/water` | **Pública**: litros de agua ahorrados entre todos (contador de la web). |
-| GET | `/api/config` | **Pública**: días cerrados y feriados, para el calendario del checkout. |
+| GET | `/api/config` | **Pública**: días cerrados y feriados, más el envío y el tope por volumen para los textos. |
+| POST | `/api/quote` | **Pública** (con sesión valora el premio): cotiza el carrito con la misma función que cobra. |
 | GET | `/api/chat/status` | **Pública**: si el asistente está encendido y de qué fundación habla. |
 | POST | `/api/chat` | **Pública, con límite**: pregunta al asistente sobre la huella hídrica. |
 

@@ -80,7 +80,7 @@ test("los filtros de talla y material se combinan (AND, no OR)", () => {
 
 /* ---- Ordenamiento ---- */
 test("sortProducts ordena por precio ascendente y descendente", () => {
-  const precio = p => win.rentalPrice(p, 1);
+  const precio = p => win.catalogPrice(p, 1);
 
   app.setFilters({ sortBy: "price-asc" });
   const asc = win.filteredProducts().map(precio);
@@ -99,7 +99,7 @@ test("el orden por calidad pone las mejores primero y desempata por precio", () 
     const a = list[i - 1], b = list[i];
     assert.ok(a.stars >= b.stars, "las estrellas deben ir de mayor a menor");
     if (a.stars === b.stars) {
-      assert.ok(win.rentalPrice(a, 1) <= win.rentalPrice(b, 1), "a igual calidad, más barato primero");
+      assert.ok(win.catalogPrice(a, 1) <= win.catalogPrice(b, 1), "a igual calidad, más barato primero");
     }
   }
 });

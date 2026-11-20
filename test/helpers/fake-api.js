@@ -7,18 +7,37 @@
  * hace falta algo que **responda con la forma de la API**, para probar que la
  * app manda lo correcto y pinta lo que le devuelven.
  *
- * Por eso los importes se calculan con las propias funciones de la app que
- * siguen en el navegador (grandTotal, orderPoints…): no se reimplementa el
- * servidor, se le da a cada respuesta un número coherente con lo que el
- * checkout enseñó.
+ * Los importes se calculan con las funciones PURAS del propio servidor
+ * (server/src/pricing.js, ledger.js, rewards.js), cargadas aquí con require: no
+ * se reimplementa el modelo de precios, así que lo que la vista pinta en una
+ * prueba es lo que la API de verdad respondería.
  *
  * Lo que la prueba puede tocar está en `fake.state` (pedidos, saldo, canjes,
  * metas) y en `fake.failNext` (la próxima petición que coincida responde con
  * ese error). `fake.calls` registra cada petición: `{ method, path, body }`.
  */
 
+const path = require("node:path");
+
+// Funciones puras del servidor (ESM, sin Prisma ni red). require() de un módulo
+// ES funciona en Node ≥ 22.12, que es lo que corre la CI.
+const SERVER = path.join(__dirname, "..", "..", "server", "src");
+const pricing = require(path.join(SERVER, "pricing.js"));
+const ledger = require(path.join(SERVER, "ledger.js"));
+const rewards = require(path.join(SERVER, "rewards.js"));
+
 /** Ids de ejemplar falsos: un ejemplar por modelo, con id distinguible. */
 const ITEM_BASE = 5000;
+
+/**
+ * Precio de catálogo de una prenda, como `priceSummary` de server/src/catalog.js.
+ * @param {object} p Prenda del catálogo embebido.
+ * @returns {{ladder: number[], nextDay: number, deposit: number}}
+ */
+function priceSummary(p) {
+  const ladder = Array.from({ length: 14 }, (_, i) => pricing.rentalPrice(p, i + 1, 1));
+  return { ladder, nextDay: Math.round((ladder[1] - ladder[0]) * 100) / 100, deposit: pricing.depositFor(p) };
+}
 
 /**
  * Respuesta mínima con la interfaz que usa api.js.
@@ -57,33 +76,67 @@ function installFakeApi(win) {
   });
   const reserved = () => new Set(st.orders.filter((o) => !o.cancelledAt).flatMap((o) => o.itemIds));
 
-  /** Crea el pedido con lo que el checkout de la app tiene en pantalla. */
-  function createOrder(body) {
-    const productIds = body.items.map((id) => id - ITEM_BASE);
-    let discountCents = 0;
-    let couponId = null;
+  /**
+   * Cotiza como `priceOrder` + `POST /api/quote` del servidor, con sus mismas
+   * funciones puras. Devuelve también las líneas y el cupón para crear pedidos.
+   */
+  function quoteOf(body) {
+    const delivery = body.delivery || "pickup";
+    const ret = body.ret || "store";
+    const priced = body.items.map((id) => ({ ...win.productById(id - ITEM_BASE), itemId: id }));
+    const lineas = ledger.initialCharges({ items: priced, start: body.start, end: body.end, delivery, ret, pay: body.pay || "credit" });
+    const days = pricing.rentalDays(body.start, body.end);
+    let cupon = null;
     let couponIssue = null;
+    let missing = false;
     if (body.couponId != null) {
-      const c = st.coupons.find((x) => x.id === body.couponId && x.usedIn == null && !x.revoked);
-      if (!c) return respond(409, { error: "Ese premio ya no está disponible." });
-      discountCents = Math.round(win.couponDiscount() * 100);
-      if (discountCents > 0) { couponId = c.id; c.usedIn = st.nextOrderId; }
-      else couponIssue = win.couponIssue() || "El premio no rebaja nada en este alquiler.";
+      cupon = st.coupons.find((x) => x.id === body.couponId && x.usedIn == null && !x.revoked) || null;
+      if (!cupon) { missing = true; couponIssue = "Ese premio ya no está disponible."; } else {
+        const rw = rewards.rewardById(cupon.rewardId);
+        const ctx = { items: priced, days, delivery, ret };
+        const rebaja = rewards.rewardDiscountCents(rw, ctx);
+        if (rebaja > 0) lineas.push(ledger.discountCharge(rebaja, body.pay || "credit", `Premio: ${rw.name}`));
+        else { couponIssue = rewards.rewardIssue(rw, ctx) || "El premio no rebaja nada en este alquiler."; cupon = null; }
+      }
     }
-    const charges = productIds.map((pid, i) => ({
-      type: "RENTAL",
-      itemId: body.items[i],
-      amountCents: Math.round(win.cartItemPrice(win.productById(pid)) * 100),
-    }));
+    const sum = (t) => lineas.filter((l) => l.type === t).reduce((a, l) => a + l.amountCents, 0);
+    const rentalCents = sum("RENTAL");
+    return {
+      lineas, cupon, couponIssue, missing,
+      quote: {
+        days,
+        returnBy: win.returnByISO(body.start, body.end),
+        lines: lineas.map((l) => ({ type: l.type, amountCents: l.amountCents, itemId: l.itemId, note: l.note })),
+        rentalCents,
+        volumeSavingsCents: priced.reduce((a, p) => a + pricing.cents(pricing.rentalPrice(p, days, 1)), 0) - rentalCents,
+        shippingCents: sum("SHIPPING"),
+        returnCents: sum("RETURN"),
+        depositCents: sum("DEPOSIT_HOLD"),
+        discountCents: -sum("DISCOUNT") || 0,
+        totalCents: lineas.reduce((a, l) => a + l.amountCents, 0),
+        points: rewards.orderPoints({ spendCents: ledger.revenueCents(lineas), days, itemCount: priced.length }),
+        couponId: cupon ? cupon.id : null,
+        couponIssue: body.couponId != null ? couponIssue : null,
+        ladderCents: Array.from({ length: 60 }, (_, i) =>
+          priced.reduce((a, p) => a + pricing.cents(pricing.rentalPrice(p, i + 1, priced.length)), 0)),
+      },
+    };
+  }
+
+  /** Crea el pedido: mismas líneas que la cotización, como el servidor. */
+  function createOrder(body) {
+    const { lineas, cupon, couponIssue, missing, quote } = quoteOf(body);
+    if (missing) return respond(409, { error: "Ese premio ya no está disponible." });
+    if (cupon) cupon.usedIn = st.nextOrderId;
     const o = {
       id: st.nextOrderId++,
       createdAt: new Date().toISOString(),
-      items: productIds,
+      items: body.items.map((id) => id - ITEM_BASE),
       itemIds: body.items.slice(),
       start: body.start,
       end: body.end,
-      returnBy: win.returnByISO(body.start, body.end),
-      days: win.rentalDays(),
+      returnBy: quote.returnBy,
+      days: quote.days,
       delivery: body.delivery,
       ret: body.ret,
       shipAddr: body.shipAddr ?? null,
@@ -91,12 +144,12 @@ function installFakeApi(win) {
       pay: body.pay,
       status: body.pay === "cash" ? "pending" : "settled",
       cancelledAt: null,
-      couponId,
-      discountCents,
-      points: win.orderPoints(),
-      totalCents: Math.round(win.grandTotal() * 100),
-      depositHeldCents: Math.round(win.depositTotal() * 100),
-      charges,
+      couponId: cupon ? cupon.id : null,
+      discountCents: quote.discountCents,
+      points: quote.points,
+      totalCents: quote.totalCents,
+      depositHeldCents: quote.depositCents,
+      charges: lineas,
     };
     st.orders.push(o);
     return respond(201, { ...toApi(o), couponIssue });
@@ -105,9 +158,10 @@ function installFakeApi(win) {
   const routes = [
     ["GET", /^\/api\/products$/, () => respond(200, win.__APP__.products.map((p) => {
       const libre = !reserved().has(ITEM_BASE + p.id);
-      return { ...p, disponibles: libre ? 1 : 0, items: [{ id: ITEM_BASE + p.id, available: libre }] };
+      return { ...p, price: priceSummary(p), disponibles: libre ? 1 : 0, items: [{ id: ITEM_BASE + p.id, available: libre }] };
     }))],
-    ["GET", /^\/api\/config$/, () => respond(200, { today: today(), closedWeekdays: [0, 6], holidays: [] })],
+    ["GET", /^\/api\/config$/, () => respond(200, { today: today(), closedWeekdays: [0, 6], holidays: [], shippingFee: 4.5, volumeDiscountMax: 0.2 })],
+    ["POST", /^\/api\/quote$/, (m, body) => respond(200, quoteOf(body).quote)],
     ["POST", /^\/api\/orders$/, (m, body) => createOrder(body)],
     ["GET", /^\/api\/orders$/, () => respond(200, st.orders.slice().reverse().map(toApi))],
     ["PATCH", /^\/api\/orders\/(\d+)\/return$/, (m, body) => {
@@ -182,4 +236,4 @@ function installFakeApi(win) {
   return fake;
 }
 
-module.exports = { installFakeApi, ITEM_BASE };
+module.exports = { installFakeApi, ITEM_BASE, priceSummary };

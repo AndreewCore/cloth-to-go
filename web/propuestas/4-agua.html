@@ -203,7 +203,7 @@ img { max-width: 100%; display: block; }
       <div class="in">
         <h3>${escapeHTML(p.name)}</h3>
         <div class="sp">Talla ${escapeHTML(p.size)} · ${escapeHTML(materialLabel(p.material))}</div>
-        <div class="pr">$${demoDay(p)} el día · garantía $${depositFor(p).toFixed(2)}</div>
+        <div class="pr">$${demoDay(p)} el día · garantía $${demoDeposit(p).toFixed(2)}</div>
         <div class="lt">${demoWater(p)} litros que no se gastan</div>
       </div>
     </article>`).join("");

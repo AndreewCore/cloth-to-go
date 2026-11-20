@@ -27,24 +27,7 @@ test("cartCount cuenta las prendas del carrito", () => {
   assert.equal(win.cartCount(), 2);
 });
 
-test("cartItemPrice aplica los días y el volumen VIGENTES del carrito", () => {
-  // No es el precio de catálogo: la misma prenda vale distinto según cuántas
-  // más lleve el carrito y cuántos días dure el alquiler.
-  const p = app.products[0];
-  app.cart = [{ id: p.id }];
-  const sola = win.cartItemPrice(p);
 
-  app.cart = [{ id: p.id }, { id: app.products[1].id }, { id: app.products[2].id }];
-  assert.ok(win.cartItemPrice(p) <= sola, "con más prendas no puede salir más cara");
-  assert.equal(win.cartItemPrice(p), win.rentalPrice(p, win.rentalDays(), 3));
-});
-
-test("volumeRate sube con las prendas y se topa", () => {
-  const tasa = n => { app.cart = Array.from({ length: n }, (_, i) => ({ id: i + 1 })); return win.volumeRate(); };
-  assert.equal(tasa(1), 0, "una prenda no tiene descuento por volumen");
-  assert.ok(tasa(3) > tasa(2));
-  assert.ok(tasa(10) <= 0.20, "el descuento por volumen está topado");
-});
 
 /* ---- Cargos de envío ---- */
 test("los cargos dependen del modo elegido, y son independientes entre sí", () => {
@@ -60,16 +43,6 @@ test("los cargos dependen del modo elegido, y son independientes entre sí", () 
   assert.equal(win.returnFee(), app.SHIPPING_FEE);
 });
 
-test("grandTotal suma exactamente sus partes", () => {
-  // La red que hace falta antes de mover la fórmula: si el refactor pierde un
-  // sumando, esto lo dice; el total en pantalla, no.
-  app.cart = [{ id: app.products[0].id }, { id: app.products[3].id }];
-  app.setCheckout({ delivery: "ship", returnMethod: "home" });
-
-  const esperado = app.subtotal() + app.depositTotal() + win.shippingFee()
-                 + win.returnFee() - app.couponDiscount();
-  assert.ok(Math.abs(app.grandTotal() - esperado) < 1e-9);
-});
 
 /* ---- Agua del carrito ---- */
 test("cartWaterSaved es el agua de lo que hay en el carrito, no de lo alquilado", () => {

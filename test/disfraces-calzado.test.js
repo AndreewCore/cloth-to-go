@@ -159,13 +159,3 @@ test("la tarjeta pinta la foto y conserva el placeholder de respaldo", () => {
 });
 
 /* ---- El precio sigue siendo honesto ---- */
-test("ningún disfraz ni zapato se alquila por debajo de su coste de ciclo", () => {
-  // La invariante del modelo de precios: el lavado cuesta lo mismo salga la
-  // prenda un día o diez.
-  for (const p of [...enCat("Disfraces"), ...enCat("Calzado")]) {
-    for (const dias of [1, 3, 7, 14]) {
-      assert.ok(win.rentalPrice(p, dias) >= win.cycleCost(p) - 1e-9,
-        `${p.name} baja del coste de ciclo a ${dias} días`);
-    }
-  }
-});

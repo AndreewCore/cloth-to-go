@@ -22,7 +22,7 @@ function totalRowHTML(label, total){
       <span>${label}</span>
       <span class="total-vals">
         ${dep > 0 ? `<span class="refund-inline" title="Depósito que se te devuelve al terminar el alquiler">${icon("undo", { size: 13 })} $${dep.toFixed(2)} se te devuelve</span>` : ""}
-        <span class="total-amount">$${total.toFixed(2)}</span>
+        <span class="total-amount">${money(total)}</span>
       </span>
     </div>`;
 }
@@ -59,6 +59,8 @@ function calDayCost(iso){
   if(cart.length === 0) return null;
   if(iso < rentalStart) return null;
   const add = dayMarginalCost(calDayIndex(iso));
+  // Sin cotización todavía no hay tarifa que enseñar: el día queda en blanco.
+  if(add === null) return null;
   // El primer día es la base del alquiler, no un incremento: va sin el "+".
   if(calDayIndex(iso) === 1) return { cls: "base", txt: `$${add.toFixed(2)}` };
   return { cls: add === 0 ? "free" : "paid", txt: `+$${add.toFixed(2)}` };
@@ -173,9 +175,23 @@ function shiftCalendar(n){
   calMonth = next;
   renderSheet();
 }
+/**
+ * Llegó la cotización del carrito (requestQuote, en api.js): repinta la vista
+ * del flujo de compra que esté abierta, que hasta ahora enseñaba "—".
+ */
+function onQuoteUpdated(){
+  if(!sheet.classList.contains("show") || !["cart", "checkout", "payment"].includes(view)) return;
+  // Repintar mientras se escribe (dirección, tarjeta) le quitaría el foco al
+  // campo; el siguiente repintado (al salir del campo) ya trae los importes.
+  const a = document.activeElement;
+  if(a && a.matches("input, textarea") && sheet.contains(a)) return;
+  renderSheet();
+}
+
 /* ---- Carrito ---- */
 function renderCart(){
   sheetTitle.textContent = "Tu carrito";
+  requestQuote();   // los importes los pone el servidor; al llegar, se repinta
   if(cart.length===0){
     sheetBody.innerHTML = `<div class="empty"><div class="em">${icon("shirt", { size: 34 })}</div><p>Tu carrito está vacío.<br>Agrega prendas para alquilar.</p></div>`;
     sheetFoot.innerHTML = "";
@@ -190,10 +206,10 @@ function renderCart(){
         <div class="ci-info">
           <div class="ci-name">${escapeHTML(p.name)}</div>
           <div class="ci-quality">${qualityMeter(p.stars)} <span style="color:var(--muted)">${conditionLabel(p.stars)} · Talla ${escapeHTML(p.size)}</span></div>
-          <div class="ci-meta">${days} ${days===1?'día':'días'} · $${(cartItemPrice(p)/days).toFixed(2)}/día · depósito $${depositFor(p)}</div>
+          <div class="ci-meta">${days} ${days===1?'día':'días'} · ${money(perDay(cartItemPrice(p), days))}/día · depósito ${money(catalogDeposit(p))}</div>
         </div>
         <div>
-          <div class="ci-price">$${cartItemPrice(p).toFixed(2)}</div>
+          <div class="ci-price">${money(cartItemPrice(p))}</div>
           <button class="ci-remove" data-action="remove" data-id="${p.id}">Quitar</button>
         </div>
       </div>`;
@@ -201,15 +217,15 @@ function renderCart(){
 
   const savings = volumeSavings();
   const discountRow = savings > 0
-    ? `<div class="summary-row"><span>Alquiler sin descuento</span><span style="text-decoration:line-through;color:var(--muted)">$${subtotalBeforeVolume().toFixed(2)}</span></div>
-       <div class="summary-row"><span>Descuento por volumen <span class="refund-tag">−${Math.round(volumeRate()*100)}%</span></span><span>−$${savings.toFixed(2)}</span></div>`
+    ? `<div class="summary-row"><span>Alquiler sin descuento</span><span style="text-decoration:line-through;color:var(--muted)">${money(subtotalBeforeVolume())}</span></div>
+       <div class="summary-row"><span>Descuento por volumen <span class="refund-tag">−${Math.round(savings / subtotalBeforeVolume() * 100)}%</span></span><span>−$${savings.toFixed(2)}</span></div>`
     : "";
   sheetBody.innerHTML += `
     <div class="summary">
       ${discountRow}
-      <div class="summary-row"><span>Subtotal alquiler</span><span>$${subtotal().toFixed(2)}</span></div>
-      <div class="summary-row deposit"><span>Depósito <span class="refund-tag">reembolsable</span></span><span>$${depositTotal().toFixed(2)}</span></div>
-      ${totalRowHTML("Total", subtotal()+depositTotal())}
+      <div class="summary-row"><span>Subtotal alquiler</span><span>${money(subtotal())}</span></div>
+      <div class="summary-row deposit"><span>Depósito <span class="refund-tag">reembolsable</span></span><span>${money(depositTotal())}</span></div>
+      ${totalRowHTML("Total", sumOrNull(subtotal(), depositTotal()))}
     </div>
     ${/* La frase del depósito se fue: el propio total ya dice "$X se te
           devuelve", y repetirlo debajo era decir dos veces lo mismo. Lo que
@@ -232,6 +248,7 @@ function removeItem(id){
 /* ---- Checkout (entrega + pago) ---- */
 function renderCheckout(){
   sheetTitle.textContent = "Entrega y pago";
+  requestQuote();
   const ship = SHIPPING_FEE;
   const total = grandTotal();
 
@@ -276,12 +293,12 @@ function renderCheckout(){
 
     <div class="summary">
       <div class="summary-row"><span>Período</span><span>${rentalDays()} ${rentalDays()===1?'día':'días'} · ${fmtDate(rentalStart)} → ${fmtDate(rentalEnd)}</span></div>
-      <div class="summary-row"><span>Subtotal alquiler</span><span>$${subtotal().toFixed(2)}</span></div>
-      <div class="summary-row deposit"><span>Depósito <span class="refund-tag">reembolsable</span></span><span>$${depositTotal().toFixed(2)}</span></div>
+      <div class="summary-row"><span>Subtotal alquiler</span><span>${money(subtotal())}</span></div>
+      <div class="summary-row deposit"><span>Depósito <span class="refund-tag">reembolsable</span></span><span>${money(depositTotal())}</span></div>
       <div class="summary-row"><span>Envío</span><span>${delivery===DELIVERY.SHIP?'$'+ship.toFixed(2):delivery===DELIVERY.PICKUP?'$0.00':'—'}</span></div>
       <div class="summary-row"><span>Devolución</span><span>${returnMethod===RETURN_TO.HOME?'$'+ship.toFixed(2):returnMethod===RETURN_TO.STORE?'$0.00':'—'}</span></div>
       ${couponDiscount() > 0 ? `
-        <div class="summary-row discount"><span>${icon("ticket", { size: 14 })} ${escapeHTML(couponById(appliedCoupon).name)}</span><span>−$${couponDiscount().toFixed(2)}</span></div>` : ""}
+        <div class="summary-row discount"><span>${icon("ticket", { size: 14 })} ${escapeHTML(couponById(appliedCoupon).name)}</span><span>−${money(couponDiscount())}</span></div>` : ""}
       ${totalRowHTML("Total a pagar", total)}
     </div>
   `;
@@ -299,47 +316,46 @@ function renderCheckout(){
 }
 
 /**
- * Sección de premios del checkout: los canjes disponibles, con su descuento ya
- * calculado sobre ESTE pedido. Se aplica uno solo por alquiler — acumularlos
- * complicaría el cobro sin que el catálogo de premios lo pida.
+ * Sección de premios del checkout: los canjes disponibles. Se aplica uno solo
+ * por alquiler — acumularlos complicaría el cobro sin que el catálogo de
+ * premios lo pida.
  *
- * Los premios que no aplican se muestran igualmente (deshabilitados y con el
- * motivo): esconderlos dejaría al cliente creyendo que perdió el canje.
+ * Cuánto rebaja el premio aplicado (o por qué no rebaja nada aquí) lo dice la
+ * cotización del servidor: es el mismo cálculo que hará al cobrar, así que el
+ * checkout no puede prometer un descuento que después no se aplica.
  * @returns {string} HTML, o vacío si no hay premios por usar.
  */
 function couponSectionHTML(){
   const disponibles = availableCoupons();
   if(!disponibles.length) return "";
-  const ctx = cartRewardCtx();
+  const motivo = couponIssue();
+  const monto = couponDiscount();
 
   return `
     <div class="section-label">Tus premios</div>
     <div class="coupon-opts">
       ${disponibles.map(c => {
         const rw = rewardById(c.rewardId);
-        const motivo = rewardIssue(rw, ctx);
-        const monto = rewardDiscount(rw, ctx);
-        const usable = !motivo && monto > 0;
-        // Solo se marca activo si además sirve: cambiar la entrega puede dejar
-        // sin efecto un premio ya elegido, y pintarlo seleccionado mentiría
-        // sobre un descuento que el total (correctamente) ya no aplica.
-        const activo = appliedCoupon === c.id && usable;
+        const activo = appliedCoupon === c.id;
+        const nota = activo && motivo
+          ? `${escapeHTML(motivo)} No se gastará.`
+          : escapeHTML(rw ? rw.desc : "");
         return `
-        <div class="coupon-opt ${activo?'active':''} ${usable?'':'locked'}"
-             ${usable ? `data-action="applyCoupon" data-id="${c.id}" role="button" tabindex="0" aria-pressed="${activo}"` : ""}>
+        <div class="coupon-opt ${activo && !motivo ? 'active' : ''} ${activo && motivo ? 'locked' : ''}"
+             data-action="applyCoupon" data-id="${c.id}" role="button" tabindex="0" aria-pressed="${activo}">
           <div class="do-icon">${icon(rw ? rw.icon : "ticket", { size: 20 })}</div>
           <div class="do-text">
             <div class="do-title">
               <span>${escapeHTML(c.name)}</span>
-              ${usable ? `<span style="color:var(--ok)">−$${monto.toFixed(2)}</span>` : ""}
+              ${activo && monto > 0 ? `<span style="color:var(--ok)">−${money(monto)}</span>` : ""}
             </div>
-            <div class="do-desc">${motivo ? escapeHTML(motivo) : escapeHTML(rw ? rw.desc : "")}</div>
+            <div class="do-desc">${nota}</div>
           </div>
           <div class="do-radio"></div>
         </div>`;
       }).join("")}
     </div>
-    ${couponDiscount() > 0
+    ${appliedCoupon != null
       ? `<button class="link-btn" data-action="clearCoupon">Quitar el premio aplicado</button>`
       : ""}`;
 }
@@ -381,6 +397,7 @@ function checkoutValid(){
 /* ---- Pago (método) ---- */
 function renderPayment(){
   sheetTitle.textContent = "Método de pago";
+  requestQuote();
   const total = grandTotal();
   const isCard = payMethod===PAY_METHOD.CREDIT || payMethod===PAY_METHOD.DEBIT;
 
@@ -433,19 +450,21 @@ function renderPayment(){
       </div>` : ``}
 
     ${payMethod===PAY_METHOD.CASH ? `
-      <div class="pickup-detail">${icon("cash", { size: 15 })} Pagarás <b>$${total.toFixed(2)}</b> en efectivo al recibir o retirar tu pedido.</div>` : ``}
+      <div class="pickup-detail">${icon("cash", { size: 15 })} Pagarás <b>${money(total)}</b> en efectivo al recibir o retirar tu pedido.</div>` : ``}
 
     <div class="summary">
       ${couponDiscount() > 0 ? `
-        <div class="summary-row discount"><span>${icon("ticket", { size: 14 })} ${escapeHTML(couponById(appliedCoupon).name)}</span><span>−$${couponDiscount().toFixed(2)}</span></div>` : ""}
+        <div class="summary-row discount"><span>${icon("ticket", { size: 14 })} ${escapeHTML(couponById(appliedCoupon).name)}</span><span>−${money(couponDiscount())}</span></div>` : ""}
       ${totalRowHTML("Total a pagar", total)}
     </div>
   `;
 
-  const valid = paymentValid();
+  // Sin cotización vigente no hay importe que confirmar: el botón espera.
+  const valid = paymentValid() && quoteReady();
   let label = 'Confirmar pedido';
-  if(!payMethod)            label = 'Elige un método de pago';
-  else if(isCard && !valid) label = 'Completa los datos de la tarjeta';
+  if(!payMethod)                label = 'Elige un método de pago';
+  else if(isCard && !paymentValid()) label = 'Completa los datos de la tarjeta';
+  else if(!quoteReady())        label = 'Calculando el precio…';
 
   sheetFoot.innerHTML = `<button class="pay-btn" data-action="confirmOrder" ${valid?'':'disabled'}>${label}</button>`;
 }
@@ -467,7 +486,7 @@ function confirmItemsHTML(){
       <li class="oc-item">
         <span class="oc-thumb">${imgPlaceholder(p)}</span>
         <span class="oc-name">${escapeHTML(p.name)}</span>
-        <span class="oc-price">$${cartItemPrice(p).toFixed(2)}</span>
+        <span class="oc-price">${money(cartItemPrice(p))}</span>
       </li>`;
   }).join("");
 }
@@ -491,14 +510,14 @@ function confirmDetailHTML(){
       </div>
       <ul class="oc-items">${confirmItemsHTML()}</ul>
       <div class="oc-rows">
-        <div class="oc-row"><span>Alquiler</span><span>$${subtotal().toFixed(2)}</span></div>
+        <div class="oc-row"><span>Alquiler</span><span>${money(subtotal())}</span></div>
         ${envio > 0 ? `<div class="oc-row"><span>Envío y retiro</span><span>$${envio.toFixed(2)}</span></div>` : ""}
-        ${desc > 0 ? `<div class="oc-row discount"><span>Premio canjeado</span><span>−$${desc.toFixed(2)}</span></div>` : ""}
-        ${dep > 0 ? `<div class="oc-row"><span>Depósito</span><span>$${dep.toFixed(2)}</span></div>` : ""}
-        <div class="oc-row pay"><span>Pagas ahora</span><span>$${aPagar.toFixed(2)}</span></div>
+        ${desc > 0 ? `<div class="oc-row discount"><span>Premio canjeado</span><span>−${money(desc)}</span></div>` : ""}
+        ${dep > 0 ? `<div class="oc-row"><span>Depósito</span><span>${money(dep)}</span></div>` : ""}
+        <div class="oc-row pay"><span>Pagas ahora</span><span>${money(aPagar)}</span></div>
       </div>
       ${dep > 0 ? `<div class="oc-refund">${icon("undo", { size: 14 })}
-        Se te devuelven <b>$${dep.toFixed(2)}</b> al regresar las prendas en buen estado.</div>` : ""}
+        Se te devuelven <b>${money(dep)}</b> al regresar las prendas en buen estado.</div>` : ""}
     </div>`;
 }
 
@@ -508,11 +527,11 @@ function confirmDetailHTML(){
  * de verdad y se puede llamar suelta (los tests lo hacen).
  */
 function confirmOrder(){
-  if(!checkoutValid() || !paymentValid()) return;
+  if(!checkoutValid() || !paymentValid() || !quoteReady()) return;
   confirmDialog("", placeOrder, "check", {
     title: "¿Confirmas tu alquiler?",
     detailHTML: confirmDetailHTML(),
-    okLabel: `Confirmar y pagar $${grandTotal().toFixed(2)}`,
+    okLabel: `Confirmar y pagar ${money(grandTotal())}`,
   });
 }
 

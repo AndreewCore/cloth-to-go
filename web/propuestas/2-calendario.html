@@ -191,13 +191,13 @@ td.garment span { color: var(--muted); font-size: 13px; display: block; }
       b.classList.toggle("on", on);
       b.setAttribute("aria-pressed", String(on));
     }
-    const total = rentalPrice(p, dias);
+    const total = demoPrice(p, dias);
     document.getElementById("calcTotal").textContent = `$${total.toFixed(2)}`;
     document.getElementById("calcPer").textContent =
       `${dias} ${dias === 1 ? "día" : "días"} · $${(total / dias).toFixed(2)} por día`;
-    const extra = dias > 1 ? rentalPrice(p, dias) - rentalPrice(p, dias - 1) : 0;
+    const extra = dias > 1 ? demoPrice(p, dias) - demoPrice(p, dias - 1) : 0;
     document.getElementById("calcBreak").innerHTML = `
-      <span><span>Garantía (se devuelve al entregar)</span><span>$${depositFor(p).toFixed(2)}</span></span>
+      <span><span>Garantía (se devuelve al entregar)</span><span>$${demoDeposit(p).toFixed(2)}</span></span>
       <span><span>${dias === 1 ? "Un solo día" : `El día ${dias} suma`}</span><span>${dias === 1 ? "—" : `$${extra.toFixed(2)}`}</span></span>
       <span><span>Frente a comprarla</span><span>${demoSaving(p, dias)}% menos</span></span>`;
   }
@@ -215,10 +215,10 @@ td.garment span { color: var(--muted); font-size: 13px; display: block; }
         <img src="${demoCover(q)}" alt="">
         <div>${escapeHTML(q.name)}<span>Talla ${escapeHTML(q.size)} · ${escapeHTML(q.cat)}</span></div>
       </td>
-      <td>$${rentalPrice(q, 1).toFixed(2)}</td>
-      <td>$${rentalPrice(q, 3).toFixed(2)}</td>
-      <td class="best">$${rentalPrice(q, 7).toFixed(2)}</td>
-      <td class="hide">$${depositFor(q).toFixed(2)}</td>
+      <td>$${demoPrice(q, 1).toFixed(2)}</td>
+      <td>$${demoPrice(q, 3).toFixed(2)}</td>
+      <td class="best">$${demoPrice(q, 7).toFixed(2)}</td>
+      <td class="hide">$${demoDeposit(q).toFixed(2)}</td>
     </tr>`).join("");
 
   initDemoTheme("swap");
