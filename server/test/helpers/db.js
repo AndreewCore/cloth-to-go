@@ -38,6 +38,9 @@ export async function purge({ subs = [], itemIds = [] } = {}) {
       where: { OR: [{ orderId: { in: orderIds } }, { actorId: { in: userIds } }, { subjectUserId: { in: userIds } }] },
     });
     await tx.charge.deleteMany({ where: { OR: [{ orderId: { in: orderIds } }, { itemId: { in: itemIds } }] } });
+    await tx.pointsEntry.deleteMany({ where: { userId: { in: userIds } } });
+    await tx.coupon.deleteMany({ where: { userId: { in: userIds } } });
+    await tx.session.deleteMany({ where: { userId: { in: userIds } } });
     await tx.orderItem.deleteMany({ where: { OR: [{ orderId: { in: orderIds } }, { itemId: { in: itemIds } }] } });
     await tx.order.deleteMany({ where: { id: { in: orderIds } } });
     await tx.item.deleteMany({ where: { id: { in: itemIds } } });

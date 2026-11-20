@@ -18,6 +18,8 @@ import {
   paymentStatus,
   returnChangeAdjustment,
   CHARGE_STATUS,
+  discountCents,
+  discountCharge,
   heldDepositCents,
   revenueCents,
   totalCents,
@@ -31,6 +33,8 @@ import { releaseForOrder, reserveForOrder } from "./items.js";
 import { FINANCE_EVENT, logFinance } from "./logs.js";
 import { isBusinessDay, returnByDate, todayISO } from "./dates.js";
 import { holidaySet } from "./calendar.js";
+import { orderPoints, rewardById, rewardDiscountCents, rewardIssue } from "./rewards.js";
+import { countsForRewards, lockUser, revokeOrderRewards, settleRewards } from "./points.js";
 
 /** Formato de fecha que acepta la API: día de calendario, sin hora ni zona. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -68,6 +72,14 @@ function orderToApi(order) {
     items: (order.items ?? []).map((i) => i.item.productId),
     itemIds: (order.items ?? []).map((i) => i.itemId),
     status: order.cancelledAt ? "cancelled" : paymentStatus(charges),
+    // Premio aplicado y lo que rebaja hoy (las líneas DISCOUNT, en positivo).
+    couponId: order.coupon?.id ?? null,
+    discountCents: discountCents(charges),
+    // Puntos que gana al entregarse y si ya entraron al saldo. Se acreditan
+    // en cuanto el pedido cuenta (settleRewards corre antes de listar), así que
+    // "acreditado" se deriva de la misma regla y no hace falta otra consulta.
+    points: order.pointsEarned ?? 0,
+    pointsCredited: (order.pointsEarned ?? 0) > 0 && countsForRewards(order),
     totalCents: totalCents(charges),
     total: totalCents(charges) / 100,
     revenueCents: revenueCents(charges),
@@ -90,6 +102,7 @@ function orderToApi(order) {
 const CON_LINEAS = {
   items: { include: { item: { select: { productId: true } } }, orderBy: { id: "asc" } },
   charges: { orderBy: { id: "asc" } },
+  coupon: { select: { id: true, rewardId: true } },
 };
 
 /**
@@ -147,6 +160,12 @@ function parseOrderBody(body) {
   if (!items.every((id) => Number.isInteger(id))) {
     throw httpError(400, "Las prendas se identifican por el id numérico del ejemplar.");
   }
+  // El premio viaja como id, nunca como importe: el descuento lo calcula el
+  // servidor (§2 de PENDIENTE). Opcional.
+  const couponId = body?.couponId ?? null;
+  if (couponId !== null && !Number.isInteger(couponId)) {
+    throw httpError(400, "El premio se identifica por su id numérico.");
+  }
   if (new Set(items).size !== items.length) {
     // Un ejemplar es una pieza física: pedirlo dos veces no es un pedido de
     // dos unidades, es un error que además cobraría doble.
@@ -155,6 +174,7 @@ function parseOrderBody(body) {
 
   return {
     items,
+    couponId,
     start,
     end,
     delivery,
@@ -222,6 +242,8 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
 
   // Pedidos del usuario autenticado, del más reciente al más antiguo.
   app.get("/api/orders", { preHandler: requireUser }, async (req) => {
+    // Liquida antes de listar: así `pointsCredited` dice la verdad del saldo.
+    await settleRewards(prisma, req.user.id);
     const pedidos = await prisma.order.findMany({
       where: { userId: req.user.id },
       include: CON_LINEAS,
@@ -277,6 +299,37 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
       // Mismo orden que pidió el cliente: las líneas RENTAL salen en ese orden.
       const porId = new Map(items.map((i) => [i.id, i]));
       const ordenados = datos.items.map((id) => porId.get(id));
+      const priced = ordenados.map(pricedItem);
+      const lineas = initialCharges({ ...datos, items: priced });
+
+      // El premio: se valida contra la base (de esta cuenta, sin usar, no
+      // revocado) y se valora aquí. Uno que no rebaja nada NO se consume: el
+      // pedido sale sin él y la respuesta dice por qué.
+      let cupon = null;
+      let couponIssue = null;
+      if (datos.couponId !== null) {
+        cupon = await tx.coupon.findFirst({
+          where: { id: datos.couponId, userId: req.user.id, usedInOrderId: null, revokedAt: null },
+        });
+        if (!cupon) throw httpError(409, "Ese premio ya no está disponible.");
+        const rw = rewardById(cupon.rewardId);
+        const ctx = { items: priced, days: rentalDays(datos.start, datos.end), delivery: datos.delivery, ret: datos.ret };
+        const rebaja = rewardDiscountCents(rw, ctx);
+        if (rebaja > 0) {
+          lineas.push(discountCharge(rebaja, datos.pay, `Premio: ${rw.name}`));
+        } else {
+          couponIssue = rewardIssue(rw, ctx) ?? "El premio no rebaja nada en este alquiler.";
+          cupon = null;
+        }
+      }
+
+      // Puntos por lo pagado de verdad: sin depósito y sin lo que cubrió el
+      // premio. Se fijan ahora y se acreditan al entregar.
+      const pointsEarned = orderPoints({
+        spendCents: revenueCents(lineas),
+        days: rentalDays(datos.start, datos.end),
+        itemCount: priced.length,
+      });
 
       const order = await tx.order.create({
         data: {
@@ -288,6 +341,7 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
           shipAddr: datos.shipAddr,
           retAddr: datos.retAddr,
           pay: datos.pay,
+          pointsEarned,
           items: {
             create: datos.items.map((itemId) => ({
               itemId,
@@ -295,16 +349,27 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
               end: isoToDate(returnBy),
             })),
           },
-          charges: { create: initialCharges({ ...datos, items: ordenados.map(pricedItem) }) },
+          charges: { create: lineas },
         },
         include: CON_LINEAS,
       });
+      if (cupon) {
+        // Condicional: dos checkouts simultáneos con el mismo cupón pasan los
+        // dos la lectura de arriba, pero solo uno lo encuentra libre aquí.
+        const { count } = await tx.coupon.updateMany({
+          where: { id: cupon.id, usedInOrderId: null, revokedAt: null },
+          data: { usedInOrderId: order.id },
+        });
+        if (count === 0) throw httpError(409, "Ese premio ya no está disponible.");
+      }
       await reserveForOrder(tx, ordenados, order.id);
-      return order;
+      const creado = await tx.order.findUnique({ where: { id: order.id }, include: CON_LINEAS });
+      return { order: creado, couponIssue };
     });
 
     try {
-      return reply.code(201).send(orderToApi(await crear()));
+      const { order, couponIssue } = await crear();
+      return reply.code(201).send({ ...orderToApi(order), couponIssue });
     } catch (err) {
       // Otro checkout ganó la carrera entre la comprobación y la escritura.
       if (isOverlapViolation(err)) {
@@ -333,13 +398,30 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
     const errorAddr = validateOrderAddresses({ ret, retAddr });
     if (errorAddr) throw httpError(400, errorAddr);
 
+    const lineas = [];
     const ajuste = returnChangeAdjustment(order.ret, ret, order.pay);
+    if (ajuste) lineas.push(ajuste);
+
+    // Un premio de envío deja de valer si la devolución pasa al local (y al
+    // revés): se revalora con el modo nuevo y la diferencia va en otra línea
+    // DISCOUNT, sin tocar la anterior.
+    if (order.coupon) {
+      const rw = rewardById(order.coupon.rewardId);
+      const items = await prisma.item.findMany({
+        where: { id: { in: order.items.map((i) => i.itemId) } },
+        include: { product: { include: { materialRef: true } } },
+      });
+      const ctx = { items: items.map(pricedItem), days: rentalDays(order.start, order.end), delivery: order.delivery, ret };
+      const delta = rewardDiscountCents(rw, ctx) - discountCents(order.charges);
+      if (delta !== 0) lineas.push(discountCharge(delta, order.pay, `Premio revalorado: cambio de devolución`));
+    }
+
     const actualizado = await prisma.order.update({
       where: { id },
       data: {
         ret,
         retAddr: retAddr === null ? null : retAddr.trim(),
-        ...(ajuste ? { charges: { create: ajuste } } : {}),
+        ...(lineas.length ? { charges: { create: lineas } } : {}),
       },
       include: CON_LINEAS,
     });
@@ -417,8 +499,11 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
     const anulado = await prisma.$transaction(async (tx) => {
       // Condición sobre `cancelledAt`: dos anulaciones simultáneas no pueden
       // escribir dos juegos de reversos.
+      await lockUser(tx, order.userId);
       const { count } = await tx.order.updateMany({ where: { id, cancelledAt: null }, data: { cancelledAt: new Date() } });
       if (count === 0) throw httpError(409, "El pedido ya estaba anulado.");
+      // Puntos fuera (si ya entraron) y cupón de vuelta a la cartera.
+      await revokeOrderRewards(tx, order);
       if (reversos.length) {
         await tx.charge.createMany({ data: reversos.map((r) => ({ ...r, orderId: id })) });
       }

@@ -1,12 +1,13 @@
 /**
  * Autenticación de las peticiones que necesitan saber quién las hace.
  *
- * El cliente manda el **ID token de Google** en `Authorization: Bearer …` y el
- * servidor lo verifica en cada petición. No emitimos sesión propia: sería un
- * secreto más que custodiar, con su caducidad y su revocación, para un
- * prototipo que ya tiene un emisor de identidad perfectamente bueno. El precio
- * es que el token caduca (~1 h) y el cliente vuelve a pedir uno al SDK, que es
- * justo lo que el SDK hace solo.
+ * El cliente manda en `Authorization: Bearer …` el **token de sesión** que le
+ * entregó `POST /api/auth/google` (ver sessions.js). Hasta la fase 3 se mandaba
+ * el ID token de Google en cada petición y no había sesión propia; se cambió
+ * porque ese token caduca en una hora y el SDK no siempre da otro en silencio,
+ * y un checkout no puede caerse a mitad. Un ID token de Google válido se sigue
+ * aceptando en la misma cabecera: es la identidad de siempre, verificada igual,
+ * y deja a cualquier cliente (o a una prueba) autenticarse sin sesión.
  *
  * Por qué header y no cookie: el navegador NO adjunta `Authorization` por su
  * cuenta, así que un formulario hostil en otro sitio no puede hacer una
@@ -15,6 +16,7 @@
  * respuesta, no quién envía la petición.
  */
 import prisma from "./db.js";
+import { userForSession } from "./sessions.js";
 
 /**
  * Registra o actualiza al usuario a partir del payload verificado de Google.
@@ -106,7 +108,8 @@ export function httpError(status, message) {
  */
 export function createAuthGuards(verify) {
   /**
-   * Exige un ID token válido y deja el usuario en `req.user`.
+   * Exige una sesión viva (o un ID token de Google válido) y deja el usuario
+   * en `req.user`.
    * @param {import("fastify").FastifyRequest} req Petición.
    */
   async function requireUser(req) {
@@ -115,6 +118,15 @@ export function createAuthGuards(verify) {
     if (esquema !== "Bearer" || !token) {
       throw httpError(401, "Falta la credencial de acceso.");
     }
+
+    // Primero la sesión propia: es lo que manda el frontend y no cuesta una
+    // verificación criptográfica contra Google en cada petición.
+    const deSesion = await userForSession(token);
+    if (deSesion) {
+      req.user = deSesion;
+      return;
+    }
+
     if (!verify) {
       req.log.error("GOOGLE_CLIENT_ID no está configurado en el servidor.");
       throw httpError(500, "Autenticación no disponible en el servidor.");

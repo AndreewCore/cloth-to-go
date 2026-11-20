@@ -392,6 +392,9 @@ model User {
   itemLogs     ItemLog[]
   financeActs  FinanceLog[] @relation("FinanceActor")
   financeAbout FinanceLog[] @relation("FinanceSubject")
+  sessions     Session[]
+  points       PointsEntry[]
+  coupons      Coupon[]
 
   @@map("users")
 }
@@ -442,6 +445,13 @@ model Order {
   /// material de una prenda, una anulación resta lo que entró, no lo que hoy
   /// saldría de recalcular.
   waterLiters Int?
+  /// Puntos que gana el pedido al entregarse, fijados al crearlo con lo que
+  /// pagó (sin depósito ni lo cubierto por un premio). Se guardan y no se
+  /// recalculan: si mañana cambia la fórmula, lo prometido no se mueve.
+  pointsEarned Int        @default(0)
+  /// Canje aplicado. La rebaja vive en las líneas DISCOUNT; esto solo dice de
+  /// qué premio salió, para liberarlo si el pedido se anula.
+  coupon      Coupon?
   items       OrderItem[]
   charges     Charge[]
   itemLogs    ItemLog[]
@@ -613,4 +623,84 @@ model Holiday {
   name String
 
   @@map("holidays")
+}
+
+/* ======================================================================
+   Sesiones propias (fase 3). El ID token de Google caduca en una hora; un
+   checkout no puede depender de eso. Al iniciar sesión el servidor entrega un
+   token opaco y guarda SOLO su hash: quien lea la base no puede usarlo.
+   ====================================================================== */
+
+model Session {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  user      User      @relation(fields: [userId], references: [id])
+  /// SHA-256 del token en hexadecimal.
+  tokenHash String    @unique
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  /// Cerrar sesión revoca; no se borra, para poder contar sesiones abiertas.
+  revokedAt DateTime?
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+/* ======================================================================
+   Puntos y canjes (§2 de PENDIENTE). El saldo es SUM(delta), no un
+   contador: un contador se corrompe con una carrera, una suma de asientos no,
+   y deja auditar de dónde salió cada punto.
+   ====================================================================== */
+
+enum PointsReason {
+  /// El pedido se entregó y ya no se puede anular.
+  EARNED_DELIVERY
+  /// Meta de agua alcanzada.
+  WATER_GOAL
+  /// Canje de un premio (negativo).
+  REDEEMED
+  /// Un pedido ya premiado se anuló (negativo).
+  REVOKED_CANCEL
+  /// Un canje sin usar se revocó para cubrir una reversión (devuelve su coste).
+  COUPON_REVOKED
+}
+
+model PointsEntry {
+  id        Int          @id @default(autoincrement())
+  userId    Int
+  user      User         @relation(fields: [userId], references: [id])
+  delta     Int
+  reason    PointsReason
+  orderId   Int?
+  couponId  Int?
+  /// Meta de agua (id de WATER_GOALS en src/rewards.js) para las WATER_GOAL.
+  goalId    Int?
+  createdAt DateTime     @default(now())
+
+  /// Un pedido gana (y pierde) sus puntos una sola vez, y una meta paga una
+  /// sola vez por cuenta. Lo impone la base: el acreditado es perezoso y dos
+  /// peticiones simultáneas pueden intentarlo a la vez.
+  @@unique([orderId, reason])
+  @@unique([userId, goalId])
+  @@index([userId])
+  @@map("points_entries")
+}
+
+model Coupon {
+  id            Int       @id @default(autoincrement())
+  userId        Int
+  user          User      @relation(fields: [userId], references: [id])
+  /// Id del premio (REWARDS en src/rewards.js).
+  rewardId      Int
+  /// Puntos que costó, por si el catálogo de premios cambia después.
+  cost          Int
+  issuedAt      DateTime  @default(now())
+  /// Pedido que lo gastó. Único: dos checkouts simultáneos con el mismo cupón
+  /// es una carrera real y la base es el único sitio donde se gana.
+  usedInOrderId Int?      @unique
+  usedIn        Order?    @relation(fields: [usedInOrderId], references: [id])
+  revokedAt     DateTime?
+
+  @@index([userId])
+  @@map("coupons")
 }
