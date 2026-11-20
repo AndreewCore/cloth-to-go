@@ -166,6 +166,30 @@ async function hydrateCatalog() {
 }
 
 /**
+ * Trae el calendario del negocio (GET /api/config: días cerrados y feriados) y
+ * vuelve a encajar las fechas elegidas en días hábiles. Sin backend se queda el
+ * calendario local, que solo cierra fines de semana: el servidor rechaza un
+ * feriado de todos modos, y esto es solo para no ofrecerlo.
+ * @param {boolean} [endAfterStart=false] La web exige devolver al menos un día
+ *   después del inicio; la app admite un alquiler de un día que empieza y acaba
+ *   el mismo día (ver snapRentalDates).
+ * @returns {Promise<boolean>} true si el calendario llegó de la API.
+ */
+async function hydrateCalendar(endAfterStart = false) {
+  if (!backend.enabled) return false;
+  try {
+    const res = await fetch(`${backend.base}/api/config`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    setBusinessCalendar(await res.json());
+    snapRentalDates(endAfterStart);
+    return true;
+  } catch (err) {
+    console.info("Calendario del negocio no disponible; se cierran solo los fines de semana.", err.message);
+    return false;
+  }
+}
+
+/**
  * Pide al backend el contador común de agua ahorrada (GET /api/impact/water).
  * Sin backend o con fallo devuelve null: quien llama esconde la sección en vez
  * de inventar una cifra, porque es un dato de toda la comunidad y no tiene un

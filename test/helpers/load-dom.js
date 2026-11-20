@@ -187,7 +187,7 @@ globalThis.__APP__ = {
   get stackedDetail(){ return stackedDetail; },
   get detailId(){ return detailId; },
   // Calendario de tarifas.
-  addDaysISO, monthOf, shiftMonth, monthLabel, monthGrid, dayMarginalCost,
+  addDaysISO, nextBusinessDayISO, isBusinessDayISO, returnByISO, setBusinessCalendar, monthOf, shiftMonth, monthLabel, monthGrid, dayMarginalCost,
   calVisibleMonth, calDayIndex, calDayCost, pickCalendarDay, shiftCalendar,
   get calPendingStart(){ return calPendingStart; },
 };

@@ -35,8 +35,10 @@ globalThis.__APP__ = {
   PHONE_COUNTRY_CODE, PHONE_NATIONAL_LEN, isValidEcPhone, phoneToE164, NAME_CHANGE_DAYS,
   isValidCardNumber, isValidExpiry, isValidCvv,
   PRODUCTS, productById, CATS, SIZE_SCALES, SIZE_ORDER, SIZES, sizeScale, sizesInScale,
+  setBusinessCalendar, weekdayISO, isBusinessDayISO, nextBusinessDayISO, returnWindowCloseISO, returnByISO,
+  getRentalDates(){ return { start: rentalStart, end: rentalEnd }; },
   // --- Estado y cálculos derivados (state.js) ---
-  isoOffset, cents, rentalDays, isLate, isArchivedOrder, isCancelledOrder, isPastOrder,
+  isoOffset, cents, rentalDays, isLate, snapRentalDates, isArchivedOrder, isCancelledOrder, isPastOrder,
   canCancelOrder, isDelivered, creditDeliveredPoints, isRented, unitsAvailable, inCart,
   totalWaterSaved,
   subtotal, subtotalBeforeVolume, volumeSavings, depositTotal, grandTotal,

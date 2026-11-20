@@ -72,14 +72,26 @@ function updateBadge(){
  */
 function setRentalDate(campo, valor){
   if(!valor) return;
-  if(campo === "start"){
-    rentalStart = valor < isoOffset(0) ? isoOffset(0) : valor;
-    if(rentalEnd <= rentalStart) rentalEnd = addDaysISO(rentalStart, 1);
-  } else {
-    rentalEnd = valor <= rentalStart ? addDaysISO(rentalStart, 1) : valor;
-  }
+  if(campo === "start") rentalStart = valor;
+  else rentalEnd = valor;
+  // Nunca al pasado, la devolución después del inicio, y ninguno de los dos en
+  // fin de semana o feriado: el local no entrega ni recibe (§6.0).
+  snapRentalDates(true);
   renderCart();
   if(checkoutStep !== "listo") renderCheckout();
+}
+
+/**
+ * Aviso de la ventana de devolución (§6.0): cuándo puede devolver sin costo
+ * extra si eso cae después del día elegido, y que no se atiende en fin de
+ * semana ni feriado (los campos de fecha nativos no pueden tachar días).
+ * @returns {string} HTML.
+ */
+function returnWindowNoteHTML(){
+  const limite = returnByISO(rentalStart, rentalEnd);
+  return `<p class="note">${limite > rentalEnd
+    ? `Puedes devolver sin costo extra hasta el ${fmtDate(limite)}. `
+    : ""}Sin retiros ni devoluciones en fin de semana o feriado.</p>`;
 }
 
 /* ---------------- Panel del carrito ---------------- */
@@ -153,6 +165,7 @@ function renderCart(){
     </div>
     <p class="note">${dias} ${dias === 1 ? "día" : "días"} de alquiler ·
       ${fmtDate(rentalStart)} a ${fmtDate(rentalEnd)}</p>
+    ${returnWindowNoteHTML()}
 
     <div class="rows">
       <div class="row"><span>Alquiler (${prendas.length} ${prendas.length === 1 ? "prenda" : "prendas"})</span>
@@ -289,6 +302,7 @@ function checkoutDataHTML(){
                  value="${rentalEnd}" min="${addDaysISO(rentalStart, 1)}"></label>
       </div>
       <p class="note">${dias} ${dias === 1 ? "día" : "días"} · alquiler $${subtotal().toFixed(2)}</p>
+      ${returnWindowNoteHTML()}
     </div>
 
     <div class="block">
@@ -404,6 +418,7 @@ function placeWebOrder(){
     items: cart.map(c => c.id),
     start: rentalStart,
     end: rentalEnd,
+    returnBy: returnByISO(rentalStart, rentalEnd),
     delivery,
     ret: returnMethod,
     retAddr: returnMethod === RETURN_TO.HOME ? returnAddress.trim() : "",

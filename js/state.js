@@ -110,8 +110,10 @@ let editingOrder = null;             // índice del pedido en edición (o null)
 let editRet = null;                  // 'store' | 'home' (selección temporal)
 let editRetAddr = "";                // dirección de retiro temporal
 let editRetCoords = null;            // punto exacto de esa dirección, marcado en el mapa
-let rentalStart = isoOffset(0);      // hoy
-let rentalEnd = isoOffset(3);        // hoy + 3 días
+// Primer día hábil desde hoy, y tres días después (también hábil): no hay
+// retiros ni devoluciones en fin de semana ni feriado (§6.0).
+let rentalStart = nextBusinessDayISO(isoOffset(0));
+let rentalEnd = nextBusinessDayISO(addDaysISO(rentalStart, 3));
 // Mes visible en el calendario de tarifas (YYYY-MM). null = el mes de rentalStart:
 // así, al elegir fechas nuevas, el calendario vuelve solo a lo que se acaba de
 // tocar en vez de quedarse donde el cliente navegó hace tres pantallas.
@@ -122,7 +124,25 @@ let calPendingStart = null;
 
 /* ---------------- Cálculos ---------------- */
 function rentalDays(){ return daysBetween(rentalStart, rentalEnd); }
-function isLate(r){ return r.end < isoOffset(0); }   // fecha límite ya pasó (ISO comparable)
+// Fecha límite de devolución ya pasada (ISO comparable). La límite es el cierre
+// de la ventana (`returnBy`), no el día elegido; un pedido guardado antes de las
+// ventanas no la trae y se mide por su `end`.
+function isLate(r){ return (r.returnBy || r.end) < isoOffset(0); }
+/**
+ * Lleva las fechas elegidas a días hábiles: el inicio al siguiente hábil (y
+ * nunca al pasado), y la devolución al siguiente hábil posterior al inicio. Se
+ * llama al cambiar una fecha a mano y al llegar el calendario de la API, que
+ * puede declarar feriado un día que ya estaba elegido.
+ * @param {boolean} [endAfterStart=true] Si la devolución debe ser estrictamente
+ *   posterior al inicio (el calendario y la web lo exigen; un alquiler mínimo es
+ *   de un día).
+ */
+function snapRentalDates(endAfterStart = true){
+  const hoy = isoOffset(0);
+  rentalStart = nextBusinessDayISO(rentalStart < hoy ? hoy : rentalStart);
+  const minEnd = endAfterStart ? addDaysISO(rentalStart, 1) : rentalStart;
+  rentalEnd = nextBusinessDayISO(rentalEnd < minEnd ? minEnd : rentalEnd);
+}
 function inCart(id){ return cart.some(c => c.id === id); }
 /**
  * ¿La prenda está fuera, alquilada en un pedido vigente?
@@ -382,8 +402,10 @@ function paymentStatusLabel(o){
      decide si la prenda vuelve al catálogo. */
 
 // Un pedido pasa al historial ("Alquileres anteriores") cuando ya fue pagado
-// (Cancelado) Y su período de alquiler terminó (la fecha de fin ya pasó).
-function isArchivedOrder(o){ return o.status === ORDER_STATUS.SETTLED && o.end < isoOffset(0); }
+// (Cancelado) Y su período terminó: pasó la fecha límite de devolución, que es
+// el cierre de la ventana (`returnBy`) y no el día elegido. Hasta entonces la
+// prenda sigue reservada, igual que en el servidor.
+function isArchivedOrder(o){ return o.status === ORDER_STATUS.SETTLED && (o.returnBy || o.end) < isoOffset(0); }
 // Pedido anulado por el cliente antes de recibir las prendas.
 function isCancelledOrder(o){ return o.status === ORDER_STATUS.CANCELLED; }
 // Pedidos que ya NO están en curso: ni retienen prendas del catálogo ni se

@@ -27,7 +27,8 @@ const APP_GLOBALS = {
   data: [
     "LOCAL", "SHIPPING_FEE", "deliveryFeeFor", "returnFeeFor",
     "DELIVERY", "RETURN_TO", "ORDER_STATUS", "PAY_METHOD",
-    "LATE_GRACE_DAYS", "LATE_PENALTY",
+    "businessCalendar", "setBusinessCalendar", "weekdayISO", "isBusinessDayISO", "nextBusinessDayISO",
+    "returnWindowCloseISO", "returnByISO",
     "LAUNDRY_BY_MATERIAL", "OVERHEAD_PER_CYCLE", "CYCLES_PER_STAR", "MIN_MARGIN",
     "garmentCycles", "cycleCost", "DAY1_RATE_DEFAULT", "DAY1_RATE_BY_STARS", "DAY_TRAMOS",
     "VOLUME_DISCOUNT_PER_ITEM", "VOLUME_DISCOUNT_MAX", "volumeDiscountRate",
@@ -59,7 +60,7 @@ const APP_GLOBALS = {
     "donName", "donMethod", "donAddr", "donCoords", "donDate",
     "rentalStart", "rentalEnd", "calMonth", "calPendingStart",
     "subtotalForDays", "dayMarginalCost",
-    "rentalDays", "isLate", "inCart", "isRented", "unitsAvailable", "cartCount", "cents", "subtotal",
+    "rentalDays", "isLate", "snapRentalDates", "inCart", "isRented", "unitsAvailable", "cartCount", "cents", "subtotal",
     "cartItemPrice", "subtotalBeforeVolume", "volumeRate", "volumeSavings", "depositTotal",
     "shippingFee", "returnFee", "grandTotal", "orderPoints",
     "couponById", "availableCoupons", "nextCouponId", "cartRewardCtx", "orderRewardCtx",
@@ -115,7 +116,7 @@ const APP_GLOBALS = {
     "DEPLOYED_API", "LOCAL_API_PORT", "API_OVERRIDE_KEY", "API_OFF_REASONS",
     "PRODUCTION_HOSTS", "isProductionHost",
     "readApiOverride", "backendForHost", "isMixedContent",
-    "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog", "verifyGoogleCredential",
+    "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog", "hydrateCalendar", "verifyGoogleCredential",
     "fetchWaterImpact", "fetchChatStatus", "askChatbot"
   ],
   // `google` lo aporta el SDK externo de Google Identity.
@@ -158,7 +159,7 @@ const WEB_GLOBALS = [
   "openCart", "closeCart", "cartLineHTML", "startCheckout", "closeCheckout", "optHTML",
   "checkoutDataValid", "checkoutPayValid", "renderCheckout", "renderCheckoutFoot",
   "checkoutDataHTML", "checkoutPayHTML", "renderCheckoutDone", "placeWebOrder",
-  "renderCart", "updateBadge",
+  "renderCart", "updateBadge", "returnWindowNoteHTML",
   // web/js/main.js
   "openModal", "syncScrim", "closeTopmost", "openLogin", "closeLogin", "bootDepsReady",
   "webToastTimer", "dispatchAction", "dispatchInput", "wireEvents", "initWeb",

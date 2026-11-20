@@ -12,6 +12,7 @@ import { registerOrderRoutes } from "./orders.js";
 import { registerCatalogRoutes } from "./catalog.js";
 import { registerItemRoutes } from "./items.js";
 import { registerImpactRoutes } from "./impact.js";
+import { registerCalendarRoutes } from "./calendar.js";
 import { registerChatRoutes, createGeminiAsk, createChatLimiter, loadKnowledge } from "./chat.js";
 
 /**
@@ -133,6 +134,9 @@ export function buildApp(opts = {}) {
 
   // Contador común de agua ahorrada (sección de impacto de la web). Pública.
   registerImpactRoutes(app);
+
+  // Calendario del negocio (fines de semana y feriados cerrados). Pública.
+  registerCalendarRoutes(app);
 
   // Asistente informativo de la web. Sin GEMINI_API_KEY o sin documentos queda
   // apagado y la web no muestra la burbuja.
