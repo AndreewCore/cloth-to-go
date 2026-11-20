@@ -30,7 +30,7 @@ const SUBS = [CLIENTE, OTRO, ADMIN, CAJA, MOSTRADOR, INVENTARIO];
 let app;
 let prendas;
 /** Ejemplares creados por las pruebas (con código): se borran al limpiar. */
-let creados = [];
+const creados = [];
 
 /**
  * Día `YYYY-MM-DD` desplazado `dias` desde hoy, en hora de Guayaquil.
@@ -91,7 +91,7 @@ function mover(sub, itemId, payload) {
 /** Deja la base como estaba: cuentas, pedidos, bitácoras, ejemplares y precios. */
 async function limpiar() {
   await purge({ subs: SUBS, itemIds: creados });
-  creados = [];
+  creados.length = 0;
   await prisma.product.update({ where: { id: prendas[3].productId }, data: { priceOverride: null, depositOverride: null } });
   await grant(ADMIN, ["ADMINISTRACION"]);
   await grant(CAJA, ["CAJA"]);
