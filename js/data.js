@@ -367,6 +367,74 @@ const COLORS = Object.keys(COLOR_LABELS);
  */
 const colorCount = c => PRODUCTS.filter(p => p.color === c).length;
 
+/* ---- Taxonomía de la API (fase 3) ----
+   Categorías, tallas, materiales y colores son DATOS en la base (los editará el
+   panel en la fase 4) y llegan por GET /api/taxonomy. Las listas de arriba son
+   el respaldo para el catálogo embebido, sin API. Al llegar la taxonomía se
+   rellenan EN SU SITIO (mismos arreglos y objetos, contenido nuevo): así siguen
+   siendo `const` y todo lo que ya las lee —los filtros de la app y de la web—
+   se entera sin cambiar de referencia. */
+
+/**
+ * Vacía un objeto y le copia otro, conservando la referencia.
+ * @param {object} destino Objeto a rellenar.
+ * @param {object} origen Contenido nuevo.
+ */
+function replaceInPlace(destino, origen){
+  for(const k of Object.keys(destino)) delete destino[k];
+  Object.assign(destino, origen);
+}
+
+/**
+ * Recalcula las listas que dependen del catálogo cargado (tallas y materiales
+ * presentes). Antes se calculaban una sola vez al cargar el archivo y se
+ * quedaban con el catálogo embebido aunque llegara otro de la API.
+ */
+function refreshCatalogLists(){
+  SIZES.splice(0, SIZES.length, ...SIZE_ORDER.filter(sz => PRODUCTS.some(p => p.size === sz)));
+  MATERIALS.splice(0, MATERIALS.length, ...MATERIAL_ORDER.filter(m => PRODUCTS.some(p => p.material === m)));
+}
+
+/**
+ * Adopta la taxonomía de GET /api/taxonomy: categorías (por nombre, que es lo
+ * que trae cada prenda en `cat`), tallas por escala, materiales y colores con
+ * su muestra. Una lista vacía o ausente deja la de respaldo.
+ * @param {object} tax Respuesta de la API.
+ */
+function applyTaxonomy(tax){
+  if(!tax) return;
+  if(Array.isArray(tax.categories) && tax.categories.length){
+    CATS.splice(0, CATS.length, "Todo", ...tax.categories.map(c => c.name));
+  }
+  if(Array.isArray(tax.sizes) && tax.sizes.length){
+    const escalas = [];
+    for(const t of tax.sizes){
+      const id = String(t.scale).toLowerCase();
+      let e = escalas.find(x => x.id === id);
+      if(!e){
+        const previa = SIZE_SCALES.find(x => x.id === id);
+        e = { id, label: previa ? previa.label : id.charAt(0).toUpperCase() + id.slice(1), order: [] };
+        escalas.push(e);
+      }
+      e.order.push(t.label);
+    }
+    SIZE_SCALES.splice(0, SIZE_SCALES.length, ...escalas);
+    SIZE_ORDER.splice(0, SIZE_ORDER.length, ...escalas.flatMap(e => e.order));
+  }
+  if(Array.isArray(tax.materials) && tax.materials.length){
+    MATERIAL_ORDER.splice(0, MATERIAL_ORDER.length, ...tax.materials.map(m => m.key));
+    replaceInPlace(MATERIAL_LABELS, Object.fromEntries(tax.materials.map(m => [m.key, m.name])));
+  }
+  if(Array.isArray(tax.colors) && tax.colors.length){
+    replaceInPlace(COLOR_LABELS, Object.fromEntries(tax.colors.map(c => [c.key, c.name])));
+    // La muestra va a un atributo style: solo se acepta un hex de verdad.
+    replaceInPlace(COLOR_HEX, Object.fromEntries(tax.colors
+      .filter(c => /^#[0-9a-f]{3,8}$/i.test(c.hex || "")).map(c => [c.key, c.hex])));
+    COLORS.splice(0, COLORS.length, ...tax.colors.map(c => c.key));
+  }
+  refreshCatalogLists();
+}
+
 /**
  * Nombre legible de un color; devuelve la clave tal cual si es desconocida
  * (una prenda que llegue del backend con un color que el front no conoce se

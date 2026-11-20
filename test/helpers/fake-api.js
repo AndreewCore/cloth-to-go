@@ -162,6 +162,12 @@ function installFakeApi(win) {
     }))],
     ["GET", /^\/api\/config$/, () => respond(200, { today: today(), closedWeekdays: [0, 6], holidays: [], shippingFee: 4.5, volumeDiscountMax: 0.2 })],
     ["POST", /^\/api\/quote$/, (m, body) => respond(200, quoteOf(body).quote)],
+    // Sin `state.taxonomy` responde 404, como un servidor viejo: la app se
+    // queda con las listas de respaldo.
+    ["GET", /^\/api\/taxonomy$/, () => (st.taxonomy ? respond(200, st.taxonomy) : respond(404, { error: "sin taxonomía" }))],
+    // Sin `state.taxonomy` responde 404, como un servidor viejo: la app se
+    // queda con las listas de respaldo.
+    ["GET", /^\/api\/taxonomy$/, () => (st.taxonomy ? respond(200, st.taxonomy) : respond(404, { error: "sin taxonomía" }))],
     ["POST", /^\/api\/orders$/, (m, body) => createOrder(body)],
     ["GET", /^\/api\/orders$/, () => respond(200, st.orders.slice().reverse().map(toApi))],
     ["PATCH", /^\/api\/orders\/(\d+)\/return$/, (m, body) => {

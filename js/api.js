@@ -136,6 +136,8 @@ function replaceCatalog(items) {
   PRODUCTS.push(...items);
   PRODUCT_BY_ID.clear();
   for (const p of PRODUCTS) PRODUCT_BY_ID.set(p.id, p);
+  // Tallas y materiales presentes salen del catálogo que se acaba de cargar.
+  refreshCatalogLists();
   // Desde aquí el catálogo trae ejemplares (`items`) con su id: es lo único
   // que un pedido puede reservar. Con el embebido no se puede alquilar.
   catalogFromApi = true;
@@ -155,9 +157,15 @@ async function hydrateCatalog() {
     return false;
   }
   try {
-    const res = await fetch(`${backend.base}/api/products`);
+    // La taxonomía viaja aparte y en paralelo: es lo que dibuja los filtros. Si
+    // falla, los filtros se quedan con las listas de respaldo, no se rompe nada.
+    const [res, tax] = await Promise.all([
+      fetch(`${backend.base}/api/products`),
+      fetch(`${backend.base}/api/taxonomy`).then(r => (r.ok ? r.json() : null)).catch(() => null),
+    ]);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const items = await res.json();
+    if (tax) applyTaxonomy(tax);
     if (Array.isArray(items) && items.length) {
       replaceCatalog(items);
       renderFilters();
