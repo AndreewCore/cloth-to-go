@@ -161,6 +161,21 @@ function unitsAvailable(p){
   return Math.max(0, p.disponibles - (isRented(p.id) ? 1 : 0) - (inCart(p.id) ? 1 : 0));
 }
 function cartCount(){ return cart.length; }
+/**
+ * Ids de ejemplar del carrito: lo que de verdad se reserva. Cada modelo del
+ * catálogo de la API trae sus ejemplares; se toma el primero disponible. Lo
+ * comparten la app (placeOrder) y la web (placeWebOrder).
+ * @returns {number[]|null} null si alguna prenda ya no tiene ejemplar libre.
+ */
+function cartItemIds(){
+  const ids = cart.map(c => {
+    const p = productById(c.id);
+    const libre = p && Array.isArray(p.items) && p.items.find(i => i.available);
+    return libre ? libre.id : null;
+  });
+  return ids.every(id => id !== null) ? ids : null;
+}
+
 // Los montos se SUMAN en centavos (enteros) para evitar el arrastre de
 // error de los float (p. ej. 0.1 + 0.2). Se devuelven en USD para la vista.
 const cents = v => Math.round(v * 100);
@@ -229,10 +244,8 @@ function grandTotal(){
 // Canje por id (lo aplicado al checkout y lo enganchado a un pedido).
 function couponById(id){ return profile.redeemed.find(c => c.id === id) || null; }
 // Canjes todavía por usar, del más reciente al más antiguo. Un canje revocado
-// (ver revokeOrderPoints) ya devolvió sus puntos al saldo: deja de ser gastable.
+// (lo hace el servidor al anular un pedido ya premiado) ya devolvió sus puntos: deja de ser gastable.
 function availableCoupons(){ return profile.redeemed.filter(c => !c.usedIn && !c.revoked); }
-// Siguiente número de canje (correlativo a partir de 1).
-function nextCouponId(){ return profile.redeemed.reduce((m,c) => Math.max(m, c.id || 0), 0) + 1; }
 
 /* Contexto con el que se valora un premio. Hay dos fuentes —el checkout en
    curso y un pedido ya confirmado— y una sola forma; van juntas a propósito,
@@ -316,22 +329,33 @@ function waterGoalProgress(){
 }
 
 /**
- * Acredita los puntos de las metas de agua recién alcanzadas.
+ * Adopta el estado de la cuenta que manda el servidor: pedidos, saldo, canjes y
+ * metas de agua ya cobradas.
  *
- * Idempotente: cada meta cobrada queda anotada en profile.waterGoals, así que
- * recargar la app no vuelve a pagarla. Se llama en los mismos sitios que
- * creditDeliveredPoints() — los litros solo cambian cuando cambian los pedidos.
- * @returns {Array<object>} Metas cobradas en esta llamada (vacío si ninguna).
+ * Desde la fase 3 nada de esto se calcula ni se guarda en el navegador: el
+ * servidor acredita los puntos (al entregar), revierte al anular y valida los
+ * canjes. `orders` y los campos de puntos de `profile` son un ESPEJO con la
+ * misma forma de antes, para que las vistas no cambien; se rellenan desde la
+ * API al iniciar sesión y tras cada acción, y no se persisten.
+ * @param {{orders?: object[], points?: object}} cuenta Respuestas de la API, ya
+ *   traducidas (`orderFromApi`) o el resumen de GET /api/me/points.
+ * @returns {Array<object>} Metas de agua que el servidor cobró desde la última
+ *   vez (para felicitar), vacío si ninguna.
  */
-function creditWaterGoals(){
-  if(!Array.isArray(profile.waterGoals)) profile.waterGoals = [];
-  const nuevas = reachedWaterGoals().filter(g => !profile.waterGoals.includes(g.id));
-  for(const g of nuevas){
-    profile.points += g.points;
-    profile.waterGoals.push(g.id);
-  }
-  return nuevas;
+function applyAccount({ orders: lista, points } = {}){
+  if(Array.isArray(lista)) orders = lista.slice().sort((a, b) => a.id - b.id);
+  if(!points) return [];
+  const antes = Array.isArray(profile.waterGoals) ? profile.waterGoals : [];
+  profile.points = points.balance;
+  profile.redeemed = points.coupons.map(couponFromApi);
+  profile.waterGoals = points.water.reached.slice();
+  // Solo se felicita lo que se cobró con la app abierta: en el primer espejo de
+  // la sesión `antes` está vacío y no hay nada "nuevo" que celebrar.
+  if(accountSynced !== true) { accountSynced = true; return []; }
+  return WATER_GOALS.filter(g => profile.waterGoals.includes(g.id) && !antes.includes(g.id));
 }
+// Si `applyAccount` ya recibió el estado de esta sesión al menos una vez.
+let accountSynced = false;
 
 // Puntos que otorga el pedido actual: según el monto pagado (no reembolsable),
 // los días de alquiler y la cantidad de prendas.
@@ -349,8 +373,15 @@ function orderItemsSubtotal(o){
   const days = daysBetween(o.start, o.end);
   return o.items.reduce((s,id) => s + cents(rentalPrice(productById(id), days, o.items.length)), 0) / 100;
 }
+// Garantía del pedido: la que retuvo el servidor (`deposit`, de orderFromApi). Un
+// pedido sin ese dato (armado a mano en una prueba) cae a la fórmula.
 function orderDeposit(o){
-  return depositForItems(o.items.map(id => productById(id)));
+  return typeof o.deposit === "number" ? o.deposit : depositForItems(o.items.map(id => productById(id)));
+}
+// Precio cobrado por una prenda del pedido: la línea RENTAL del servidor.
+function orderItemPrice(o, p){
+  if(o.itemPrices && p.id in o.itemPrices) return o.itemPrices[p.id];
+  return rentalPrice(p, daysBetween(o.start, o.end), o.items.length);
 }
 // Descuento que el premio del pedido le rebaja. Se recalcula (no se lee de un
 // campo guardado) para que editar el pedido no deje el premio desactualizado:
@@ -433,8 +464,9 @@ function isDelivered(o){ return !isCancelledOrder(o) && o.start <= isoOffset(0);
  *
  * Único umbral para TODO lo que premia un alquiler (puntos del pedido y litros
  * que alimentan las metas de agua). Mientras el pedido se pueda anular nada de
- * eso está ganado, y premiarlo antes es explotable: ver creditDeliveredPoints()
- * para el detalle del solapamiento entre `isDelivered` y `canCancelOrder`.
+ * eso está ganado, y premiarlo antes es explotable: canjear, anular y quedarse
+ * con el premio. Es la misma regla que `countsForRewards` en server/src/points.js,
+ * que es quien de verdad acredita; aquí solo decide qué se muestra como cumplido.
  * @param {object} o Pedido.
  */
 function countsForRewards(o){ return isDelivered(o) && !canCancelOrder(o); }
@@ -522,82 +554,6 @@ function deleteReview(id){
   saveState();
   return true;
 }
-/**
- * Acredita los puntos de los pedidos ya entregados y FIRMES (no anulables).
- *
- * Los puntos premian el alquiler cumplido, no el cobro: por eso el disparador
- * es la entrega y no el pago (un efectivo pendiente ya disfrutó su prenda).
- * Como no hay tareas programadas, se liquida de forma perezosa: al arrancar la
- * sesión y al confirmar un pedido.
- *
- * La condición exige ADEMÁS que el pedido ya no se pueda anular, y no basta con
- * la entrega: `isDelivered` (start ≤ hoy) y `canCancelOrder` (hoy ≤ start) se
- * solapan justo el día de inicio. Acreditar en esa ventana permitía canjear los
- * puntos, anular el pedido y quedarse con el premio — la reversión devuelve
- * puntos, pero un premio ya canjeado no está en el saldo. Derivarlo de la
- * anulabilidad (y no de otra comparación de fechas) mantiene ambos lados
- * imposibles de solapar aunque las reglas de fechas cambien.
- * @returns {number} Puntos acreditados en esta pasada (0 si no hubo ninguno).
- */
-function creditDeliveredPoints(){
-  let sum = 0;
-  orders.forEach(o => {
-    if(o.pointsCredited || !countsForRewards(o)) return;
-    profile.points += o.points;
-    o.pointsCredited = true;
-    sum += o.points;
-  });
-  return sum;
-}
-
-/**
- * Revierte los puntos de un pedido que deja de contar (anulado).
- *
- * Restar del saldo no basta: parte de esos puntos puede haberse convertido ya
- * en premios, que sobrevivirían a la reversión y dejarían al cliente con un
- * beneficio que ningún alquiler pagó. Por eso los canjes sin usar se revocan
- * (los más recientes primero, que son los que esos puntos financiaron) hasta
- * que el saldo alcance para pagar la reversión.
- *
- * Con creditDeliveredPoints() atado a la anulabilidad esto no debería ocurrir,
- * pero sí puede llegar por la migración de loadState(), que marca como
- * acreditados pedidos guardados que todavía admiten anulación.
- * @param {object} o Pedido anulado.
- * @returns {number} Canjes revocados para cubrir la reversión.
- */
-function revokeOrderPoints(o){
-  if(!o.pointsCredited) return 0;
-  o.pointsCredited = false;
-  const revocados = reclaimPointsUpTo(o.points);
-  profile.points = Math.max(0, profile.points - o.points);
-  return revocados;
-}
-
-/**
- * Devuelve puntos al saldo revocando canjes sin usar, hasta llegar a `objetivo`.
- *
- * Del más reciente al más antiguo, que son los que esos puntos financiaron. Si
- * al quedarse sin canjes el saldo sigue sin alcanzar, **el resto se perdona**:
- * la alternativa sería dejar al cliente en números rojos o retirarle un premio
- * ya disfrutado, y ninguna de las dos es defendible por un pedido que la app
- * misma le dejó anular.
- * @param {number} objetivo Puntos que el saldo debe alcanzar.
- * @returns {number} Canjes revocados.
- */
-function reclaimPointsUpTo(objetivo){
-  let revocados = 0;
-  while(profile.points < objetivo){
-    const c = availableCoupons()[0];   // redeemed se llena con unshift: [0] es el último canje
-    if(!c) break;                      // nada más que recuperar
-    c.revoked = true;
-    profile.points += c.cost;
-    revocados++;
-  }
-  return revocados;
-}
-// Siguiente número de pedido (correlativo a partir de 1000).
-function nextOrderId(){ return orders.reduce((m,o) => Math.max(m, o.id), 1000) + 1; }
-
 /* ---------------- Persistencia (localStorage) ----------------
    Guarda solo los datos que deben sobrevivir a la recarga:
    carrito, perfil y prendas en alquiler. NO es backend: es
@@ -658,6 +614,7 @@ function storageKeyFor(user){ return user && user.sub ? STORAGE_PREFIX + user.su
 function resetStateToDefaults(){
   cart = [];
   orders = [];
+  accountSynced = false;
   reviews = [];      // las de otra cuenta no pueden asomar en esta sesión
   profile = defaultProfile();
 }
@@ -665,61 +622,12 @@ function resetStateToDefaults(){
 function saveState(){
   if(!activeStorageKey) return;       // invitado: nada queda registrado
   try {
-    localStorage.setItem(activeStorageKey, JSON.stringify({ cart, profile, orders, reviews }));
+    // Ni los pedidos ni los puntos: los guarda la base, y una copia local solo
+    // podría quedarse vieja (o editarse desde la consola) sin cambiar nada.
+    const { points, redeemed, waterGoals, ...datos } = profile;
+    localStorage.setItem(activeStorageKey, JSON.stringify({ cart, profile: datos, reviews }));
   } catch(e){ /* almacenamiento no disponible: continúa en memoria */ }
 }
-/* ---- Migraciones de datos guardados ----
-   Van aparte de loadState porque son reglas con FECHA DE CADUCIDAD: describen
-   cómo era el almacenamiento en una versión anterior, no cómo funciona la app
-   hoy. Mezcladas con el parseo no se distinguían del camino normal, y el día
-   que se puedan retirar (cuando el backend sea la fuente y nadie arrastre
-   claves viejas) hay que poder borrarlas sin releer el resto. Cada una se
-   aplica al leer y es idempotente: volver a pasarla sobre datos ya migrados no
-   cambia nada. */
-
-/**
- * Completa los pedidos guardados antes de "puntos al pagar" (PR #23).
- *
- * Esos pedidos ya recibieron sus puntos con la lógica anterior y ya están en
- * profile.points, así que se marcan como acreditados: si no, cualquier
- * consumidor de `pointsCredited` (la nota de "puntos pendientes", o el futuro
- * panel de cobros) los trataría como pendientes y volvería a sumarlos.
- *
- * El centinela es `undefined` y no un valor falsy: un pedido NUEVO pendiente
- * trae `pointsCredited:false` y no debe pisarse a true.
- * @param {object[]} list Pedidos recién leídos del almacenamiento.
- */
-function migrateOrders(list){
-  for(const o of list){
-    if(o.pointsCredited === undefined) o.pointsCredited = true;
-    if(o.points === undefined) o.points = 0;
-  }
-}
-
-/**
- * Completa los canjes guardados cuando `redeemed` era solo una línea de
- * historial: sin id, sin premio asociado y sin forma de aplicarse (PR #35).
- *
- * Se les da identidad y se dan por DISPONIBLES: el cliente ya pagó esos puntos
- * y nunca recibió nada a cambio, así que honrarlos es lo correcto.
- * @param {object[]} redeemed Canjes del perfil recién leído.
- */
-function migrateRedeemed(redeemed){
-  let idSeq = 0;
-  for(const c of redeemed){
-    if(c.id === undefined) c.id = ++idSeq;
-    else idSeq = Math.max(idSeq, c.id);
-    if(c.rewardId === undefined){
-      const rw = REWARDS.find(r => r.name === c.name);
-      c.rewardId = rw ? rw.id : null;
-    }
-    if(c.usedIn === undefined) c.usedIn = null;
-    // Un canje sin premio reconocible (nombre cambiado en REWARDS) no puede
-    // valorarse: se deja como historial, no como cupón utilizable.
-    if(c.rewardId === null) c.usedIn = c.usedIn || "—";
-  }
-}
-
 function loadState(){
   if(!activeStorageKey) return;       // invitado: sin datos previos que cargar
   try {
@@ -728,18 +636,17 @@ function loadState(){
     const s = JSON.parse(raw);
     if(Array.isArray(s.cart)) cart = s.cart;
     if(Array.isArray(s.reviews)) reviews = s.reviews;
-    if(Array.isArray(s.orders)){
-      orders = s.orders;
-      migrateOrders(orders);
-    }
+    // `s.orders` (pedidos guardados antes de la fase 3) se ignora a propósito:
+    // los pedidos viven en la base y llegan con applyAccount().
     if(s.profile && typeof s.profile === "object"){
       // Object.assign sobre defaultProfile() es la migración de los campos
       // nuevos (picture, waterGoals): un perfil viejo entra con el valor por
       // defecto en vez de con un hueco.
-      profile = Object.assign(defaultProfile(), s.profile);
-      if(!Array.isArray(profile.redeemed)) profile.redeemed = [];
+      // Los puntos guardados por versiones anteriores tampoco se adoptan: el
+      // saldo lo da el servidor, desde cero (§2 de PENDIENTE).
+      const { points, redeemed, waterGoals, ...datos } = s.profile;
+      profile = Object.assign(defaultProfile(), datos);
       if(!Array.isArray(profile.donations)) profile.donations = [];
-      migrateRedeemed(profile.redeemed);
     }
   } catch(e){ /* datos corruptos: se usan los valores por defecto */ }
 }

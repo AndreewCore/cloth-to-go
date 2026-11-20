@@ -124,10 +124,6 @@ function startWebSession(user){
     if(!inCart(linea.id) && !isRented(linea.id)) cart.push({ id: linea.id });
   }
   clearGuestCart();
-  // Puestas al día que la app hace al abrir sesión: puntos de pedidos ya
-  // entregados y metas de agua cruzadas mientras tanto.
-  creditDeliveredPoints();
-  creditWaterGoals();
   if(user.name && !profile.nameChangedAt) profile.name = user.name;
   if(user.email) profile.email = user.email;
   if(user.picture) profile.picture = user.picture;
@@ -135,6 +131,19 @@ function startWebSession(user){
   renderSession();
   renderGrid();      // las prendas de sus pedidos vigentes salen del catálogo
   renderCart();
+  // Sus pedidos viven en la base: llegan después y se repinta lo que dependa
+  // de ellos (qué prendas tiene ya alquiladas).
+  refreshAccount().then(r => { if(r){ renderGrid(); renderCart(); } });
+}
+
+/**
+ * La API respondió 401 con una sesión guardada: caducó o se cerró en otro
+ * sitio. Se sale, como al pulsar "Cerrar sesión", y se avisa por qué.
+ */
+function onSessionExpired(){
+  if(!webUser) return;
+  signOutWeb();
+  toast("Tu sesión caducó. Vuelve a entrar para alquilar.");
 }
 
 /**
@@ -146,6 +155,9 @@ function signOutWeb(){
   if(webUser && webAuthAvailable() && typeof google !== "undefined" && google.accounts && google.accounts.id){
     google.accounts.id.disableAutoSelect();
   }
+  // Revoca la sesión en el servidor: el token deja de valer aunque alguien lo
+  // hubiera copiado de este navegador.
+  if(webUser) logoutSession();
   webUser = null;
   userMenuOpen = false;
   resetStateToDefaults();

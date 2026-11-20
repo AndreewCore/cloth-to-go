@@ -37,14 +37,18 @@ lo consume por el mismo `hydrateCatalog()` que la app (de ahí que sus funciones
 de pintado se llamen `renderGrid()` y `renderFilters()`: son las que `api.js`
 invoca al hidratar). No hay nada más que tocar.
 
-**Almacenamiento.** Todo vive en `localStorage`, en las mismas claves que la app:
+**Almacenamiento.** Los pedidos, los puntos y los canjes viven en la **base**
+(fase 3): un alquiler confirmado en la web aparece en "Mis pedidos" del móvil
+con la misma cuenta de Google porque los dos los leen de `GET /api/orders`. En
+`localStorage` solo queda:
 
 - `clothToGo:web:guestCart` — carrito de quien aún no ha entrado. Es de la web:
   una página se cierra y se vuelve por un enlace, así que el carrito tiene que
   sobrevivir a la recarga. Al iniciar sesión se vuelca en la cuenta y se borra.
-- `clothToGo:v4:user:<sub>` — la cuenta (carrito, pedidos, perfil, reseñas).
-  **Es la misma clave de la app**: un alquiler confirmado en la web aparece en
-  "Mis pedidos" del móvil con la misma cuenta de Google, y al revés.
+- `clothToGo:v4:user:<sub>` — carrito, perfil editable y reseñas de la cuenta
+  (la misma clave de la app).
+- `clothToGo:session` — el token de sesión que entrega `POST /api/auth/google`.
+  Cerrar sesión lo revoca en el servidor.
 
 Los datos de la tarjeta no se guardan en ningún sitio (tampoco en la app).
 
@@ -102,14 +106,14 @@ Deliberado, para no duplicar media app:
 
 - **Sin selector de mapa**: la dirección se escribe; el pedido se guarda con
   `shipCoords`/`retCoords` en `null`.
-- **Sin cupones ni canje de puntos**: los puntos se acreditan (el pedido los
-  otorga), pero se gastan desde la app. `couponId` va siempre `null`.
+- **Sin cupones ni canje de puntos**: el pedido gana sus puntos (los acredita
+  el servidor), pero se gastan desde la app. La web no manda `couponId`.
 - **Sin perfil ni reseñas**: se ven en la app.
-- `placeWebOrder()` arma el pedido con la misma forma que `placeOrder()` de
-  `js/checkout.js` (que no puede cargarse aquí: depende del DOM del teléfono).
-  El dinero y los puntos los siguen calculando `orderTotal()` y `orderPoints()`,
-  así que lo duplicado son los campos, no las cuentas. **Si cambia la forma del
-  pedido, cambia en los dos.**
+- `placeWebOrder()` manda a `POST /api/orders` el mismo cuerpo que `placeOrder()`
+  de `js/checkout.js` (que no puede cargarse aquí: depende del DOM del teléfono).
+  El dinero y los puntos los pone el servidor y los dos traducen la respuesta
+  con `orderFromApi()` de `js/api.js`, así que lo duplicado son los campos del
+  cuerpo, no las cuentas. **Si cambia el cuerpo del pedido, cambia en los dos.**
 
 ## Instalar la app y página 404
 

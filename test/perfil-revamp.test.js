@@ -87,75 +87,29 @@ test("metas de ahorro de agua", async (t) => {
 });
 
 test("acreditación de los puntos de meta", async (t) => {
-  await t.test("acredita las metas alcanzadas y las anota", () => {
-    const { app } = conAgua(25000);
-    app.profile = { ...app.profile, points: 0, waterGoals: [] };
-    const cobradas = app.creditWaterGoals();
-
-    assert.ok(cobradas.length > 0, "debería haber cobrado alguna meta");
-    const suma = cobradas.reduce((s, g) => s + g.points, 0);
-    assert.equal(app.profile.points, suma);
-    assert.deepEqual(app.profile.waterGoals.slice().sort(),
-      cobradas.map(g => g.id).sort());
+  // Desde la fase 3 las metas las cobra el servidor (server/test/puntos.test.js
+  // prueba que paguen una sola vez). La app adopta lo que dice la API.
+  await t.test("el saldo, los canjes y las metas cobradas son los del servidor", async () => {
+    const { app, fake } = loadDom();
+    fake.state.balance = 200;
+    fake.state.reached = [1, 2];
+    assert.ok(await app.syncAccount());
+    assert.equal(app.profile.points, 200);
+    assert.deepEqual([...app.profile.waterGoals], [1, 2]);
+    assert.deepEqual([...app.availableCoupons()], [], "una meta no emite cupones");
   });
 
-  await t.test("no vuelve a pagar una meta ya cobrada", () => {
-    // La invariante que más duele si se rompe: recargar la app regalaría puntos.
-    const { app } = conAgua(25000);
-    app.profile = { ...app.profile, points: 0, waterGoals: [] };
-    app.creditWaterGoals();
-    const saldo = app.profile.points;
+  await t.test("solo se celebra lo que el servidor cobró con la app abierta", async () => {
+    const { app, fake, document } = loadDom();
+    fake.state.reached = [1];
+    await app.syncAccount();             // primer espejo: lo ya cobrado no se celebra
+    assert.ok(!document.getElementById("modalOverlay").classList.contains("show"));
 
-    assert.deepEqual(app.creditWaterGoals(), [], "la segunda pasada no cobra nada");
-    assert.equal(app.profile.points, saldo);
-    app.creditWaterGoals();
-    assert.equal(app.profile.points, saldo, "ni la tercera");
-  });
-
-  await t.test("solo cobra las metas nuevas al subir de escalón", () => {
-    const { app } = conAgua(6000);            // pasa la primera meta
-    app.profile = { ...app.profile, points: 0, waterGoals: [] };
-    const primera = app.creditWaterGoals();
-    assert.equal(primera.length, 1);
-
-    // Más pedidos: cruza la segunda meta. Solo debe cobrar esa.
-    const extra = [];
-    let i = 0;
-    while (app.totalWaterSaved() < 21000 && i < 200) {
-      extra.push(app.products[i % app.products.length].id);
-      app.orders = [app.orders[0], {
-        id: 2, items: extra, start: app.isoOffset(-5), end: app.isoOffset(-1),
-        status: "settled", points: 0, pointsCredited: true, total: 10,
-      }];
-      i++;
-    }
-    const segunda = app.creditWaterGoals();
-    assert.equal(segunda.length, 1, "solo la meta recién cruzada");
-    assert.notEqual(segunda[0].id, primera[0].id);
-  });
-
-  await t.test("un perfil viejo sin waterGoals cobra lo ya ganado, una sola vez", () => {
-    // Migración: Object.assign en loadState mete waterGoals:[] en perfiles
-    // guardados antes de esta feature.
-    const { app } = conAgua(25000);
-    const viejo = { name: "Ana", email: "", phone: "", picture: "", points: 10, redeemed: [], donations: [] };
-    app.profile = viejo;
-    const cobradas = app.creditWaterGoals();
-    assert.ok(cobradas.length > 0);
-    assert.ok(app.profile.points > 10);
-    const saldo = app.profile.points;
-    assert.deepEqual(app.creditWaterGoals(), []);
-    assert.equal(app.profile.points, saldo);
-  });
-
-  await t.test("las metas no tocan los canjes ni el descuento", () => {
-    // Los puntos de meta entran como saldo normal; no deben crear cupones por
-    // su cuenta ni alterar profile.redeemed.
-    const { app } = conAgua(25000);
-    app.profile = { ...app.profile, points: 0, waterGoals: [], redeemed: [] };
-    app.creditWaterGoals();
-    assert.deepEqual(app.profile.redeemed, [], "una meta no emite cupones");
-    assert.deepEqual(app.availableCoupons(), []);
+    fake.state.reached = [1, 2];
+    await app.syncAccount();
+    assert.ok(document.getElementById("modalOverlay").classList.contains("show"),
+      "falta el pop-up de felicidades");
+    assert.match(document.getElementById("modalTitle").textContent, /Felicidades/);
   });
 });
 
@@ -295,22 +249,6 @@ test("la confirmación anuncia la meta recién conseguida", async (t) => {
     assert.deepEqual(app.lastWaterGoals, [], "la meta no se gana al confirmar");
     assert.ok(!document.getElementById("modalOverlay").classList.contains("show"),
       "no hay nada que celebrar todavía");
-  });
-
-  await t.test("un alquiler ya firme cruza la meta y la celebra", () => {
-    const { app, window, document } = loadDom();
-    // Inicio en el pasado: el alquiler ya se entregó y no admite anulación, así
-    // que sus litros cuentan y la meta se cobra al liquidar el pedido.
-    pedidoGordo(app, app.isoOffset(-3));
-    window.placeOrder();
-
-    assert.ok(app.lastWaterGoals.length > 0, "debería haber cruzado una meta");
-    assert.match(document.getElementById("sheetBody").innerHTML, /Meta/);
-    assert.match(document.getElementById("sheetBody").innerHTML, /goal-hit/);
-    // Además del acuse en pantalla, salta el pop-up de felicitación.
-    assert.ok(document.getElementById("modalOverlay").classList.contains("show"),
-      "falta el pop-up de felicidades");
-    assert.match(document.getElementById("modalTitle").textContent, /Felicidades/);
   });
 
   await t.test("sin meta cruzada no se anuncia nada", () => {

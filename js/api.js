@@ -136,7 +136,13 @@ function replaceCatalog(items) {
   PRODUCTS.push(...items);
   PRODUCT_BY_ID.clear();
   for (const p of PRODUCTS) PRODUCT_BY_ID.set(p.id, p);
+  // Desde aquí el catálogo trae ejemplares (`items`) con su id: es lo único
+  // que un pedido puede reservar. Con el embebido no se puede alquilar.
+  catalogFromApi = true;
 }
+
+/** true cuando PRODUCTS vino de la API (trae ids de ejemplar); ver replaceCatalog. */
+let catalogFromApi = false;
 
 /**
  * Intenta traer el catálogo del backend y, si lo logra, refresca la vista.
@@ -271,7 +277,10 @@ async function verifyGoogleCredential(credential) {
       body: JSON.stringify({ credential }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const { user } = await res.json();
+    const { user, token } = await res.json();
+    // La sesión propia del servidor: es lo que viaja en adelante, no el ID
+    // token de Google, que caduca en una hora (ver server/src/sessions.js).
+    if (token) storeSessionToken(token);
     return user ?? null;
   } catch (err) {
     // El mensaje decía "se usa el modo demo", que es justo lo que NO pasa:
@@ -280,4 +289,171 @@ async function verifyGoogleCredential(credential) {
     console.warn("No se pudo verificar el login con el backend; no se inicia sesión.", err.message);
     return null;
   }
+}
+
+
+/* ============================================================
+   Cuenta: sesión, pedidos y puntos (fase 3)
+   Los pedidos, el saldo y los canjes viven en la base. El navegador guarda
+   solo el token de sesión que entrega POST /api/auth/google, y todo lo demás
+   lo pide a la API: el cliente propone, el servidor decide.
+   ============================================================ */
+
+// Clave del token de sesión en localStorage. Es un token opaco del servidor
+// (no el de Google) y caduca a los 30 días.
+const SESSION_KEY = "clothToGo:session";
+
+/** Token de sesión guardado, o null. */
+function readSessionToken() {
+  try { return localStorage.getItem(SESSION_KEY); } catch { return null; }
+}
+/** Guarda el token de sesión recién emitido. */
+function storeSessionToken(token) {
+  try { localStorage.setItem(SESSION_KEY, token); } catch { /* sin almacenamiento: dura lo que la pestaña */ }
+}
+/** Olvida el token de sesión. */
+function clearSessionToken() {
+  try { localStorage.removeItem(SESSION_KEY); } catch { /* nada que borrar */ }
+}
+
+/**
+ * ¿Se puede alquilar ahora? Hace falta API, catálogo de la API (con ids de
+ * ejemplar) y una sesión de la API. Sin cualquiera de las tres, un pedido no
+ * tiene dónde guardarse.
+ * @returns {boolean}
+ */
+function canRentOnline() {
+  return backend.enabled && catalogFromApi && !!readSessionToken();
+}
+
+/**
+ * Petición a la API con la sesión en `Authorization`.
+ *
+ * Nunca lanza: devuelve `{ok, status, data}` y, sin red, `status: 0` con un
+ * mensaje para el cliente. Un 401 significa que la sesión caducó o se revocó:
+ * se olvida el token y se avisa a la superficie (`onSessionExpired`, que define
+ * auth.js en la app y session.js en la web) para que vuelva a pedir el login.
+ * @param {string} path Ruta, p. ej. "/api/orders".
+ * @param {{method?: string, body?: object}} [opts]
+ * @returns {Promise<{ok: boolean, status: number, data: any}>}
+ */
+async function apiFetch(path, { method = "GET", body } = {}) {
+  if (!backend.enabled) return { ok: false, status: 0, data: { error: "Hace falta conexión con el servidor." } };
+  const headers = {};
+  const token = readSessionToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  try {
+    const res = await fetch(`${backend.base}${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const data = res.status === 204 ? null : await res.json().catch(() => null);
+    if (res.status === 401 && token) {
+      clearSessionToken();
+      if (typeof onSessionExpired === "function") onSessionExpired();
+    }
+    return { ok: res.ok, status: res.status, data };
+  } catch {
+    return { ok: false, status: 0, data: { error: "No hay conexión con el servidor. Inténtalo de nuevo." } };
+  }
+}
+
+/** Mensaje de error de una respuesta de apiFetch, listo para un toast. */
+function apiErrorText(r) {
+  return (r && r.data && r.data.error) || "No se pudo completar. Inténtalo de nuevo.";
+}
+
+/**
+ * Cierra la sesión en el servidor y la olvida aquí. No espera la respuesta:
+ * el token se borra igual, y un fallo de red no puede dejar a nadie dentro.
+ */
+function logoutSession() {
+  const token = readSessionToken();
+  clearSessionToken();
+  if (!token || !backend.enabled) return;
+  fetch(`${backend.base}/api/auth/logout`, { method: "POST", headers: { Authorization: `Bearer ${token}` } })
+    .catch(() => { /* el token ya no está aquí; si sigue vivo, caduca solo */ });
+}
+
+/**
+ * Día de calendario local (`YYYY-MM-DD`) de un instante ISO de la API.
+ * @param {string|null} iso Instante, p. ej. `createdAt`.
+ * @returns {string}
+ */
+function localDayOf(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const p = v => String(v).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/**
+ * Traduce un pedido de la API a la forma que pintan el perfil y la
+ * confirmación. Los importes vienen del libro de cargos del servidor; aquí no
+ * se recalcula ninguno.
+ * @param {object} o Pedido de GET/POST /api/orders.
+ * @returns {object} Pedido para `orders`.
+ */
+function orderFromApi(o) {
+  // Precio cobrado por cada prenda: las líneas RENTAL llevan el ejemplar.
+  const porEjemplar = new Map((o.charges || []).filter(c => c.type === "RENTAL").map(c => [c.itemId, c.amountCents]));
+  const itemPrices = {};
+  (o.itemIds || []).forEach((itemId, i) => { itemPrices[o.items[i]] = (porEjemplar.get(itemId) || 0) / 100; });
+  return {
+    id: o.id,
+    date: localDayOf(o.createdAt),
+    items: o.items.slice(),
+    itemIds: (o.itemIds || []).slice(),
+    itemPrices,
+    start: o.start,
+    end: o.end,
+    returnBy: o.returnBy || o.end,
+    delivery: o.delivery,
+    ret: o.ret,
+    retAddr: o.retAddr || "",
+    shipAddr: o.shipAddr || "",
+    shipCoords: null,
+    retCoords: null,
+    pay: o.pay,
+    status: o.status,
+    cancelledAt: o.cancelledAt ? localDayOf(o.cancelledAt) : null,
+    total: o.totalCents / 100,
+    deposit: o.depositHeldCents / 100,
+    discount: (o.discountCents || 0) / 100,
+    couponId: o.couponId ?? null,
+    points: o.points || 0,
+    pointsCredited: !!o.pointsCredited,
+  };
+}
+
+/**
+ * Traduce un cupón de la API a la forma de `profile.redeemed`.
+ * @param {object} c Cupón de GET /api/me/points.
+ * @returns {object}
+ */
+function couponFromApi(c) {
+  return {
+    id: c.id,
+    rewardId: c.rewardId,
+    name: c.name,
+    cost: c.cost,
+    date: fmtDate(localDayOf(c.issuedAt)),
+    usedIn: c.usedIn,
+    revoked: !!c.revoked,
+  };
+}
+
+/**
+ * Trae de la API los pedidos y el estado de puntos de la sesión y los adopta
+ * (applyAccount). Sin sesión o sin red no toca nada.
+ * @returns {Promise<{goals: object[]}|null>} Metas de agua recién cobradas, o
+ *   null si no se pudo sincronizar.
+ */
+async function refreshAccount() {
+  if (!readSessionToken()) return null;
+  const [o, p] = await Promise.all([apiFetch("/api/orders"), apiFetch("/api/me/points")]);
+  if (!o.ok || !p.ok || !Array.isArray(o.data)) return null;
+  return { goals: applyAccount({ orders: o.data.map(orderFromApi), points: p.data }) };
 }

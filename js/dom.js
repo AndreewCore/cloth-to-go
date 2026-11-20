@@ -315,7 +315,7 @@ function closeModal(){
 
 /**
  * Pop-up de felicitación al cruzar una o más metas de agua.
- * Recibe las metas recién acreditadas por creditWaterGoals(); con lista vacía
+ * Recibe las metas que el servidor acaba de cobrar (applyAccount); con lista vacía
  * no hace nada, así los llamadores no tienen que comprobarlo.
  */
 function celebrateWaterGoals(goals){

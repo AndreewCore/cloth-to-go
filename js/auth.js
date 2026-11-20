@@ -61,14 +61,6 @@ function activateUserSession(user){
   resetStateToDefaults();
   activeStorageKey = storageKeyFor(user);
   loadState();
-  // Liquida los puntos de los pedidos que se entregaron desde la última visita:
-  // no hay tareas programadas, así que la puesta al día ocurre al abrir sesión.
-  // Las metas se liquidan junto a los puntos por pedido: dependen de los mismos
-  // pedidos y un perfil recién migrado puede traer metas ya ganadas sin cobrar.
-  const goalsHit = creditWaterGoals();
-  if(creditDeliveredPoints() || goalsHit.length) saveState();
-  // Metas cruzadas mientras la app estaba cerrada: se felicitan al entrar.
-  celebrateWaterGoals(goalsHit);
   // La identidad de Google rellena el perfil (el usuario puede editar el resto).
   if(user){
     // El nombre de Google solo se impone mientras el usuario no haya elegido el
@@ -86,6 +78,85 @@ function activateUserSession(user){
   // al entrar, al salir y al cambiar de cuenta.
   renderGrid();
   updateBadge();
+  // Pedidos, puntos y canjes viven en la base: llegan después, sin bloquear la
+  // entrada. Hasta entonces el perfil muestra la cuenta vacía.
+  if(user) syncAccount();
+}
+
+/**
+ * Trae la cuenta del servidor (pedidos, saldo, canjes, metas) y repinta lo que
+ * depende de ella. Se llama al entrar y después de cada acción que la cambia.
+ * @returns {Promise<boolean>} true si se sincronizó.
+ */
+async function syncAccount(){
+  const r = await refreshAccount();
+  if(!r) return false;
+  renderGrid();
+  updateBadge();
+  // Solo si el panel está abierto: repintarlo cerrado no le sirve a nadie, y en
+  // la confirmación borraría el acuse del pedido recién hecho.
+  if(sheet.classList.contains("show") && view !== "done") renderSheet();
+  celebrateWaterGoals(r.goals);
+  return true;
+}
+
+/**
+ * La API respondió 401 con una sesión guardada: caducó o se cerró en otro
+ * sitio. Se vuelve a la bienvenida para entrar de nuevo; el carrito se pierde
+ * con la sesión, pero ningún pedido, que está en la base.
+ */
+function onSessionExpired(){
+  if(!currentUser) return;
+  signOut();
+  toast("Tu sesión caducó. Vuelve a entrar con Google.");
+}
+
+// Carrito y fechas del invitado que pidió alquilar, para devolvérselos tras el
+// login (activateUserSession arranca de cero). null = nada pendiente.
+let pendingRental = null;
+
+/**
+ * Alquilar exige cuenta: es la misma regla que la web. El invitado conserva el
+ * carrito; se le lleva a la bienvenida a entrar con Google y, al volver, lo
+ * encuentra intacto en el carrito.
+ */
+function askLoginToRent(){
+  if(!authAvailable()){
+    toast("Para alquilar abre la app desde su dirección web e inicia sesión.");
+    return;
+  }
+  confirmDialog(
+    "Para alquilar necesitas iniciar sesión con tu cuenta de Google.\n\nTu carrito se conserva.",
+    () => {
+      pendingRental = { cart: cart.slice(), rentalStart, rentalEnd };
+      closeSheet();
+      loginHint("Entra con Google para terminar tu alquiler.");
+      loginEl.classList.remove("hide");
+      initGoogleAuth();
+    },
+    "user",
+    { title: "Inicia sesión para alquilar", okLabel: "Iniciar sesión" },
+  );
+}
+
+/**
+ * Devuelve al carrito lo que el invitado tenía al pedir el login. Las prendas
+ * que la cuenta ya tenía guardadas se conservan; las del invitado se suman sin
+ * repetir (cada prenda es única).
+ * @returns {boolean} true si había algo que retomar.
+ */
+function resumePendingRental(){
+  if(!pendingRental) return false;
+  const p = pendingRental;
+  pendingRental = null;
+  for(const c of p.cart) if(!inCart(c.id)) cart.push(c);
+  rentalStart = p.rentalStart;
+  rentalEnd = p.rentalEnd;
+  snapRentalDates(false);
+  saveState();
+  updateBadge();
+  view = "cart"; renderSheet(); openSheet();
+  return true;
 }
 
 /**
@@ -97,6 +168,10 @@ function signOut(){
   if(currentUser && authAvailable() && typeof google !== "undefined" && google.accounts && google.accounts.id){
     google.accounts.id.disableAutoSelect();
   }
+  // Revoca la sesión en el servidor: el token deja de valer aunque alguien lo
+  // hubiera copiado de este navegador.
+  if(currentUser) logoutSession();
+  pendingRental = null;
   closeSheet();
   activateUserSession(null);   // vacía carrito/perfil/pedidos de la sesión actual
   currentUser = null;
@@ -143,7 +218,8 @@ function deleteAccount(){
 function askDeleteAccount(){
   confirmDialog(
     "Se eliminarán tus datos de este dispositivo y se cerrará tu sesión.\n\n" +
-    "Perderás tu carrito, tus pedidos, tus reseñas, tus puntos y los premios que hayas canjeado.\n\n" +
+    "Perderás tu carrito y tus reseñas. Tus pedidos y tus puntos siguen en tu cuenta: " +
+    "la baja definitiva de la cuenta llega más adelante.\n\n" +
     "Esta acción no se puede deshacer.",
     deleteAccount,
     "trash",
@@ -230,6 +306,8 @@ async function onGoogleCredential(resp){
     picture: claims.picture || "",
   });
   enter(profile.name || "");
+  // Venía de "Inicia sesión para alquilar": vuelve a su carrito.
+  resumePendingRental();
 }
 
 /**

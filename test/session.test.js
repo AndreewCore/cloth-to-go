@@ -3,18 +3,20 @@
  * almacenamiento (dos cuentas en el mismo navegador no deben pisarse), que el
  * invitado no deje registro, y el decodeJwt de auth.js.
  *
- * Complementa migration.test.js, que cubre la migración de datos ya guardados.
+ * Los pedidos y los puntos ya no se guardan aquí: viven en la base (fase 3).
  */
 const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const { loadDom } = require("./helpers/load-dom.js");
 
-let win, app;
+let win, app, fake, flush;
 
 beforeEach(() => {
   const env = loadDom();
   win = env.window;
   app = env.app;
+  fake = env.fake;
+  flush = env.flush;
 });
 
 // Los objetos creados dentro del contexto vm llevan el prototipo de ESE realm,
@@ -37,18 +39,18 @@ test("storageKeyFor: una clave por cuenta; el invitado no tiene ninguna", () => 
 test("dos cuentas en el mismo navegador no se pisan los datos", () => {
   win.activateUserSession(ANA);
   app.cart = [{ id: 7 }];
-  app.profile.points = 120;
+  app.profile.phone = "0991111111";
   win.saveState();
 
   win.activateUserSession(LUIS);
   assert.equal(app.cart.length, 0, "Luis no hereda el carrito de Ana");
-  assert.equal(app.profile.points, 0);
+  assert.equal(app.profile.phone, "");
   app.cart = [{ id: 1 }];
   win.saveState();
 
   win.activateUserSession(ANA);
   assert.deepEqual(plain(app.cart), [{ id: 7 }]);   // Ana recupera lo suyo
-  assert.equal(app.profile.points, 120);
+  assert.equal(app.profile.phone, "0991111111");
 });
 
 test("activateUserSession rellena el perfil con la identidad de Google", () => {
@@ -76,7 +78,9 @@ test("el invitado no persiste: nada se escribe ni se recupera", () => {
   win.saveState();
 
   assert.equal(app.activeStorageKey, null);
-  assert.equal(win.localStorage.length, 0, "no debe quedar rastro del invitado");
+  // La única clave es la de la sesión del servidor que dejó el arnés de pruebas.
+  const claves = Object.keys(win.localStorage).filter(k => k !== "clothToGo:session");
+  assert.deepEqual(claves, [], "no debe quedar rastro del invitado");
 
   win.activateUserSession(null);
   assert.equal(app.cart.length, 0);
@@ -116,41 +120,36 @@ test("cambiar de cuenta repinta la parrilla y el contador del carrito", () => {
 });
 
 /* ---- Puesta al día de puntos al abrir sesión ---- */
-test("al abrir sesión se acreditan los puntos de lo entregado entre visitas", () => {
+test("al abrir sesión, los pedidos y los puntos llegan de la API", async () => {
+  // Nada se acredita aquí: el servidor liquida lo entregado entre visitas y la
+  // app adopta el resultado.
+  fake.state.balance = 75;
+  fake.seed({ id: 2100, items: [7], start: app.isoOffset(-2), end: app.isoOffset(1), points: 0, total: 12 });
   win.activateUserSession(ANA);
-  // Pedido reservado (empieza mañana): sus puntos aún no entraron al saldo.
-  app.orders = [{
-    id: 1001, items: [7], start: app.isoOffset(1), end: app.isoOffset(4),
-    status: "pending", points: 50, pointsCredited: false, total: 10
-  }];
-  win.saveState();
-  assert.equal(app.profile.points, 0);
-
-  // Al día siguiente la prenda ya se entregó: el pedido empezó ayer.
-  app.orders[0].start = app.isoOffset(-1);
-  win.saveState();
-  win.activateUserSession(ANA);
-
-  // 50 del pedido + lo que aporten las metas de agua que sus prendas cruzaron.
-  assert.equal(app.profile.points, 50 + app.waterPointsCredited());
-  assert.ok(app.orders[0].pointsCredited);
+  await flush();
+  assert.ok(fake.calls.some(c => c.method === "GET" && c.path === "/api/orders"));
+  assert.ok(fake.calls.some(c => c.method === "GET" && c.path === "/api/me/points"));
+  assert.equal(app.profile.points, 75);
+  assert.deepEqual(app.orders.map(o => o.id), [2100]);
 });
 
-test("la puesta al día se guarda: no vuelve a sumar en la siguiente visita", () => {
+test("ni los pedidos ni los puntos se guardan en el navegador", () => {
   win.activateUserSession(ANA);
-  app.orders = [{
-    id: 1001, items: [7], start: app.isoOffset(-1), end: app.isoOffset(2),
-    status: "pending", points: 50, pointsCredited: false, total: 10
-  }];
+  app.orders = [{ id: 1001, items: [7], start: app.isoOffset(1), end: app.isoOffset(4), status: "pending", total: 10 }];
+  app.profile.points = 500;
   win.saveState();
-  win.activateUserSession(ANA);          // acredita y persiste
-  const esperado = 50 + app.waterPointsCredited();
-  assert.equal(app.profile.points, esperado);
+  const guardado = JSON.parse(win.localStorage.getItem(app.storageKeyFor(ANA)));
+  assert.equal(guardado.orders, undefined);
+  assert.equal(guardado.profile.points, undefined);
+  assert.equal(guardado.profile.redeemed, undefined);
+});
 
-  win.activateUserSession(ANA);          // segunda visita
-  // Cubre las dos vías de acreditación: ni los puntos del pedido ni los de las
-  // metas de agua pueden volver a sumarse al reabrir la sesión.
-  assert.equal(app.profile.points, esperado, "no se duplican los puntos");
+test("una sesión caducada (401) devuelve a la bienvenida", async () => {
+  win.activateUserSession(ANA);
+  fake.failNext = { status: 401, error: "Credencial inválida o expirada." };
+  await app.syncAccount();
+  assert.equal(app.currentUser, null);
+  assert.equal(app.readSessionToken(), null, "el token caducado se olvida");
 });
 
 /* ---- decodeJwt ---- */

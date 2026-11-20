@@ -7,8 +7,9 @@
 const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const { loadDom } = require("./helpers/load-dom.js");
+const { ITEM_BASE } = require("./helpers/fake-api.js");
 
-let win, doc, app;
+let win, doc, app, flush, fake;
 
 // DOM y estado nuevos por test: cada uno arranca con la app recién cargada.
 beforeEach(() => {
@@ -16,6 +17,8 @@ beforeEach(() => {
   win = env.window;
   doc = env.document;
   app = env.app;
+  flush = env.flush;
+  fake = env.fake;
 });
 
 // Deja el checkout listo para pagar; el pago se elige por parámetro.
@@ -34,10 +37,10 @@ function readyCheckout(pay) {
 }
 
 /* ---- placeOrder: tarjeta ---- */
-test("placeOrder con tarjeta: pedido settled, puntos reservados y carrito vacío", () => {
+test("placeOrder con tarjeta: pedido settled, puntos reservados y carrito vacío", async () => {
   readyCheckout("credit");
   const expectedPts = app.orderPoints(); // se calcula con el carrito aún lleno
-  win.placeOrder();
+  await win.placeOrder();
 
   assert.equal(app.orders.length, 1);
   const o = app.orders[0];
@@ -54,65 +57,72 @@ test("placeOrder con tarjeta: pedido settled, puntos reservados y carrito vacío
   assert.match(doc.getElementById("sheetBody").innerHTML, /Ganarás/);
 });
 
-/* ---- placeOrder: efectivo ---- */
-test("efectivo ya firme: acredita puntos aunque el cobro siga pendiente", () => {
+/* ---- placeOrder: lo que viaja y lo que se pinta ---- */
+test("placeOrder manda ejemplares, fechas y modos, y ningún importe", async () => {
   readyCheckout("cash");
-  // Alquiler empezado ayer: entregado y ya no anulable → puntos definitivos.
-  app.setCheckout({ rentalStart: app.isoOffset(-1), rentalEnd: app.isoOffset(3) });
-  win.placeOrder();
-
-  const o = app.orders[0];
-  assert.equal(o.status, "pending");        // el cobro sigue pendiente…
-  assert.ok(o.pointsCredited);              // …pero el alquiler ya es firme
-  assert.equal(app.profile.points, o.points + app.waterPointsCredited());
-  assert.match(doc.getElementById("sheetBody").innerHTML, /Ganaste/);
+  await win.placeOrder();
+  const post = fake.calls.find(c => c.method === "POST" && c.path === "/api/orders");
+  assert.ok(post, "el pedido se crea en la API");
+  assert.deepEqual(Object.keys(post.body).sort(),
+    ["delivery", "end", "items", "pay", "ret", "start"].sort());
+  assert.deepEqual([...post.body.items], [ITEM_BASE + 7], "ids de EJEMPLAR, no de modelo");
 });
 
-test("pedido que empieza más adelante: los puntos quedan reservados", () => {
-  readyCheckout("credit");                  // pagado, pero aún no entregado
-  app.setCheckout({ rentalStart: app.isoOffset(2), rentalEnd: app.isoOffset(5) });
-  win.placeOrder();
-
+test("efectivo: la confirmación pinta lo que respondió el servidor", async () => {
+  readyCheckout("cash");
+  await win.placeOrder();
   const o = app.orders[0];
-  assert.equal(o.status, "settled");
-  assert.ok(!o.pointsCredited);             // pagar no acredita: entregar sí
-  assert.ok(o.points > 0);
-  assert.equal(app.profile.points, app.waterPointsCredited());
+  const guardado = fake.state.orders[0];
+  assert.equal(o.id, guardado.id, "el número es el de la base, no uno inventado aquí");
+  assert.equal(o.status, "pending");
+  assert.equal(o.total, guardado.totalCents / 100);
+  assert.equal(o.returnBy, guardado.returnBy);
   assert.match(doc.getElementById("sheetBody").innerHTML, /Ganarás/);
 });
 
-test("los puntos reservados se acreditan cuando el pedido deja de ser anulable", () => {
+test("los puntos y el saldo llegan del servidor, no se acreditan aquí", async () => {
+  // El servidor decide cuándo un pedido ya ganó sus puntos; la app solo los
+  // adopta al sincronizar la cuenta.
+  fake.state.orders.push({ id: 1999, createdAt: new Date().toISOString(), items: [3], itemIds: [5003],
+    start: app.isoOffset(-2), end: app.isoOffset(1), returnBy: app.isoOffset(1), delivery: "pickup",
+    ret: "store", pay: "cash", status: "pending", cancelledAt: null, couponId: null, discountCents: 0,
+    points: 42, totalCents: 1000, depositHeldCents: 500, charges: [] });
+  assert.ok(await app.syncAccount());
+  assert.equal(app.profile.points, 42);
+  assert.ok(app.orders[0].pointsCredited);
+});
+
+test("un error del servidor no crea nada y deja el carrito intacto", async () => {
   readyCheckout("cash");
-  app.setCheckout({ rentalStart: app.isoOffset(2), rentalEnd: app.isoOffset(5) });
-  win.placeOrder();
-  const o = app.orders[0];
-  assert.equal(app.profile.points, app.waterPointsCredited());
+  fake.failNext = { status: 409, error: "Alguna de las prendas ya está reservada para esas fechas." };
+  assert.equal(await win.placeOrder(), false);
+  assert.equal(app.orders.length, 0);
+  assert.equal(app.cart.length, 1);
+  assert.match(doc.getElementById("toast").textContent, /reservada/);
+});
 
-  // Llegó el día de inicio: entregado, pero aún anulable → siguen reservados.
-  o.start = app.isoOffset(0);
-  assert.ok(win.isDelivered(o) && win.canCancelOrder(o));
-  assert.equal(win.creditDeliveredPoints(), 0);
-  assert.equal(app.profile.points, app.waterPointsCredited());
-
-  // Pasado el día de inicio ya no hay vuelta atrás: ahí sí se acreditan.
-  o.start = app.isoOffset(-1);
-  assert.equal(win.creditDeliveredPoints(), o.points);
-  assert.equal(app.profile.points, o.points + app.waterPointsCredited());
-  assert.equal(win.creditDeliveredPoints(), 0);   // no vuelve a acreditar
+test("sin sesión no se alquila: se pide iniciarla y el carrito se conserva", async () => {
+  readyCheckout("cash");
+  app.currentUser = null;
+  assert.equal(await win.placeOrder(), false);
+  assert.match(app.modalHTML, /Inicia sesión para alquilar/);
+  app.confirmModalOk();
+  assert.equal(app.pendingRental.cart.length, 1);
+  assert.equal(fake.calls.filter(c => c.path === "/api/orders").length, 0);
 });
 
 /* ---- Vaciado del carrito ---- */
-test("tras confirmar, el carrito queda vacío: no permite repedir lo mismo", () => {
+test("tras confirmar, el carrito queda vacío: no permite repedir lo mismo", async () => {
   readyCheckout("credit");
-  win.placeOrder();
+  await win.placeOrder();
   win.renderCart();
   assert.match(doc.getElementById("sheetBody").innerHTML, /carrito está vacío/);
 });
 
 /* ---- El cliente NO puede confirmar su propio pago ---- */
-test("un pedido en efectivo no expone acción de auto-confirmación al cliente", () => {
+test("un pedido en efectivo no expone acción de auto-confirmación al cliente", async () => {
   readyCheckout("cash");
-  win.placeOrder();
+  await win.placeOrder();
   win.renderProfile();
   const html = doc.getElementById("sheetBody").innerHTML;
   // No hay ningún control para que el cliente marque su pago como cobrado.
@@ -122,9 +132,9 @@ test("un pedido en efectivo no expone acción de auto-confirmación al cliente",
 });
 
 /* ---- Confirmación rediseñada: sin desglose + acceso a "Mis pedidos" ---- */
-test("renderDone no desglosa la compra e integra el ahorro de agua", () => {
+test("renderDone no desglosa la compra e integra el ahorro de agua", async () => {
   readyCheckout("credit");
-  win.placeOrder();
+  await win.placeOrder();
   const html = doc.getElementById("sheetBody").innerHTML;
   assert.match(html, /data-action="goToOrders"/);       // botón "Ver mis pedidos"
   assert.doesNotMatch(html, /Depósito reembolsable/);    // no se desglosa el pedido
@@ -136,9 +146,9 @@ test("no queda pop-up de agua en el DOM (se integró en la confirmación)", () =
   assert.equal(doc.getElementById("waterPop"), null);
 });
 
-test("goToOrders abre el perfil en la sección de pedidos y limpia el checkout", () => {
+test("goToOrders abre el perfil en la sección de pedidos y limpia el checkout", async () => {
   readyCheckout("cash");
-  win.placeOrder();
+  await win.placeOrder();
   assert.equal(app.view, "done");
 
   win.goToOrders();
@@ -154,7 +164,7 @@ test("goToOrders abre el perfil en la sección de pedidos y limpia el checkout",
 // .phone, que aun con overflow:hidden se puede desplazar por código), dejando el
 // encabezado cortado y el panel asomando abajo. El scroll debe quedarse dentro
 // del cuerpo del panel.
-test("goToOrders solo desplaza el cuerpo del panel, nunca sus ancestros", () => {
+test("goToOrders solo desplaza el cuerpo del panel, nunca sus ancestros", async () => {
   const intoView = [];
   win.Element.prototype.scrollIntoView = function () { intoView.push(this); };
   const body = doc.getElementById("sheetBody");
@@ -162,7 +172,7 @@ test("goToOrders solo desplaza el cuerpo del panel, nunca sus ancestros", () => 
   body.scrollTo = opts => scrolled.push(opts);
 
   readyCheckout("cash");
-  win.placeOrder();
+  await win.placeOrder();
   win.goToOrders();
 
   assert.equal(intoView.length, 0);                    // nadie desplaza ancestros
@@ -223,14 +233,14 @@ test("saveProfile con correo inválido muestra el error y no guarda", () => {
 });
 
 /* ---- Stock del catálogo: la prenda alquilada se queda, pero apagada ---- */
-test("tras alquilar, la prenda sigue en el catálogo pero no disponible", () => {
+test("tras alquilar, la prenda sigue en el catálogo pero no disponible", async () => {
   win.renderGrid();
   const grid = doc.getElementById("grid");
   assert.match(grid.innerHTML, /Esmoquin clásico/);        // id 7, visible al inicio
   const antes = win.filteredProducts().length;
 
   readyCheckout("cash");
-  win.placeOrder();
+  await win.placeOrder();
 
   // Sigue visible: desaparecer costaba el escaparate. Lo que no puede es
   // alquilarse otra vez.
@@ -246,9 +256,9 @@ test("tras alquilar, la prenda sigue en el catálogo pero no disponible", () => 
   assert.ok(card.querySelector(".add-btn").disabled, "no se puede alquilar");
 });
 
-test("la prenda alquilada se ordena al final de la grilla", () => {
+test("la prenda alquilada se ordena al final de la grilla", async () => {
   readyCheckout("cash");
-  win.placeOrder();
+  await win.placeOrder();
 
   const ids = win.filteredProducts().map(p => p.id);
   assert.equal(ids[ids.length - 1], 7, "la alquilada va al final");
@@ -256,9 +266,9 @@ test("la prenda alquilada se ordena al final de la grilla", () => {
   assert.ok(ids.slice(0, -1).every(id => id !== 7));
 });
 
-test("la prenda vuelve al catálogo cuando el pedido se archiva (devuelta y pagada)", () => {
+test("la prenda vuelve al catálogo cuando el pedido se archiva (devuelta y pagada)", async () => {
   readyCheckout("cash");
-  win.placeOrder();
+  await win.placeOrder();
   const o = app.orders[0];
 
   o.status = "settled";            // el negocio registró el cobro…
@@ -268,9 +278,9 @@ test("la prenda vuelve al catálogo cuando el pedido se archiva (devuelta y paga
   assert.match(doc.getElementById("grid").innerHTML, /Esmoquin clásico/);
 });
 
-test("el detalle de una prenda alquilada no ofrece agregarla al carrito", () => {
+test("el detalle de una prenda alquilada no ofrece agregarla al carrito", async () => {
   readyCheckout("cash");
-  win.placeOrder();
+  await win.placeOrder();
 
   win.openDetail(7);
   assert.match(doc.getElementById("sheetBody").innerHTML, /No disponible por el momento/);
@@ -278,9 +288,9 @@ test("el detalle de una prenda alquilada no ofrece agregarla al carrito", () => 
   assert.equal(btn.dataset.action, "goProfile");   // no "addDetail"
 });
 
-test("addToCart ignora una prenda ya alquilada", () => {
+test("addToCart ignora una prenda ya alquilada", async () => {
   readyCheckout("cash");
-  win.placeOrder();
+  await win.placeOrder();
   assert.equal(app.cart.length, 0);
 
   win.addToCart(7);
@@ -290,10 +300,10 @@ test("addToCart ignora una prenda ya alquilada", () => {
 /* ---- Anular un pedido ---- */
 // Deja un pedido confirmado y devuelve su índice; `start` permite simular uno ya
 // entregado (fecha de inicio pasada).
-function placedOrder(start) {
+async function placedOrder(start) {
   readyCheckout("cash");
   if (start) app.setCheckout({ rentalStart: start });
-  win.placeOrder();
+  await win.placeOrder();
   return app.orders.length - 1;
 }
 
@@ -301,14 +311,14 @@ function placedOrder(start) {
 // "libre" es si se puede alquilar, no si se ve.
 const alquilada = id => win.filteredProducts().some(p => p.id === id && win.isRented(id));
 
-test("anular un pedido devuelve sus prendas al catálogo", () => {
+test("anular un pedido devuelve sus prendas al catálogo", async () => {
   win.renderGrid();
   const grid = doc.getElementById("grid");
-  const i = placedOrder();
+  const i = await placedOrder();
   assert.ok(alquilada(7));                                      // apagada en la grilla
 
   win.cancelOrder(i);
-  app.confirmModalOk();                                        // el usuario confirma
+  app.confirmModalOk(); await flush();                                        // el usuario confirma
 
   assert.equal(app.orders[i].status, "cancelled");
   assert.ok(!alquilada(7));                                     // vuelve a ofrecerse
@@ -317,8 +327,8 @@ test("anular un pedido devuelve sus prendas al catálogo", () => {
   assert.equal(app.cart.length, 0);                             // no se rearma el carrito
 });
 
-test("el diálogo resume pedido, prendas y período, sin explicaciones de logística", () => {
-  const i = placedOrder();
+test("el diálogo resume pedido, prendas y período, sin explicaciones de logística", async () => {
+  const i = await placedOrder();
   win.cancelOrder(i);
   const html = app.modalHTML;
   assert.match(html, /¿Anular este pedido\?/);
@@ -328,40 +338,40 @@ test("el diálogo resume pedido, prendas y período, sin explicaciones de logís
   // El estado del envío no se le pregunta al cliente: si el botón existe,
   // el pedido todavía no salió.
   assert.doesNotMatch(html, /reparto|en camino|retiraste/i);
-  app.confirmModalOk();
+  app.confirmModalOk(); await flush();
 });
 
-test("un efectivo pendiente no promete reembolso: no se ha cobrado nada", () => {
-  const i = placedOrder();
+test("un efectivo pendiente no promete reembolso: no se ha cobrado nada", async () => {
+  const i = await placedOrder();
   win.cancelOrder(i);
   assert.doesNotMatch(app.modalHTML, /Reembolso|devolverá/i);
-  app.confirmModalOk();
+  app.confirmModalOk(); await flush();
 });
 
-test("un pedido ya cobrado muestra el monto a reembolsar", () => {
+test("un pedido ya cobrado muestra el monto a reembolsar", async () => {
   readyCheckout("credit");                 // tarjeta → cobrado
-  win.placeOrder();
+  await win.placeOrder();
   const total = app.orders[0].total.toFixed(2);
   win.cancelOrder(0);
   assert.match(app.modalHTML, /Reembolso a tu tarjeta/);
   assert.match(app.modalHTML, new RegExp(`\\$${total.replace(".", "\\.")}`));
 });
 
-test("sin confirmar el diálogo, el pedido sigue vigente", () => {
-  const i = placedOrder();
+test("sin confirmar el diálogo, el pedido sigue vigente", async () => {
+  const i = await placedOrder();
   win.cancelOrder(i);                 // se abre el modal y no se acepta
   assert.equal(app.orders[i].status, "pending");
   assert.ok(alquilada(7));            // la prenda sigue retenida por el pedido
 });
 
-test("la opción de anular desaparece si el alquiler ya está con el cliente", () => {
-  placedOrder(app.isoOffset(-1));     // empezó ayer → entregado
+test("la opción de anular desaparece si el alquiler ya está con el cliente", async () => {
+  await placedOrder(app.isoOffset(-1));     // empezó ayer → entregado
   win.renderProfile();
   assert.equal(doc.querySelectorAll('[data-action="cancelOrder"]').length, 0);
 });
 
-test("la opción de anular desaparece cuando el pedido ya terminó", () => {
-  const i = placedOrder();
+test("la opción de anular desaparece cuando el pedido ya terminó", async () => {
+  const i = await placedOrder();
   const o = app.orders[i];
   o.status = "settled";
   o.start = app.isoOffset(-5);
@@ -370,9 +380,9 @@ test("la opción de anular desaparece cuando el pedido ya terminó", () => {
   assert.equal(doc.querySelectorAll('[data-action="cancelOrder"]').length, 0);
 });
 
-test("un pedido anulable nunca tiene puntos acreditados que revertir", () => {
+test("un pedido anulable nunca tiene puntos acreditados que revertir", async () => {
   readyCheckout("credit");            // tarjeta → settled, pero empieza hoy
-  win.placeOrder();
+  await win.placeOrder();
   const o = app.orders[0];
   // La invariante que cierra el agujero: acreditado ⟹ ya no anulable. Mientras
   // se pueda anular, esos puntos no existen en el saldo y no hay nada que canjear.
@@ -380,16 +390,16 @@ test("un pedido anulable nunca tiene puntos acreditados que revertir", () => {
   assert.equal(app.profile.points, app.waterPointsCredited());
 
   win.cancelOrder(0);
-  app.confirmModalOk();
+  app.confirmModalOk(); await flush();
 
   assert.equal(app.profile.points, app.waterPointsCredited());
   assert.ok(!app.orders[0].pointsCredited);
 });
 
-test("un pedido anulado se lista en el historial, no entre los activos", () => {
-  const i = placedOrder();
+test("un pedido anulado se lista en el historial, no entre los activos", async () => {
+  const i = await placedOrder();
   win.cancelOrder(i);
-  app.confirmModalOk();
+  app.confirmModalOk(); await flush();
   win.renderProfile();
   const html = doc.getElementById("sheetBody").innerHTML;
   assert.match(html, /No tienes pedidos activos/);   // ya no está entre los vigentes
@@ -397,31 +407,31 @@ test("un pedido anulado se lista en el historial, no entre los activos", () => {
   assert.match(html, /Anulado/);
 });
 
-test("un pedido todavía anulable no suma litros de agua", () => {
-  placedOrder();
+test("un pedido todavía anulable no suma litros de agua", async () => {
+  await placedOrder();
   // Contarlos antes de que el alquiler sea firme era explotable: bastaba
   // confirmar el pedido para cruzar una meta, cobrar sus puntos y anularlo
   // después — los puntos del pedido se revierten, los de la meta no.
   assert.equal(win.totalWaterSaved(), 0);
 });
 
-test("un alquiler ya entregado y firme suma sus litros", () => {
-  placedOrder(app.isoOffset(-3));
+test("un alquiler ya entregado y firme suma sus litros", async () => {
+  await placedOrder(app.isoOffset(-3));
   assert.ok(win.totalWaterSaved() > 0, "un alquiler cumplido sí reutilizó ropa");
 });
 
-test("anular un pedido lo deja fuera de la cuenta de agua ahorrada", () => {
-  const i = placedOrder();
+test("anular un pedido lo deja fuera de la cuenta de agua ahorrada", async () => {
+  const i = await placedOrder();
   win.cancelOrder(i);
-  app.confirmModalOk();
+  app.confirmModalOk(); await flush();
 
   // El alquiler no llegó a ocurrir: no reutilizó ropa ni ahorró agua.
   assert.equal(win.totalWaterSaved(), 0);
   assert.match(doc.getElementById("sheetBody").innerHTML, /Agua ahorrada/);
 });
 
-test("la tarjeta del pedido muestra el depósito reembolsable junto al total", () => {
-  const i = placedOrder();
+test("la tarjeta del pedido muestra el depósito reembolsable junto al total", async () => {
+  const i = await placedOrder();
   win.renderProfile();
   const dep = app.orderDeposit(app.orders[i]).toFixed(2);
   const html = doc.getElementById("sheetBody").innerHTML;

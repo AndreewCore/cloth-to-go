@@ -8,17 +8,19 @@ const { test, beforeEach } = require("node:test");
 const assert = require("node:assert/strict");
 const { loadDom } = require("./helpers/load-dom.js");
 
-let win, doc, app;
+let win, doc, app, fake, flush;
 
 beforeEach(() => {
   const env = loadDom();
   win = env.window;
   doc = env.document;
   app = env.app;
+  fake = env.fake;
+  flush = env.flush;
 });
 
-// Confirma un pedido de una prenda y devuelve su índice.
-function placeOrder(pay = "cash") {
+// Confirma un pedido de una prenda (contra la API falsa) y devuelve su índice.
+async function placeOrder(pay = "cash") {
   app.setCheckout({
     delivery: "pickup", returnMethod: "store", payMethod: pay,
     card: pay === "cash"
@@ -27,13 +29,14 @@ function placeOrder(pay = "cash") {
     rentalStart: app.isoOffset(0), rentalEnd: app.isoOffset(3)
   });
   app.cart = [{ id: 7 }];
-  win.placeOrder();
+  await win.placeOrder();
+  await flush();
   return app.orders.length - 1;
 }
 
 /* ---- Editor del modo de devolución ---- */
-test("openReturnEditor precarga el modo y la dirección del pedido", () => {
-  const i = placeOrder();
+test("openReturnEditor precarga el modo y la dirección del pedido", async () => {
+  const i = await placeOrder();
   app.orders[i].ret = "home";
   app.orders[i].retAddr = "Av. Siempre Viva 742";
 
@@ -44,42 +47,51 @@ test("openReturnEditor precarga el modo y la dirección del pedido", () => {
   assert.ok(doc.querySelector('[data-action="pickReturn"][data-value="home"]').classList.contains("active"));
 });
 
-test("cambiar a domicilio cobra el retiro y sube el total del pedido", () => {
-  const i = placeOrder();
+test("cambiar a domicilio cobra el retiro y sube el total del pedido", async () => {
+  const i = await placeOrder();
   const o = app.orders[i];
   const antes = o.total;
 
   win.openReturnEditor(i);
   app.setReturnEdit({ editRet: "home", editRetAddr: "Av. Siempre Viva 742" });
   win.saveReturn(i);
-  app.confirmModalOk();                       // el cambio de tarifa se confirma
+  app.confirmModalOk(); await flush();                       // el cambio de tarifa se confirma
+  await flush();
 
-  assert.equal(o.ret, "home");
-  assert.equal(o.retAddr, "Av. Siempre Viva 742");
-  assert.equal(o.total, app.orderTotal(o));   // recalculado, no el guardado antes
-  assert.ok(o.total > antes, "el retiro a domicilio tiene cargo");
+  const patch = fake.calls.find(c => c.method === "PATCH");
+  assert.deepEqual({ ...patch.body }, { ret: "home", retAddr: "Av. Siempre Viva 742" },
+    "viaja el modo y la dirección, nunca un total");
+  const nuevo = app.orders[i];
+  assert.equal(nuevo.ret, "home");
+  assert.equal(nuevo.retAddr, "Av. Siempre Viva 742");
+  assert.equal(nuevo.total, fake.state.orders[0].totalCents / 100, "el total es el del servidor");
+  assert.ok(nuevo.total > antes, "el retiro a domicilio tiene cargo");
 });
 
-test("volver a devolución en local descuenta el cargo y borra la dirección", () => {
-  const i = placeOrder();
-  const o = app.orders[i];
-  o.ret = "home";
-  o.retAddr = "Av. Siempre Viva 742";
-  o.total = app.orderTotal(o);
-  const conCargo = o.total;
+test("volver a devolución en local descuenta el cargo y borra la dirección", async () => {
+  const i = await placeOrder();
+  // Primero a domicilio (con su cargo), después de vuelta al local.
+  win.openReturnEditor(i);
+  app.setReturnEdit({ editRet: "home", editRetAddr: "Av. Siempre Viva 742" });
+  win.saveReturn(i);
+  app.confirmModalOk(); await flush();
+  await flush();
+  const conCargo = app.orders[i].total;
 
   win.openReturnEditor(i);
   app.setReturnEdit({ editRet: "store" });
   win.saveReturn(i);
-  app.confirmModalOk();
+  app.confirmModalOk(); await flush();
+  await flush();
 
+  const o = app.orders[i];
   assert.equal(o.ret, "store");
   assert.equal(o.retAddr, "");                // ya no hay dónde ir a retirar
   assert.ok(o.total < conCargo);
 });
 
-test("saveReturn rechaza domicilio sin dirección válida y no toca el pedido", () => {
-  const i = placeOrder();
+test("saveReturn rechaza domicilio sin dirección válida y no toca el pedido", async () => {
+  const i = await placeOrder();
   const o = app.orders[i];
   const antes = { ret: o.ret, total: o.total };
 
@@ -92,22 +104,22 @@ test("saveReturn rechaza domicilio sin dirección válida y no toca el pedido", 
   assert.equal(app.editingOrder, i, "el editor sigue abierto para corregir");
 });
 
-test("cambiar solo la dirección no pide confirmar (no cambia la tarifa)", () => {
-  const i = placeOrder();
-  const o = app.orders[i];
-  o.ret = "home";
-  o.retAddr = "Dirección vieja 123";
+test("cambiar solo la dirección no pide confirmar (no cambia la tarifa)", async () => {
+  const i = await placeOrder();
+  app.orders[i].ret = "home";
+  app.orders[i].retAddr = "Dirección vieja 123";
 
   win.openReturnEditor(i);
   app.setReturnEdit({ editRetAddr: "Dirección nueva 456" });
   win.saveReturn(i);                          // se aplica directo, sin modal
+  await flush();
 
-  assert.equal(o.retAddr, "Dirección nueva 456");
+  assert.equal(app.orders[i].retAddr, "Dirección nueva 456");
   assert.equal(app.editingOrder, null, "el editor se cierra al guardar");
 });
 
-test("cancelar el editor deja el pedido intacto", () => {
-  const i = placeOrder();
+test("cancelar el editor deja el pedido intacto", async () => {
+  const i = await placeOrder();
   const o = app.orders[i];
 
   win.openReturnEditor(i);
@@ -119,15 +131,17 @@ test("cancelar el editor deja el pedido intacto", () => {
 });
 
 /* ---- Premios (canje de puntos) ---- */
-test("redeem descuenta los puntos y registra el canje", () => {
-  app.profile.points = 5000;
+test("redeem descuenta los puntos y registra el canje", async () => {
+  fake.state.balance = 5000;                  // el saldo lo tiene el servidor
+  await app.syncAccount();
   win.renderRewards();
   const btn = doc.querySelector('[data-action="redeem"]:not([disabled])');
   const id = +btn.dataset.id;
   const antes = app.profile.points;
 
   win.redeem(id);
-  app.confirmModalOk();
+  app.confirmModalOk(); await flush();
+  await flush();
 
   assert.ok(app.profile.points < antes);
   assert.equal(app.profile.redeemed.length, 1);

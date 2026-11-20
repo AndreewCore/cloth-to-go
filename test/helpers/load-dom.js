@@ -13,6 +13,7 @@
  * en el mismo scope léxico (ejecutados por separado no se verían entre sí).
  */
 const vm = require("node:vm");
+const { installFakeApi, ITEM_BASE } = require("./fake-api.js");
 const fs = require("node:fs");
 const path = require("node:path");
 const { JSDOM } = require("jsdom");
@@ -143,7 +144,12 @@ globalThis.__APP__ = {
   // aportan por su cuenta: los tests de puntos por pedido lo restan para no
   // confundir "el pedido no ha acreditado" con "el saldo es cero".
   WATER_GOALS, totalWaterSaved, waterSavedForItems, reachedWaterGoals, nextWaterGoal,
-  waterGoalProgress, creditWaterGoals, waterGoalHTML, toggleWaterGoalInfo,
+  waterGoalProgress, waterGoalHTML, toggleWaterGoalInfo,
+  // Cuenta en el servidor (fase 3): espejo, sincronización y login para alquilar.
+  applyAccount, refreshAccount, syncAccount, onSessionExpired, askLoginToRent,
+  resumePendingRental, canRentOnline, readSessionToken, storeSessionToken, orderFromApi,
+  hydrateCatalog, cartItemIds,
+  get pendingRental(){ return pendingRental; },
   renderProfile, renderSheet, fmtLiters, countsForRewards,
   waterPointsCredited(){
     return (profile.waterGoals || []).reduce(
@@ -224,7 +230,13 @@ function leerScript(archivo, opts) {
  *   - `deployedApi`: sustituye el valor de `DEPLOYED_API` (p. ej. `null`). Los
  *     casos "producción sin backend" (#17) deben seguir probándose ahora que el
  *     código trae la URL real de Render.
- * @returns {{window, document, app}} `app` es la API __APP__ del trailer.
+ *   - `account` (por defecto true): instala la API falsa (fake-api.js), deja
+ *     una sesión iniciada (`currentUser` + token) y el catálogo con un ejemplar
+ *     por modelo, que es lo que hace falta para alquilar desde la fase 3. Con
+ *     `false` la app queda como la ve un invitado sin API.
+ * @returns {{window, document, app, fake, flush}} `fake` es el estado de la
+ *   API falsa (null sin `account`); `flush()` espera a que terminen las
+ *   peticiones encadenadas (sincronizar la cuenta tras un pedido, etc.).
  */
 function loadDom(opts = {}) {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
@@ -245,14 +257,29 @@ function loadDom(opts = {}) {
   // todas las versiones y aquí no hay servidor: se deja uno que siempre rechaza,
   // que es el camino de degradación real de api.js (sin backend, catálogo
   // embebido). Sin esto la promesa quedaría suelta y el runner lo reporta.
-  if (opts.withMain && !dom.window.fetch) dom.window.fetch = () => Promise.reject(new Error("sin backend"));
+  const conCuenta = opts.account !== false && !("deployedApi" in opts) && !opts.url;
+  if (opts.withMain && !conCuenta && !dom.window.fetch) dom.window.fetch = () => Promise.reject(new Error("sin backend"));
   const source =
     archivos.map(f => leerScript(f, opts)).join("\n") +
     "\n" + EXPORT_TRAILER;
+  // Con cuenta, la API falsa tiene que estar ANTES de ejecutar main.js, que
+  // hidrata el catálogo al cargar.
+  let fake = null;
+  if (conCuenta) {
+    fake = installFakeApi(dom.window);
+  }
   vm.runInContext(source, ctx, { filename: "app-bundle.js" });
+  if (conCuenta) {
+    vm.runInContext(`
+      storeSessionToken("sesion-de-prueba");
+      currentUser = { sub: "test-user", name: "Ana Ruiz", email: "ana@test.com", picture: "" };
+      replaceCatalog(PRODUCTS.map(p => ({ ...p, items: [{ id: ${ITEM_BASE} + p.id, available: true }] })));
+    `, ctx);
+  }
 
   const { window } = dom;
-  return { window, document: window.document, app: window.__APP__ };
+  const flush = async () => { for (let i = 0; i < 20; i++) await new Promise(r => setTimeout(r, 0)); };
+  return { window, document: window.document, app: window.__APP__, fake, flush };
 }
 
 module.exports = { loadDom };

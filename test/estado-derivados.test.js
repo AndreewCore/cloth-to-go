@@ -84,18 +84,6 @@ test("cartWaterSaved es el agua de lo que hay en el carrito, no de lo alquilado"
   assert.equal(app.totalWaterSaved(), 0, "sin pedidos cumplidos no hay histórico");
 });
 
-/* ---- Identificadores de pedido ---- */
-test("nextOrderId no repite ni retrocede", () => {
-  assert.equal(win.nextOrderId(), 1001, "el primero arranca por encima de 1000");
-
-  app.orders = [{ id: 1001 }, { id: 1005 }, { id: 1003 }];
-  assert.equal(win.nextOrderId(), 1006, "toma el mayor, no el último");
-
-  // Un id heredado más bajo no debe hacer que el siguiente pise a uno existente.
-  app.orders = [{ id: 7 }];
-  assert.ok(win.nextOrderId() > 1000);
-});
-
 /* ---- Reseteo entre sesiones ---- */
 test("defaultProfile devuelve un perfil nuevo cada vez", () => {
   // Si compartieran referencia, editar el perfil de una sesión editaría el de

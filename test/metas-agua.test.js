@@ -68,8 +68,9 @@ test("los litros solo cuentan con el alquiler cumplido", async (t) => {
       delivery: "pickup", ret: "store", pay: "cash",
       status: "settled", points: 0, pointsCredited: false, total: 100,
     }];
-    assert.deepEqual(app.creditWaterGoals(), []);
-    assert.equal(app.profile.points, 0, "ninguna meta debió pagar sus puntos");
+    // Quien cobra la meta es el servidor, con la misma regla; aquí basta con
+    // que la vista no la dé por alcanzada.
+    assert.deepEqual([...app.reachedWaterGoals()], [], "ninguna meta alcanzada todavía");
   });
 });
 
