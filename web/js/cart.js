@@ -401,48 +401,51 @@ function renderCheckoutDone(body, foot){
 }
 
 /**
- * Confirma el alquiler y lo guarda en la cuenta.
+ * Registra el alquiler en la API, como placeOrder() de la app.
  *
- * Arma el pedido con la MISMA forma que placeOrder() de js/checkout.js (y con
- * los mismos ayudantes de js/state.js para el total y los puntos), porque es el
- * mismo pedido: el que la app leerá desde localStorage al abrir el perfil. Lo
- * que no hay aquí son mapas ni cupones — la web todavía no los ofrece, así que
- * las coordenadas van nulas y `couponId` también.
+ * El pedido lo guarda la base: por eso aparece en "Mis pedidos" de la app
+ * desde cualquier dispositivo. La web manda qué ejemplares, fechas y modos; los
+ * importes, los puntos y la reserva los decide el servidor, y la confirmación
+ * pinta lo que respondió. Sin cupones (la web no los ofrece) ni coordenadas.
+ * La tarjeta sigue simulada y no viaja.
+ * @returns {Promise<boolean>} true si el pedido quedó creado.
  */
-function placeWebOrder(){
+async function placeWebOrder(){
   checkoutTried = true;
-  if(!checkoutDataValid() || !checkoutPayValid()){ renderCheckout(); return; }
-  const order = {
-    id: nextOrderId(),
-    date: isoOffset(0),
-    items: cart.map(c => c.id),
+  if(!checkoutDataValid() || !checkoutPayValid()){ renderCheckout(); return false; }
+  if(webPlacing) return false;
+  if(!canRentOnline()){ toast("Para alquilar hace falta conexión con el servidor."); return false; }
+  const items = cartItemIds();
+  if(!items){ toast("Alguna prenda del carrito ya no está disponible."); return false; }
+  const litros = cartWaterSaved();
+
+  webPlacing = true;
+  const r = await apiFetch("/api/orders", { method: "POST", body: {
+    items,
     start: rentalStart,
     end: rentalEnd,
-    returnBy: returnByISO(rentalStart, rentalEnd),
     delivery,
     ret: returnMethod,
-    retAddr: returnMethod === RETURN_TO.HOME ? returnAddress.trim() : "",
-    shipCoords: null,
-    retCoords: null,
+    shipAddr: delivery === DELIVERY.SHIP ? address.trim() : undefined,
+    retAddr: returnMethod === RETURN_TO.HOME ? returnAddress.trim() : undefined,
     pay: payMethod,
-    status: payMethod === PAY_METHOD.CASH ? ORDER_STATUS.PENDING : ORDER_STATUS.SETTLED,
-    couponId: null,
-  };
-  order.total = orderTotal(order);
-  order.points = orderPoints();
-  order.pointsCredited = false;
+  }});
+  webPlacing = false;
+  if(!r.ok){
+    toast(apiErrorText(r));
+    if(r.status === 409) hydrateCatalog();
+    return false;
+  }
+
+  const order = orderFromApi(r.data);
   orders.push(order);
-  // Los puntos se acreditan al ENTREGAR: si el alquiler empieza hoy entran ya,
-  // y si no, quedan reservados hasta ese día (los liquida creditDeliveredPoints
-  // al iniciar sesión, aquí o en la app).
-  creditDeliveredPoints();
-  lastWaterGoals = creditWaterGoals();
+  lastWaterGoals = [];
   lastEarnedPoints = order.points;
-  lastWaterSaved = cartWaterSaved();
+  lastWaterSaved = litros;
   lastOrder = order;
   cart = [];
   // Los datos de la tarjeta se descartan en cuanto se "cobra": no se guardan ni
-  // aquí ni en localStorage (saveState solo persiste cart/profile/orders/reviews).
+  // aquí ni en localStorage.
   card = { number: "", name: "", expiry: "", cvv: "" };
   saveState();
   checkoutStep = "listo";
@@ -451,4 +454,10 @@ function placeWebOrder(){
   renderGrid();
   renderCart();
   updateBadge();
+  hydrateCatalog();   // la prenda reservada sale del catálogo para todos
+  return true;
 }
+
+// Si hay un pedido en vuelo: el botón no puede crear dos por un doble clic.
+let webPlacing = false;
+

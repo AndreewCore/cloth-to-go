@@ -24,10 +24,12 @@ const LUIS = { sub: "222", name: "Luis Paz", email: "luis@example.com" };
 const claveDe = u => app.STORAGE_PREFIX + u.sub;
 
 /** Deja una cuenta con datos guardados y la sesión abierta en ella. */
-function sesionConDatos(user, { points = 40 } = {}) {
+// Los puntos ya no se guardan en el navegador (fase 3): lo propio de la cuenta
+// en este dispositivo es el carrito y el perfil editable, como el teléfono.
+function sesionConDatos(user, { phone = "0990000040" } = {}) {
   win.activateUserSession(user);
   app.cart = [{ id: 1 }];
-  app.profile.points = points;
+  app.profile.phone = phone;
   win.saveState();
 }
 
@@ -50,7 +52,7 @@ test("borra los datos de la cuenta activa", () => {
 test("no toca los datos de otras cuentas del mismo navegador", () => {
   // Borrar la sesión del vecino desde la propia cuenta es justo lo que no debe
   // poder pasar, ni en una demo que corre en el equipo de la feria.
-  sesionConDatos(LUIS, { points: 99 });
+  sesionConDatos(LUIS, { phone: "0990000099" });
   sesionConDatos(ANA);
 
   win.deleteAccount();
@@ -58,7 +60,7 @@ test("no toca los datos de otras cuentas del mismo navegador", () => {
   assert.equal(win.localStorage.getItem(claveDe(ANA)), null);
   assert.ok(win.localStorage.getItem(claveDe(LUIS)), "Luis conserva lo suyo");
   win.activateUserSession(LUIS);
-  assert.equal(app.profile.points, 99);
+  assert.equal(app.profile.phone, "0990000099");
 });
 
 test("las preferencias del dispositivo sobreviven", () => {
@@ -93,7 +95,7 @@ test("deja la sesión cerrada y el estado en blanco", () => {
 });
 
 test("volver a entrar con esa cuenta la encuentra vacía, no restaurada", () => {
-  sesionConDatos(ANA, { points: 250 });
+  sesionConDatos(ANA);
   win.deleteAccount();
 
   win.activateUserSession(ANA);

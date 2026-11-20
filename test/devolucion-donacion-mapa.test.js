@@ -21,13 +21,15 @@ const { loadDom } = require("./helpers/load-dom.js");
 const CON_MAPA = { storage: { "clothToGo:mapsKey": "CLAVE-DE-PRUEBA" } };
 const PUNTO = { lat: -2.170998, lng: -79.922359, address: "Av. 9 de Octubre 100, Guayaquil" };
 
-let win, doc, app;
+let win, doc, app, fake, flush;
 
 beforeEach(() => {
   const env = loadDom();
   win = env.window;
   doc = env.document;
   app = env.app;
+  fake = env.fake;
+  flush = env.flush;
 });
 
 /** Pedido activo mínimo, devuelto en el local, para abrir el editor sobre él. */
@@ -122,13 +124,13 @@ test("cerrar el panel baja también el pop-up", () => {
     "si no, quedaría flotando sobre el catálogo editando un pedido que ya no se ve");
 });
 
-test("anular el pedido en edición cierra su pop-up", () => {
+test("anular el pedido en edición cierra su pop-up", async () => {
   // Un editor abierto sobre un pedido que desaparece de la lista queda huérfano:
   // guarda un ÍNDICE, que tras la anulación puede apuntar a otro pedido.
-  app.orders = [pedidoActivo({ start: app.isoOffset(2), end: app.isoOffset(5) })];
+  app.orders = [fake.seed(pedidoActivo({ start: app.isoOffset(2), end: app.isoOffset(5) }))];
   app.openReturnEditor(0);
   win.cancelOrder(0);
-  app.confirmModalOk();
+  app.confirmModalOk(); await flush();
 
   assert.equal(app.retEditorOpen, false);
   assert.equal(app.editingOrder, null);
@@ -193,9 +195,9 @@ test("con mapa, guardar sin marcar el punto no cambia el pedido", () => {
   assert.equal(env.app.retEditorOpen, true, "el pop-up sigue abierto para corregir");
 });
 
-test("guardar con el punto marcado lo escribe en el pedido y recalcula el total", () => {
+test("guardar con el punto marcado lo escribe en el pedido y recalcula el total", async () => {
   const env = loadDom(CON_MAPA);
-  const pedido = pedidoActivo();
+  const pedido = env.fake.seed(pedidoActivo());
   env.app.orders = [pedido];
   const totalPrevio = pedido.total;
 
@@ -203,7 +205,7 @@ test("guardar con el punto marcado lo escribe en el pedido y recalcula el total"
   env.app.setReturnEdit({ editRet: "home" });
   env.app.applyPickedLocation("orderRet", PUNTO);
   env.app.saveReturn(0);
-  env.app.confirmModalOk();          // cambiar de método pide confirmar el cargo
+  env.app.confirmModalOk(); await env.flush();          // cambiar de método pide confirmar el cargo
 
   const o = env.app.orders[0];
   assert.equal(o.ret, "home");
@@ -213,13 +215,13 @@ test("guardar con el punto marcado lo escribe en el pedido y recalcula el total"
   assert.equal(env.app.retEditorOpen, false, "guardar cierra el pop-up");
 });
 
-test("volver al local borra el punto de retiro del pedido", () => {
+test("volver al local borra el punto de retiro del pedido", async () => {
   const env = loadDom(CON_MAPA);
-  env.app.orders = [pedidoActivo({ ret: "home", retAddr: PUNTO.address, retCoords: { lat: PUNTO.lat, lng: PUNTO.lng } })];
+  env.app.orders = [env.fake.seed(pedidoActivo({ ret: "home", retAddr: PUNTO.address, retCoords: { lat: PUNTO.lat, lng: PUNTO.lng } }))];
   env.app.openReturnEditor(0);
   env.app.setReturnEdit({ editRet: "store" });
   env.app.saveReturn(0);
-  env.app.confirmModalOk();
+  env.app.confirmModalOk(); await env.flush();
 
   const o = env.app.orders[0];
   assert.equal(o.retAddr, "", "ya no vamos a ninguna dirección");

@@ -175,7 +175,7 @@ function orderCardHTML(o, i, archived){
                role="button" tabindex="0" aria-label="Ver detalle de ${escapeHTML(p.name)}">${imgPlaceholder(p)}</div>
           <div class="oi-info">
             <div class="oi-name">${escapeHTML(p.name)}</div>
-            <div class="oi-meta">Talla ${escapeHTML(p.size)} · $${rentalPrice(p, days, o.items.length).toFixed(2)}</div>
+            <div class="oi-meta">Talla ${escapeHTML(p.size)} · $${orderItemPrice(o, p).toFixed(2)}</div>
           </div>
         </div>`; }).join("")}
 
@@ -291,7 +291,7 @@ function renderProfile(){
    número no decía si estaba bien o mal. Ahora es UNA barra con todas las metas
    como marcadores pulsables: el detalle de cada meta (nombre, litros, puntos)
    solo aparece al tocar su marcador, para no saturar la tarjeta. Los puntos
-   los acredita creditWaterGoals() (state.js), no esta vista. */
+   los acredita el servidor (llegan con applyAccount), no esta vista. */
 
 // Meta cuyo detalle está desplegado (id), o null. Estado efímero de la vista:
 // no se persiste ni sobrevive a la sesión.
@@ -510,21 +510,31 @@ function saveReturn(i){
     return;
   }
   const o = orders[i];
-  const apply = ()=>{
-    o.ret = editRet;
-    o.retAddr = editRet === RETURN_TO.HOME ? editRetAddr.trim() : "";
-    // El punto viaja con la dirección: si se guardara solo el texto, el reparto
-    // volvería a guiarse por "casa verde" en cuanto el pedido se edita.
-    o.retCoords = editRet === RETURN_TO.HOME ? editRetCoords : null;
-    o.total = orderTotal(o);   // el cambio de devolución actualiza el total del cobro
-    saveState();
+  // El cambio lo hace el servidor: añade el ajuste al libro de cargos (no edita
+  // la línea anterior) y revalora un premio de envío. Aquí solo se adopta lo
+  // que responde.
+  const apply = async ()=>{
+    const ret = editRet;
+    const coords = editRetCoords;
+    const r = await apiFetch(`/api/orders/${o.id}/return`, { method: "PATCH", body: {
+      ret,
+      retAddr: ret === RETURN_TO.HOME ? editRetAddr.trim() : undefined,
+    }});
+    if(!r.ok){ toast(apiErrorText(r)); return; }
+    const nuevo = orderFromApi(r.data);
+    // El punto del mapa viaja con la dirección en esta sesión (el servidor aún
+    // no guarda coordenadas).
+    nuevo.retCoords = ret === RETURN_TO.HOME ? coords : null;
+    nuevo.shipCoords = o.shipCoords;
+    orders[i] = nuevo;
     closeReturnEditor();
     toast("Modo de devolución actualizado");
   };
   // Si cambia el método, confirmar el cargo/descuento (mostrando el nuevo total);
-  // si solo cambia la dirección, aplicar directo.
+  // si solo cambia la dirección, aplicar directo. El total es la cifra de hoy
+  // más la diferencia de logística; el servidor confirma la definitiva.
   if(o.ret !== editRet){
-    const newTotal = orderTotal({ ...o, ret: editRet }).toFixed(2);
+    const newTotal = (o.total + returnFeeFor(editRet) - returnFeeFor(o.ret)).toFixed(2);
     const msg = editRet === RETURN_TO.HOME
       ? `Cambiarás a Devolución a domicilio.\n\nSe COBRARÁ un adicional de $${SHIPPING_FEE.toFixed(2)} por ir a retirar la prenda. El total del cobro del pedido pasará a $${newTotal}.\n\n¿Confirmar?`
       : `Cambiarás a Devolución en el local.\n\nSe te DESCONTARÁ $${SHIPPING_FEE.toFixed(2)} (ya no haremos el retiro a domicilio). El total del cobro del pedido pasará a $${newTotal}.\n\n¿Confirmar?`;
@@ -571,26 +581,22 @@ function cancelOrder(i){
 
   confirmDialog(
     "",
-    ()=>{
-      o.status = "cancelled";
-      o.cancelledAt = isoOffset(0);
-      // Los puntos solo se revierten si llegaron a acreditarse; los de un pedido
-      // pendiente nunca entraron al saldo, así que no hay nada que restar.
-      const revocados = revokeOrderPoints(o);
-      // El premio vuelve a la cartera: el alquiler no llegó a existir, así que
-      // los puntos que costó no pueden quedarse gastados.
-      if(o.couponId){
-        const c = couponById(o.couponId);
-        if(c) c.usedIn = null;
-        o.couponId = null;
-      }
+    async ()=>{
+      // La anulación la hace el servidor: líneas espejo en el libro de cargos,
+      // reserva liberada, cupón de vuelta a la cartera y puntos revertidos (si
+      // llegaron a entrar, revocando canjes sin usar cuando hace falta).
+      const libresAntes = new Set(availableCoupons().map(c => c.id));
+      const r = await apiFetch(`/api/orders/${o.id}/cancel`, { method: "POST", body: {} });
+      if(!r.ok){ toast(apiErrorText(r)); return; }
+      orders[orders.indexOf(o)] = orderFromApi(r.data);
       // El editor de devolución guarda un índice: dejarlo abierto sobre un
       // pedido que ya no se muestra como activo lo dejaría huérfano.
       editingOrder = null; editRet = null; editRetAddr = ""; editRetCoords = null;
       renderReturnEditor();     // baja el pop-up si estaba abierto sobre este pedido
-      saveState();
+      await syncAccount();      // saldo y canjes tal como quedaron en la base
       renderProfile();
-      renderGrid();             // las prendas reaparecen en el catálogo al instante
+      hydrateCatalog();         // las prendas reaparecen en el catálogo
+      const revocados = profile.redeemed.filter(c => c.revoked && libresAntes.has(c.id)).length;
       // Perder un premio en silencio sería peor que el propio cobro: si la
       // reversión tuvo que revocar canjes, se dice cuántos y por qué.
       toast(revocados
@@ -867,13 +873,12 @@ function couponListHTML(lista, label, noteHTML = ""){
 function redeem(id){
   const rw = rewardById(id);
   if(!rw || profile.points < rw.cost) return;
-  confirmDialog(`Canjear "${rw.name}" por ${rw.cost} puntos.\n\nLo guardaremos como premio para que lo apliques al pagar tu próximo alquiler.\n\nTe quedarán ${profile.points - rw.cost} pts.\n\n¿Confirmar?`, ()=>{
-    profile.points -= rw.cost;
-    profile.redeemed.unshift({
-      id: nextCouponId(), rewardId: rw.id, name: rw.name,
-      cost: rw.cost, date: fmtDate(isoOffset(0)), usedIn: null
-    });
-    saveState();
+  confirmDialog(`Canjear "${rw.name}" por ${rw.cost} puntos.\n\nLo guardaremos como premio para que lo apliques al pagar tu próximo alquiler.\n\nTe quedarán ${profile.points - rw.cost} pts.\n\n¿Confirmar?`, async ()=>{
+    // El saldo lo comprueba y lo descuenta el servidor: lo que diga aquí la
+    // consola del navegador no compra nada.
+    const r = await apiFetch(`/api/rewards/${rw.id}/redeem`, { method: "POST", body: {} });
+    if(!r.ok){ toast(apiErrorText(r)); return; }
+    applyAccount({ points: r.data });
     renderRewards();
     toast("Premio guardado · aplícalo al pagar");
   });

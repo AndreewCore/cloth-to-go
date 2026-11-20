@@ -40,7 +40,7 @@ bundler y **sin dependencias en tiempo de ejecución**. Se abre directamente con
 | **Inicio de sesión** | Real con **Google**, verificado en el servidor. Sin backend o por `file://`, se entra como invitado. |
 | **Mapas** | Real con Google Maps, si hay clave. Sin clave, el checkout cae al campo de dirección escrito a mano. |
 | **Pago** | **Simulado.** No hay pasarela: los datos de tarjeta no se procesan ni se guardan. |
-| **Pedidos y puntos** | **Simulados.** Viven en el `localStorage` del navegador, no en el servidor. |
+| **Pedidos y puntos** | **Reales.** Los guarda la base (API): un pedido hecho en la web aparece en la app. Sin API no se puede alquilar. |
 | **Estados de envío** | **Simulados.** No hay logística ni panel de administración todavía. |
 
 ---
@@ -317,13 +317,9 @@ motivo exacto (`RefererNotAllowedMapError`, `ApiNotActivatedMapError`, etc.).
 
 ## 🗺️ Próximos pasos
 
-- **Pedidos y dinero en el servidor**: hoy viven en el navegador, así que un total
-  cobrado no queda registrado en ninguna parte.
 - **Pasarela de pago** real.
 - **Panel de administración**: confirmar cobros en efectivo, estados del pedido e
   inventario. Confirmar que entró dinero es un acto del negocio, nunca del cliente.
-- **Canje de puntos validado en el servidor**: mientras el saldo viva en `localStorage`,
-  es editable desde la consola del navegador.
 - **Reseñas de clientes** y **galería de varias fotos** por prenda.
 
 ---

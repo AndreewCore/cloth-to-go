@@ -12,7 +12,7 @@ const { loadDom } = require("./helpers/load-dom");
 
 /** Monta la app con un checkout completo y listo para confirmar. */
 function listo(opts = {}) {
-  const { window, document, app } = loadDom();
+  const { window, document, app, fake, flush } = loadDom();
   app.cart = (opts.ids || [1, 7]).map(id => ({ id }));
   app.setCheckout({
     delivery: "pickup",
@@ -20,7 +20,7 @@ function listo(opts = {}) {
     payMethod: "cash",
     ...opts.checkout,
   });
-  return { window, document, app };
+  return { window, document, app, fake, flush };
 }
 
 test("el botón de pago abre el resumen en vez de cobrar", async (t) => {
@@ -32,10 +32,10 @@ test("el botón de pago abre el resumen en vez de cobrar", async (t) => {
     assert.equal(app.cart.length, 2, "el carrito no se toca hasta confirmar");
   });
 
-  await t.test("aceptar registra el pedido y vacía el carrito", () => {
-    const { app } = listo();
+  await t.test("aceptar registra el pedido y vacía el carrito", async () => {
+    const { app, flush } = listo();
     app.confirmOrder();
-    app.confirmModalOk();
+    app.confirmModalOk(); await flush();
     assert.equal(app.orders.length, 1);
     assert.equal(app.cart.length, 0);
     assert.equal(app.view, "done");
@@ -80,13 +80,13 @@ test("lo que el resumen enseña coincide con lo que se cobra", async (t) => {
     assert.match(app.modalOkLabel, new RegExp(`\\$${esperado.toFixed(2)}\\b`));
   });
 
-  await t.test("'Pagas ahora' cuadra con el total que se guarda en el pedido", () => {
+  await t.test("'Pagas ahora' cuadra con el total que se guarda en el pedido", async () => {
     // La prueba de fuego del resumen: se compara contra el o.total que
     // placeOrder() acaba escribiendo, no contra un número recalculado a mano.
-    const { app } = listo();
+    const { app, flush } = listo();
     const mostrado = app.grandTotal();
     app.confirmOrder();
-    app.confirmModalOk();
+    app.confirmModalOk(); await flush();
     assert.equal(app.orders[0].total, mostrado);
   });
 
@@ -138,14 +138,15 @@ test("lo que el resumen enseña coincide con lo que se cobra", async (t) => {
 });
 
 test("el resumen no consume nada por sí solo", async (t) => {
-  await t.test("abrirlo y cerrarlo no gasta el premio canjeado", () => {
+  await t.test("abrirlo y cerrarlo no gasta el premio canjeado", async () => {
     // El canje solo debe marcarse usado al confirmar. Si mirar el resumen lo
     // quemara, el cliente perdería el premio por curiosear.
-    const { app } = listo();
+    const { app, fake, flush } = listo();
     const r = app.REWARDS.find(x => x.type === "shipping") || app.REWARDS[0];
-    app.profile = { ...app.profile, points: 100000, redeemed: [] };
+    fake.state.balance = 100000;   // el saldo lo tiene el servidor
+    await app.syncAccount();
     app.redeem(r.id);
-    app.confirmModalOk();          // redeem() pide confirmación antes de canjear
+    app.confirmModalOk(); await flush();          // redeem() pide confirmación antes de canjear
     const cupon = app.availableCoupons()[0];
     assert.ok(cupon, "el canje debería haber dejado un cupón disponible");
     app.setCheckout({ appliedCoupon: cupon.id, delivery: "ship", address: "Av. Principal 123" });
@@ -154,11 +155,11 @@ test("el resumen no consume nada por sí solo", async (t) => {
     assert.equal(app.couponById(cupon.id).usedIn, null, "el canje sigue disponible");
   });
 
-  await t.test("abrirlo dos veces no duplica pedidos", () => {
-    const { app } = listo();
+  await t.test("abrirlo dos veces no duplica pedidos", async () => {
+    const { app, flush } = listo();
     app.confirmOrder();
     app.confirmOrder();
-    app.confirmModalOk();
+    app.confirmModalOk(); await flush();
     assert.equal(app.orders.length, 1);
   });
 });

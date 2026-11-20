@@ -39,7 +39,7 @@ globalThis.__APP__ = {
   getRentalDates(){ return { start: rentalStart, end: rentalEnd }; },
   // --- Estado y cálculos derivados (state.js) ---
   isoOffset, cents, rentalDays, isLate, snapRentalDates, isArchivedOrder, isCancelledOrder, isPastOrder,
-  canCancelOrder, isDelivered, creditDeliveredPoints, isRented, unitsAvailable, inCart,
+  canCancelOrder, isDelivered, isRented, unitsAvailable, inCart,
   totalWaterSaved,
   subtotal, subtotalBeforeVolume, volumeSavings, depositTotal, grandTotal,
   orderItemsSubtotal, orderDeposit, orderTotal, paymentStatusLabel, orderPoints,

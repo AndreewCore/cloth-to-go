@@ -113,7 +113,7 @@ test("sin dirección legible, el punto se guarda igual con sus coordenadas", () 
 });
 
 /* ---- El punto viaja con el pedido ---- */
-test("placeOrder guarda las coordenadas del envío y del retiro", () => {
+test("placeOrder guarda las coordenadas del envío y del retiro", async () => {
   app.cart = [{ id: 7 }];
   app.setCheckout({
     delivery: "ship", returnMethod: "home", payMethod: "cash",
@@ -121,14 +121,14 @@ test("placeOrder guarda las coordenadas del envío y del retiro", () => {
   });
   app.applyPickedLocation("ship", PUNTO);
   app.applyPickedLocation("return", PUNTO);
-  win.placeOrder();
+  await win.placeOrder();
 
   const o = app.orders[0];
   assertPunto(o.shipCoords, PUNTO);
   assertPunto(o.retCoords, PUNTO);
 });
 
-test("un pedido con retiro en el local no arrastra coordenadas de retiro", () => {
+test("un pedido con retiro en el local no arrastra coordenadas de retiro", async () => {
   app.cart = [{ id: 7 }];
   app.setCheckout({
     delivery: "pickup", returnMethod: "store", payMethod: "cash",
@@ -136,21 +136,21 @@ test("un pedido con retiro en el local no arrastra coordenadas de retiro", () =>
   });
   // Aunque quedaran de un intento anterior, no deben viajar al pedido.
   app.applyPickedLocation("ship", PUNTO);
-  win.placeOrder();
+  await win.placeOrder();
 
   const o = app.orders[0];
   assert.equal(o.shipCoords, null);
   assert.equal(o.retCoords, null);
 });
 
-test("terminar el pedido limpia las coordenadas del checkout", () => {
+test("terminar el pedido limpia las coordenadas del checkout", async () => {
   app.cart = [{ id: 7 }];
   app.setCheckout({
     delivery: "ship", returnMethod: "store", payMethod: "cash",
     rentalStart: app.isoOffset(0), rentalEnd: app.isoOffset(3)
   });
   app.applyPickedLocation("ship", PUNTO);
-  win.placeOrder();
+  await win.placeOrder();
   win.finishOrder();
 
   assert.equal(app.addressCoords, null);

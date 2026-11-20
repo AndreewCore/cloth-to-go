@@ -526,67 +526,79 @@ function paymentValid(){
   return false;
 }
 
-// Registra la orden: crea UN pedido que agrupa las prendas del carrito, guarda
-// el valor total del cobro y su estado, y pasa a la confirmación.
-// (No procesa el pago: eso corresponde al backend/pasarela, aún sin integrar.)
-function placeOrder(){
-  if(!checkoutValid() || !paymentValid()) return;   // guarda por si el botón estuviera activo
-  const order = {
-    id: nextOrderId(),
-    date: isoOffset(0),
-    items: cart.map(c => c.id),
+// Si hay un pedido en vuelo: el botón no puede crear dos por un doble toque.
+let placingOrder = false;
+
+/**
+ * Registra el alquiler: lo crea en la API y pasa a la confirmación.
+ *
+ * Desde la fase 3 el pedido lo guarda la base, no el navegador: el cliente
+ * manda qué ejemplares, qué fechas y qué modos (más el canje, por id), y el
+ * servidor pone los importes, los puntos y el descuento. Lo que se pinta
+ * después es lo que respondió, nunca un total calculado aquí. Sin sesión o sin
+ * API no hay dónde guardarlo: se dice, y el carrito queda intacto. La tarjeta
+ * sigue simulada y no viaja (no hay pasarela hasta la fase 5).
+ * @returns {Promise<boolean>} true si el pedido quedó creado.
+ */
+async function placeOrder(){
+  if(placingOrder) return false;
+  if(!checkoutValid() || !paymentValid()) return false;   // por si el botón estuviera activo
+  if(!currentUser){ askLoginToRent(); return false; }
+  if(!canRentOnline()){
+    toast("Para alquilar hace falta conexión con el servidor.");
+    return false;
+  }
+  const items = cartItemIds();
+  if(!items){
+    toast("Alguna prenda del carrito ya no está disponible.");
+    return false;
+  }
+  // Lo que la confirmación necesita del carrito, antes de vaciarlo.
+  const litros = cartWaterSaved();
+
+  placingOrder = true;
+  const r = await apiFetch("/api/orders", { method: "POST", body: {
+    items,
     start: rentalStart,
     end: rentalEnd,
-    // Hasta cuándo puede devolver sin costo extra: el cierre de la ventana.
-    returnBy: returnByISO(rentalStart, rentalEnd),
     delivery,
     ret: returnMethod,
-    retAddr: returnMethod === RETURN_TO.HOME ? returnAddress.trim() : "",
-    // Coordenadas del pedido: lo que de verdad usa el reparto. Se guardan con
-    // el pedido y no solo en el checkout, que se limpia al terminar.
-    shipCoords: delivery === DELIVERY.SHIP ? addressCoords : null,
-    retCoords: returnMethod === RETURN_TO.HOME ? returnAddressCoords : null,
+    shipAddr: delivery === DELIVERY.SHIP ? address.trim() : undefined,
+    retAddr: returnMethod === RETURN_TO.HOME ? returnAddress.trim() : undefined,
     pay: payMethod,
-    // Tarjeta: se cobra al confirmar → "settled" (Descontado).
-    // Efectivo: se paga al recibir/retirar → "pending" (Cancelado más adelante).
-    status: payMethod === PAY_METHOD.CASH ? ORDER_STATUS.PENDING : ORDER_STATUS.SETTLED,
-    // Premio aplicado: se guarda la referencia al canje, no su importe. El
-    // descuento lo recalcula orderDiscount() (el precio no se almacena).
-    // Solo se engancha si de verdad rebaja algo en este pedido: así un canje
-    // que quedó sin efecto vuelve a la cartera en vez de consumirse en balde.
-    couponId: couponDiscount() > 0 ? appliedCoupon : null,
-  };
-  order.total = orderTotal(order);   // valor total del cobro del pedido
-  // El canje pasa a "usado" y deja de ofrecerse en el siguiente checkout.
-  if(order.couponId){
-    const c = couponById(order.couponId);
-    if(c) c.usedIn = order.id;
+    couponId: appliedCoupon ?? undefined,
+  }});
+  placingOrder = false;
+
+  if(!r.ok){
+    toast(apiErrorText(r));
+    // Otro cliente se llevó la prenda: el catálogo de la API dirá cuál.
+    if(r.status === 409) hydrateCatalog();
+    return false;
   }
-  // Puntos que otorga el pedido; se calculan con el carrito aún intacto.
-  order.points = orderPoints();
-  order.pointsCredited = false;
+
+  const order = orderFromApi(r.data);
+  // Coordenadas del reparto: el servidor aún no las guarda, pero el pedido de
+  // esta sesión las conserva para quien lo mire ahora.
+  order.shipCoords = delivery === DELIVERY.SHIP ? addressCoords : null;
+  order.retCoords = returnMethod === RETURN_TO.HOME ? returnAddressCoords : null;
+  if(r.data.couponIssue) toast(`Premio no aplicado: ${r.data.couponIssue}`);
   orders.push(order);
-  // Los puntos se acreditan al ENTREGAR, no al cobrar: si el alquiler empieza
-  // hoy, entran ya; si empieza más adelante, quedan reservados hasta que
-  // creditDeliveredPoints() los liquide al abrir la app ese día.
-  creditDeliveredPoints();
-  // El pedido añade litros, que pueden cruzar una meta de agua. Se guarda para
-  // avisarlo en la confirmación: enterarse tres pantallas después no se conecta
-  // con lo que se acaba de hacer.
-  lastWaterGoals = creditWaterGoals();
   lastEarnedPoints = order.points;
-  // Litros de agua ahorrados con este alquiler (el carrito aún está intacto).
-  lastWaterSaved = cartWaterSaved();
+  lastWaterSaved = litros;
+  lastWaterGoals = [];
   // La confirmación se pinta desde el pedido, no del carrito: lo vaciamos ya
   // para que cerrar la hoja sin pulsar "finalizar" no permita repedir lo mismo.
   lastOrder = order;
   cart = [];
+  appliedCoupon = null;
+  card = { number:"", name:"", expiry:"", cvv:"" };
   saveState();
-  // renderGrid: las prendas del pedido pasan a estar alquiladas y salen del
-  // catálogo ya mismo, sin esperar a que se cierre la confirmación.
   view = "done"; renderSheet(); updateBadge(); renderGrid();
-  // El pop-up va sobre la confirmación ya pintada: celebra sin taparle el acuse.
-  celebrateWaterGoals(lastWaterGoals);
+  // La prenda reservada sale del catálogo, y el cupón gastado de la cartera.
+  hydrateCatalog();
+  syncAccount();
+  return true;
 }
 
 /* ---- Confirmación ----
@@ -606,7 +618,7 @@ function renderDone(){
       ${o.pointsCredited
         ? `<div class="earned-points">${icon("sprout", { size: 16 })} Ganaste <b>${o.points}</b> puntos con este alquiler</div>`
         : `<div class="earned-points pending">${icon("sprout", { size: 16 })} Ganarás <b>${o.points}</b> puntos cuando recibas tus prendas</div>`}
-      ${o.couponId ? `<div class="coupon-used">${icon("ticket", { size: 16 })} Premio aplicado: <b>−$${orderDiscount(o).toFixed(2)}</b></div>` : ``}
+      ${o.discount > 0 ? `<div class="coupon-used">${icon("ticket", { size: 16 })} Premio aplicado: <b>−$${o.discount.toFixed(2)}</b></div>` : ``}
       ${lastWaterSaved > 0 ? `<div class="water-saved">${icon("droplet", { size: 16 })} Ahorraste <b>~${fmtLiters(lastWaterSaved)} litros</b> de agua al reutilizar ropa</div>` : ``}
       ${lastWaterGoals.length ? lastWaterGoals.map(g =>
         `<div class="goal-hit">${icon("award", { size: 16 })} Meta “${escapeHTML(g.name)}” conseguida · <b>+${g.points} pts</b></div>`).join("") : ``}

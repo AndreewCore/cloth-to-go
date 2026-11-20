@@ -63,20 +63,20 @@ const APP_GLOBALS = {
     "rentalDays", "isLate", "snapRentalDates", "inCart", "isRented", "unitsAvailable", "cartCount", "cents", "subtotal",
     "cartItemPrice", "subtotalBeforeVolume", "volumeRate", "volumeSavings", "depositTotal",
     "shippingFee", "returnFee", "grandTotal", "orderPoints",
-    "couponById", "availableCoupons", "nextCouponId", "cartRewardCtx", "orderRewardCtx",
+    "couponById", "availableCoupons", "cartRewardCtx", "orderRewardCtx",
     "couponDiscount", "couponIssue", "orderDiscount",
     "waterSavedForItems", "cartWaterSaved", "totalWaterSaved",
-    "reachedWaterGoals", "nextWaterGoal", "waterGoalProgress", "creditWaterGoals",
+    "reachedWaterGoals", "nextWaterGoal", "waterGoalProgress", "applyAccount", "accountSynced",
     "toggleWaterGoalInfo", "celebrateWaterGoals",
-    "orderItemsSubtotal", "orderDeposit", "orderTotal", "paymentStatusLabel", "isArchivedOrder",
+    "orderItemsSubtotal", "orderDeposit", "orderItemPrice", "cartItemIds", "orderTotal", "paymentStatusLabel", "isArchivedOrder",
     "isCancelledOrder", "isPastOrder", "canCancelOrder", "isDelivered",
     "reviews", "reviewOrderId", "reviewProductId", "reviewRating", "reviewText", "reviewPhoto",
     "productReviews", "productRating", "reviewFor", "reviewableItems", "hasPendingReview",
     "saveReview", "deleteReview",
-    "countsForRewards", "creditDeliveredPoints", "revokeOrderPoints", "reclaimPointsUpTo", "nextOrderId",
+    "countsForRewards",
     "STORAGE_PREFIX", "activeStorageKey", "defaultProfile", "storageKeyFor",
     "daysUntilNameChange", "canChangeName", "emailIsManaged",
-    "resetStateToDefaults", "saveState", "loadState", "migrateOrders", "migrateRedeemed"
+    "resetStateToDefaults", "saveState", "loadState"
   ],
   dom: [
     "grid", "noResults", "resultsBar", "filtersEl", "overlay", "sheet", "sheetBody",
@@ -96,7 +96,7 @@ const APP_GLOBALS = {
     "totalRowHTML", "calVisibleMonth", "calDayIndex", "calDayCost", "calGridHTML",
     "pickCalendarDay", "shiftCalendar", "dateBoxHTML", "renderCart", "removeItem", "renderCheckout",
     "couponSectionHTML",
-    "deliveryReady", "returnReady", "checkoutValid", "renderPayment", "paymentValid", "placeOrder", "renderDone",
+    "deliveryReady", "returnReady", "checkoutValid", "renderPayment", "paymentValid", "placingOrder", "placeOrder", "renderDone",
     "confirmItemsHTML", "confirmDetailHTML", "confirmOrder",
     "resetCheckoutState", "finishOrder", "goToOrders"
   ],
@@ -117,14 +117,18 @@ const APP_GLOBALS = {
     "PRODUCTION_HOSTS", "isProductionHost",
     "readApiOverride", "backendForHost", "isMixedContent",
     "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog", "hydrateCalendar", "verifyGoogleCredential",
-    "fetchWaterImpact", "fetchChatStatus", "askChatbot"
+    "fetchWaterImpact", "fetchChatStatus", "askChatbot",
+    "catalogFromApi", "SESSION_KEY", "readSessionToken", "storeSessionToken", "clearSessionToken",
+    "canRentOnline", "apiFetch", "apiErrorText", "logoutSession", "localDayOf", "orderFromApi",
+    "couponFromApi", "refreshAccount"
   ],
   // `google` lo aporta el SDK externo de Google Identity.
   auth: [
     "google", "GOOGLE_CLIENT_ID", "currentUser", "authAvailable", "decodeJwt",
     "activateUserSession", "onGoogleCredential", "initGoogleAuth", "renderGoogleButton", "signOut",
     "deleteAccount", "askDeleteAccount",
-    "loginHint", "loginFailed"
+    "loginHint", "loginFailed",
+    "syncAccount", "onSessionExpired", "pendingRental", "askLoginToRent", "resumePendingRental"
   ],
   // `google` ya está en auth: lo aporta el mismo SDK.
   maps: [
@@ -148,7 +152,7 @@ const WEB_GLOBALS = [
   // web/js/session.js
   "WEB_GOOGLE_CLIENT_ID", "GUEST_CART_KEY", "webUser", "pendingAfterLogin",
   "webAuthAvailable", "webDecodeJwt", "persistCart", "readGuestCart", "clearGuestCart",
-  "startWebSession", "signOutWeb", "requireSession", "onWebGoogleCredential",
+  "startWebSession", "signOutWeb", "onSessionExpired", "requireSession", "onWebGoogleCredential",
   "initWebAuth", "showLoginHint", "renderSession", "userMenuOpen", "toggleUserMenu", "closeUserMenu",
   // web/js/catalog.js
   "webImg", "webCover", "webSortProducts", "webFilteredProducts", "webAnyFilter",
@@ -158,7 +162,7 @@ const WEB_GLOBALS = [
   "checkoutStep", "checkoutTried", "addToCart", "removeFromCart", "setRentalDate",
   "openCart", "closeCart", "cartLineHTML", "startCheckout", "closeCheckout", "optHTML",
   "checkoutDataValid", "checkoutPayValid", "renderCheckout", "renderCheckoutFoot",
-  "checkoutDataHTML", "checkoutPayHTML", "renderCheckoutDone", "placeWebOrder",
+  "checkoutDataHTML", "checkoutPayHTML", "renderCheckoutDone", "placeWebOrder", "webPlacing",
   "renderCart", "updateBadge", "returnWindowNoteHTML",
   // web/js/main.js
   "openModal", "syncScrim", "closeTopmost", "openLogin", "closeLogin", "bootDepsReady",
