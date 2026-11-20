@@ -254,5 +254,43 @@ module.exports = [
       "no-constant-condition": "warn",
       "no-empty": "off"
     }
+  },
+  // El servidor (server/): módulos ES de Node, no scripts clásicos. Aquí SÍ se
+  // activa no-unused-vars, porque cada archivo importa lo que usa y una
+  // declaración sin usar es un error real, no un falso positivo de ámbito
+  // compartido. Nada de estilo: no hay formateador a propósito (§12).
+  {
+    files: ["server/**/*.js"],
+    ignores: ["server/node_modules/**"],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: "module",
+      globals: { ...globals.node }
+    },
+    rules: {
+      "no-undef": "error",
+      "no-unused-vars": ["error", { "args": "none", "caughtErrors": "none" }],
+      "no-unreachable": "error",
+      "no-dupe-keys": "error",
+      "no-dupe-args": "error",
+      "no-redeclare": "error",
+      "no-cond-assign": ["error", "always"],
+      "no-constant-condition": "error",
+      // §12.1 (b): las reglas de promesas que funcionan sin información de tipos.
+      "no-async-promise-executor": "error",
+      "no-promise-executor-return": "error",
+      // allowProperties: escribir `req.user` tras un await es el patrón normal
+      // de un preHandler de Fastify, no una carrera; sin esto la regla solo da
+      // falsos positivos ahí. Sigue vigilando las variables reasignadas.
+      "require-atomic-updates": ["error", { "allowProperties": true }],
+      // §12.1 (c): una escritura de Prisma como sentencia suelta —sin await, sin
+      // return, sin asignar— es un cargo que quizá no exista cuando se responde.
+      // Tosca (no ve `const p = prisma.x.create()` sin esperar), pero atrapa la
+      // forma en que este error se escribe en la práctica.
+      "no-restricted-syntax": ["error", {
+        "selector": "ExpressionStatement > CallExpression[callee.object.object.name=/^(prisma|tx)$/]",
+        "message": "Llamada a Prisma sin await: la escritura puede no existir cuando respondas."
+      }]
+    }
   }
 ];
