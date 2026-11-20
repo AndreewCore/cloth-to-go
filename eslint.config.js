@@ -45,7 +45,8 @@ const APP_GLOBALS = {
     "WATER_PER_KG", "LITERS_PER_GALLON", "garmentWater", "litersToGallons", "fmtLiters",
     "WATER_GOALS", "DEMO_REVIEWS",
     "MATERIAL_LABELS", "materialLabel", "MATERIAL_ORDER", "MATERIALS",
-    "COLOR_LABELS", "COLOR_HEX", "COLORS", "colorLabel", "colorSwatch", "colorCount"
+    "COLOR_LABELS", "COLOR_HEX", "COLORS", "colorLabel", "colorSwatch", "colorCount",
+    "replaceInPlace", "refreshCatalogLists", "applyTaxonomy"
   ],
   state: [
     "isoOffset", "cart", "orders", "profile", "activeCat", "searchQuery",

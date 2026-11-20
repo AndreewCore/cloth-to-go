@@ -8,7 +8,7 @@
 /* ---------------- Filtros ---------------- */
 function renderFilters(){
   filtersEl.innerHTML = CATS.map(c =>
-    `<button class="chip ${c===activeCat?'active':''}" data-cat="${c}">${c}</button>`
+    `<button class="chip ${c===activeCat?'active':''}" data-cat="${escapeHTML(c)}">${escapeHTML(c)}</button>`
   ).join("");
 }
 

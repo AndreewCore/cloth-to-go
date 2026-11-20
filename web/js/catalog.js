@@ -125,7 +125,7 @@ function renderFilters(){
     const disponibles = sizesInScale(escala.id);
     if(!disponibles.length) return "";
     return `<div class="fgroup">
-      <h3>Talla · ${escala.label}</h3>
+      <h3>Talla · ${escapeHTML(escala.label)}</h3>
       <div class="chips">${disponibles
         .map(s => chipHTML("size", s, escapeHTML(s), sizeFilter === s)).join("")}</div>
     </div>`;
