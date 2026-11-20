@@ -53,9 +53,47 @@ const RETURN_TO    = Object.freeze({ HOME: "home", STORE: "store" });     // có
 const ORDER_STATUS = Object.freeze({ SETTLED: "settled", PENDING: "pending", CANCELLED: "cancelled" });
 const PAY_METHOD   = Object.freeze({ CASH: "cash", CREDIT: "credit", DEBIT: "debit" });
 
-/* ---- Devolución tardía ---- */
-const LATE_GRACE_DAYS = 3;     // días hábiles de gracia tras la fecha límite
-const LATE_PENALTY = 15.00;    // penalización si no se devuelve dentro de la gracia
+/* ---- Calendario del negocio y ventanas de devolución (§6.0) ----
+   Sustituyen a los días de gracia y a la multa fija: no hay retiros ni
+   devoluciones en fin de semana ni feriado, y quien retira de lunes a miércoles
+   devuelve hasta el viernes (jueves o viernes → hasta el lunes) sin costo
+   extra. Los días cerrados llegan de GET /api/config (hydrateCalendar); sin API
+   se cierran solo los fines de semana. La regla es copia de server/src/dates.js
+   y test/ventanas-paridad.test.js vigila que no se separen. */
+const businessCalendar = { closedWeekdays: [0, 6], holidays: new Set() };
+
+/** Adopta el calendario que sirve la API (días cerrados y feriados). */
+function setBusinessCalendar(cfg){
+  if(!cfg) return;
+  if(Array.isArray(cfg.closedWeekdays)) businessCalendar.closedWeekdays = cfg.closedWeekdays.slice();
+  if(Array.isArray(cfg.holidays)) businessCalendar.holidays = new Set(cfg.holidays.map(h => h.date));
+}
+/** Día de la semana de una fecha `YYYY-MM-DD` (0 = domingo), sin zona horaria. */
+function weekdayISO(iso){
+  const [y,m,d] = iso.split("-").map(Number);
+  return new Date(y, m-1, d).getDay();
+}
+/** ¿Atiende el local ese día? Ni fin de semana ni feriado. */
+function isBusinessDayISO(iso){
+  return !businessCalendar.closedWeekdays.includes(weekdayISO(iso)) && !businessCalendar.holidays.has(iso);
+}
+/** El mismo día si es hábil; si no, el siguiente que lo sea. */
+function nextBusinessDayISO(iso){
+  let d = iso;
+  for(let i = 0; i < 30 && !isBusinessDayISO(d); i++) d = addDaysISO(d, 1);
+  return d;
+}
+/** Cierre de la ventana sin costo extra para un retiro (o entrega) en `start`. */
+function returnWindowCloseISO(start){
+  const dow = weekdayISO(start);
+  const salto = dow >= 1 && dow <= 3 ? 5 - dow : dow >= 4 && dow <= 5 ? 8 - dow : (8 - dow) % 7 + 4;
+  return nextBusinessDayISO(addDaysISO(start, salto));
+}
+/** Fecha límite de devolución: la ventana solo extiende, nunca acorta. */
+function returnByISO(start, end){
+  const cierre = returnWindowCloseISO(start);
+  return end > cierre ? end : cierre;
+}
 
 /* ============================================================
    MODELO DE PRECIOS

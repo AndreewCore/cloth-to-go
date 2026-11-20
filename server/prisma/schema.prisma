@@ -600,3 +600,17 @@ model WaterCounter {
 
   @@map("water_counter")
 }
+
+/// Feriado nacional que cierra el local (§6.0 de DECISIONES). Un día aquí no
+/// admite retiros, entregas ni devoluciones, y si cierra una ventana de
+/// devolución la pasa al siguiente día hábil.
+///
+/// La migración siembra 2026–2027 con las fechas YA trasladadas (el Gobierno
+/// mueve feriados por decreto); el panel de la fase 4 los editará. `date` es la
+/// clave: dos feriados el mismo día cierran lo mismo que uno.
+model Holiday {
+  date DateTime @id @db.Date
+  name String
+
+  @@map("holidays")
+}

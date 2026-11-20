@@ -15,11 +15,9 @@ import {
   cancellationCharges,
   depositReleaseCharge,
   initialCharges,
-  latePenaltyCharge,
   paymentStatus,
   returnChangeAdjustment,
   CHARGE_STATUS,
-  CHARGE_TYPE,
   heldDepositCents,
   revenueCents,
   totalCents,
@@ -31,7 +29,8 @@ import { CAPABILITY, hasCapability, httpError, isStaff } from "./auth.js";
 import { UNRENTABLE, isoToDate, pricedItem } from "./catalog.js";
 import { releaseForOrder, reserveForOrder } from "./items.js";
 import { FINANCE_EVENT, logFinance } from "./logs.js";
-import { todayISO } from "./dates.js";
+import { isBusinessDay, returnByDate, todayISO } from "./dates.js";
+import { holidaySet } from "./calendar.js";
 
 /** Formato de fecha que acepta la API: día de calendario, sin hora ni zona. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -52,6 +51,10 @@ function orderToApi(order) {
     id: order.id,
     start: order.start,
     end: order.end,
+    // Hasta cuándo puede devolver sin costo extra (§6.0). Es el final de la
+    // reserva y no se recalcula: si mañana cambian los feriados, la fecha que
+    // se le prometió al cliente no se mueve.
+    returnBy: order.items?.[0]?.end ? order.items[0].end.toISOString().slice(0, 10) : order.end,
     days: rentalDays(order.start, order.end),
     delivery: order.delivery,
     ret: order.ret,
@@ -236,6 +239,17 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
     }
     const datos = parseOrderBody(req.body);
 
+    // Sin retiros ni devoluciones en fin de semana ni feriado (§6.0). El
+    // calendario del cliente ya los deshabilita; esto es la comprobación real.
+    const feriados = await holidaySet();
+    if (!isBusinessDay(datos.start, feriados) || !isBusinessDay(datos.end, feriados)) {
+      throw httpError(400, "El local no atiende ese día: elige un día hábil para retirar y devolver.");
+    }
+    // La prenda queda reservada hasta el cierre de la ventana, no hasta el día
+    // elegido: el cliente puede quedársela sin costo extra hasta entonces, y
+    // otro alquiler que empiece antes se quedaría sin ella.
+    const returnBy = returnByDate(datos.start, datos.end, feriados);
+
     const crear = () => prisma.$transaction(async (tx) => {
       // Los ejemplares y su modelo se leen de la BASE, no del cuerpo: el precio
       // sale de `value`, y aceptar el del cliente sería regalarle la tarifa.
@@ -256,7 +270,7 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
         // no sabe cotizarlas y no cobra algo que no sabe cotizar.
         throw httpError(409, "Alguna de las prendas no está disponible.");
       }
-      if (await overlapsLiveReservation(tx, datos.items, datos.start, datos.end)) {
+      if (await overlapsLiveReservation(tx, datos.items, datos.start, returnBy)) {
         throw httpError(409, "Alguna de las prendas ya está reservada para esas fechas.");
       }
 
@@ -278,7 +292,7 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
             create: datos.items.map((itemId) => ({
               itemId,
               start: isoToDate(datos.start),
-              end: isoToDate(datos.end),
+              end: isoToDate(returnBy),
             })),
           },
           charges: { create: initialCharges({ ...datos, items: ordenados.map(pricedItem) }) },
@@ -377,42 +391,6 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
         orderId: id,
         amountCents: -linea.amountCents,
         note: linea.note ?? "Garantía liberada",
-      }),
-    ]);
-    return orderToApi(await findOrderFor(id, req.user, true));
-  });
-
-  // Solo caja: cobrar la penalización por devolución fuera de plazo. Existía
-  // en la interfaz desde el principio y no se cobraba en ninguna parte.
-  app.post("/api/orders/:id/late-penalty", { preHandler: requireCaja }, async (req) => {
-    const id = Number(req.params.id);
-    const order = await findOrderFor(id, req.user, true);
-    if (order.cancelledAt) throw httpError(409, "El pedido está anulado.");
-
-    // Dos clics del mostrador no son dos atrasos: son $30 donde había $15, en
-    // dos líneas idénticas que nadie sabría distinguir después. Un segundo
-    // atraso real existe —la prenda vuelve tarde dos veces si se prorroga— pero
-    // entonces trae su propia nota, y eso sí se puede explicar a un cliente.
-    // Se compara contra la línea que se iba a crear, no contra el cuerpo: sin
-    // nota, `latePenaltyCharge` pone la suya por defecto, así que mirar el
-    // cuerpo dejaría pasar el caso más común —dos clics sin nota ninguna—.
-    const linea = latePenaltyCharge(req.body?.note);
-    const yaCobrada = order.charges.some(
-      (c) =>
-        c.type === CHARGE_TYPE.LATE_PENALTY &&
-        c.status !== CHARGE_STATUS.VOID &&
-        c.note === linea.note,
-    );
-    if (yaCobrada) throw httpError(409, "Esa penalización ya está cobrada en el pedido.");
-
-    await prisma.$transaction([
-      prisma.charge.create({ data: { ...linea, orderId: id } }),
-      logFinance(prisma, {
-        kind: FINANCE_EVENT.PENALIZACION,
-        actorId: req.user.id,
-        orderId: id,
-        amountCents: linea.amountCents,
-        note: linea.note,
       }),
     ]);
     return orderToApi(await findOrderFor(id, req.user, true));

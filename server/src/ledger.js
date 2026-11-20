@@ -13,7 +13,6 @@
 import {
   DELIVERY,
   RETURN_TO,
-  LATE_PENALTY,
   cents,
   deliveryFeeFor,
   depositForItems,
@@ -35,6 +34,9 @@ export const CHARGE_TYPE = Object.freeze({
   RETURN: "RETURN",
   DEPOSIT_HOLD: "DEPOSIT_HOLD",
   DEPOSIT_RELEASE: "DEPOSIT_RELEASE",
+  // Existe en el enum de la base (quitar un valor de enum en Postgres es una
+  // migración frágil), pero ya no se emite: el atraso no es multa, se cobra
+  // en días extra con la escalera normal (§6.0).
   LATE_PENALTY: "LATE_PENALTY",
   DISCOUNT: "DISCOUNT",
   ADJUSTMENT: "ADJUSTMENT",
@@ -173,22 +175,6 @@ export function returnChangeAdjustment(antes, ahora, pay) {
     method,
     itemId: null,
     note: `Cambio de devolución: ${etiqueta(antes)} → ${etiqueta(ahora)}`,
-  };
-}
-
-/**
- * Línea de penalización por devolución fuera de plazo.
- * @param {string} note Motivo, con la fecha real de devolución si se conoce.
- * @returns {object} Línea de penalización, siempre PENDING: la cobra el local.
- */
-export function latePenaltyCharge(note) {
-  return {
-    type: CHARGE_TYPE.LATE_PENALTY,
-    amountCents: cents(LATE_PENALTY),
-    status: CHARGE_STATUS.PENDING,
-    method: null,
-    itemId: null,
-    note: note ?? "Devolución fuera del plazo de gracia",
   };
 }
 

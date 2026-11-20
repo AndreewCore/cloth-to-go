@@ -7,6 +7,8 @@
  * (`ctg.purge`, solo dentro de su transacción) para dejar la base como estaba.
  */
 import prisma from "../../src/db.js";
+import { holidaySet } from "../../src/calendar.js";
+import { addDaysISO, nextBusinessDay, todayISO } from "../../src/dates.js";
 
 /**
  * Borra lo que dejaron unas cuentas de prueba (pedidos, cargos, reservas,
@@ -72,4 +74,28 @@ export function grant(sub, capabilities) {
 export async function demoItems(app) {
   const res = await app.inject({ method: "GET", url: "/api/products" });
   return res.json().map((p) => ({ ...p, id: p.items[0].id, productId: p.id }));
+}
+
+/* ---- Días hábiles para las fechas de prueba ----
+   La API rechaza retiros y devoluciones en fin de semana y feriado (§6.0). Una
+   prueba que pidiera "hoy + 2" fallaría solo los días en que eso cae en sábado,
+   o solo en diciembre; por eso las fechas de los pedidos se cuentan en días
+   HÁBILES, con los feriados reales de la base. */
+let feriados = null;
+
+/** Lee los feriados de la base; llamar en el `before` de cada archivo. */
+export async function loadHolidays() {
+  feriados = await holidaySet();
+}
+
+/**
+ * El n-ésimo día hábil a partir de mañana (n = 0 es el primero).
+ * @param {number} n Índice, desde 0.
+ * @returns {string} `YYYY-MM-DD`.
+ */
+export function habil(n) {
+  if (!feriados) throw new Error("Llama a loadHolidays() en el before de la prueba.");
+  let d = nextBusinessDay(addDaysISO(todayISO(), 1), feriados);
+  for (let i = 0; i < n; i++) d = nextBusinessDay(addDaysISO(d, 1), feriados);
+  return d;
 }

@@ -17,7 +17,7 @@ import { isoToDate } from "../src/catalog.js";
 import { planTransition } from "../src/items.js";
 import { parseCapabilities, setCapabilities } from "../src/staff.js";
 import { cycleCost, depositFor, rentalPrice, validatePriceOverride } from "../src/pricing.js";
-import { demoItems, grant, purge } from "./helpers/db.js";
+import { demoItems, grant, habil, loadHolidays, purge } from "./helpers/db.js";
 
 const CLIENTE = "test-sub-fase2-cliente";
 const OTRO = "test-sub-fase2-otro";
@@ -100,6 +100,7 @@ async function limpiar() {
 }
 
 before(async () => {
+  await loadHolidays();
   app = buildApp({ verifyGoogleToken: async (t) => ({ sub: t, email: `${t}@test`, name: t }) });
   await app.ready();
   prendas = await demoItems(app);
@@ -119,32 +120,47 @@ after(async () => {
 
 test("dos pedidos que se solapan sobre el mismo ejemplar: el segundo se rechaza", async () => {
   const item = prendas[3].id;
-  const primero = await pedir({ items: [item], start: fecha(2), end: fecha(5) });
+  const primero = await pedir({ items: [item], start: habil(2), end: habil(5) });
   assert.equal(primero.statusCode, 201, primero.body);
 
-  const solapado = await pedir({ items: [item], start: fecha(4), end: fecha(8) }, OTRO);
+  const solapado = await pedir({ items: [item], start: habil(4), end: habil(8) }, OTRO);
   assert.equal(solapado.statusCode, 409);
   assert.match(solapado.json().error, /reservada para esas fechas/);
 });
 
 test("fechas que no se tocan sobre el mismo ejemplar se aceptan las dos", async () => {
   const item = prendas[3].id;
-  assert.equal((await pedir({ items: [item], start: fecha(2), end: fecha(4) })).statusCode, 201);
-  assert.equal((await pedir({ items: [item], start: fecha(10), end: fecha(12) }, OTRO)).statusCode, 201);
+  assert.equal((await pedir({ items: [item], start: habil(2), end: habil(4) })).statusCode, 201);
+  assert.equal((await pedir({ items: [item], start: habil(10), end: habil(12) }, OTRO)).statusCode, 201);
 });
 
 test("el día de devolución está ocupado: el siguiente alquiler empieza al día siguiente", async () => {
+  // La devolución va más allá de cualquier ventana (que cierra como mucho 4
+  // días hábiles después del inicio), así que la reserva termina justo en h8.
   const item = prendas[3].id;
-  assert.equal((await pedir({ items: [item], start: fecha(2), end: fecha(4) })).statusCode, 201);
-  assert.equal((await pedir({ items: [item], start: fecha(4), end: fecha(6) }, OTRO)).statusCode, 409);
-  assert.equal((await pedir({ items: [item], start: fecha(5), end: fecha(6) }, OTRO)).statusCode, 201);
+  const a = await pedir({ items: [item], start: habil(2), end: habil(8) });
+  assert.equal(a.statusCode, 201);
+  assert.equal(a.json().returnBy, habil(8));
+  assert.equal((await pedir({ items: [item], start: habil(8), end: habil(9) }, OTRO)).statusCode, 409);
+  assert.equal((await pedir({ items: [item], start: habil(9), end: habil(10) }, OTRO)).statusCode, 201);
+});
+
+test("la ventana de devolución también reserva: la prenda sigue ocupada hasta su cierre", async () => {
+  // §6.0: devolver antes es opción del cliente, no del calendario. Mientras la
+  // ventana lo cubre puede quedársela sin costo, así que otro alquiler que
+  // empiece antes del cierre se quedaría sin ella.
+  const item = prendas[3].id;
+  const a = (await pedir({ items: [item], start: habil(1), end: habil(1) })).json();
+  assert.ok(a.returnBy >= a.end, "la ventana solo extiende");
+  assert.notEqual(a.returnBy, a.end, "un alquiler de un día siempre gana días de ventana");
+  assert.equal((await pedir({ items: [item], start: a.returnBy, end: a.returnBy }, OTRO)).statusCode, 409);
 });
 
 test("dos checkouts simultáneos sobre el mismo ejemplar: uno entra y el otro no", async () => {
   const item = prendas[4].id;
   const res = await Promise.all([
-    pedir({ items: [item], start: fecha(3), end: fecha(6) }),
-    pedir({ items: [item], start: fecha(5), end: fecha(9) }, OTRO),
+    pedir({ items: [item], start: habil(3), end: habil(6) }),
+    pedir({ items: [item], start: habil(5), end: habil(9) }, OTRO),
   ]);
   const codigos = res.map((r) => r.statusCode).sort();
   assert.deepEqual(codigos, [201, 409], res.map((r) => r.body).join(" | "));
@@ -153,14 +169,14 @@ test("dos checkouts simultáneos sobre el mismo ejemplar: uno entra y el otro no
 test("la base rechaza el solape aunque nadie pase por la API", async () => {
   // La comprobación del código es solo la amable; esta es la defensa.
   const item = prendas[4].id;
-  const creado = await pedir({ items: [item], start: fecha(3), end: fecha(6) });
+  const creado = await pedir({ items: [item], start: habil(3), end: habil(6) });
   assert.equal(creado.statusCode, 201);
   const user = await prisma.user.findUnique({ where: { googleSub: CLIENTE } });
   await assert.rejects(
     prisma.order.create({
       data: {
-        userId: user.id, start: fecha(6), end: fecha(7), delivery: "pickup", ret: "store", pay: "cash",
-        items: { create: { itemId: item, start: isoToDate(fecha(6)), end: isoToDate(fecha(7)) } },
+        userId: user.id, start: habil(6), end: habil(7), delivery: "pickup", ret: "store", pay: "cash",
+        items: { create: { itemId: item, start: isoToDate(habil(6)), end: isoToDate(habil(7)) } },
       },
     }),
     /order_items_sin_solape|exclusion/,
@@ -169,9 +185,9 @@ test("la base rechaza el solape aunque nadie pase por la API", async () => {
 
 test("anular libera la reserva: las mismas fechas vuelven a poder pedirse", async () => {
   const item = prendas[5].id;
-  const p = (await pedir({ items: [item], start: fecha(2), end: fecha(4) })).json();
+  const p = (await pedir({ items: [item], start: habil(2), end: habil(4) })).json();
   await como(CLIENTE, { method: "POST", url: `/api/orders/${p.id}/cancel` });
-  assert.equal((await pedir({ items: [item], start: fecha(2), end: fecha(4) }, OTRO)).statusCode, 201);
+  assert.equal((await pedir({ items: [item], start: habil(2), end: habil(4) }, OTRO)).statusCode, 201);
 });
 
 /* ---- Hecho cuando (2): la taxonomía sale de la API ---- */
@@ -206,7 +222,7 @@ test("cada prenda del catálogo usa claves que existen en la taxonomía", async 
 
 test("el cliente ve Disponible o No Disponible, nunca el estado interno ni el código", async () => {
   const item = prendas[3].id;
-  await pedir({ items: [item], start: fecha(1), end: fecha(3) });
+  await pedir({ items: [item], start: habil(1), end: habil(3) });
   const p = (await demoItems(app)).find((x) => x.id === item);
   assert.equal(p.items[0].available, false);
   assert.equal(p.disponibles, 0);
@@ -230,7 +246,7 @@ test("un modelo con varios ejemplares los enseña todos, cada uno con su talla y
 
 test("un pedido deja el ejemplar Reservado y anularlo lo devuelve a Disponible, con bitácora", async () => {
   const item = prendas[3].id;
-  const p = (await pedir({ items: [item], start: fecha(2), end: fecha(4) })).json();
+  const p = (await pedir({ items: [item], start: habil(2), end: habil(4) })).json();
   assert.equal((await prisma.item.findUnique({ where: { id: item } })).status, "RESERVADA");
 
   await como(CLIENTE, { method: "POST", url: `/api/orders/${p.id}/cancel` });
@@ -245,8 +261,9 @@ test("un pedido deja el ejemplar Reservado y anularlo lo devuelve a Disponible, 
 
 test("anular un pedido no libera el ejemplar si otro pedido lo espera", async () => {
   const item = prendas[3].id;
-  const a = (await pedir({ items: [item], start: fecha(2), end: fecha(3) })).json();
-  await pedir({ items: [item], start: fecha(6), end: fecha(7) }, OTRO);
+  const a = (await pedir({ items: [item], start: habil(2), end: habil(3) })).json();
+  // h8: después de cualquier cierre de ventana posible para un inicio en h2.
+  await pedir({ items: [item], start: habil(8), end: habil(9) }, OTRO);
   await como(CLIENTE, { method: "POST", url: `/api/orders/${a.id}/cancel` });
   assert.equal((await prisma.item.findUnique({ where: { id: item } })).status, "RESERVADA");
 });
@@ -271,7 +288,7 @@ test("En Lavado exige quién lava y dónde, y queda en la bitácora", async () =
 test("Disponible otra vez con un alquiler esperando queda Reservada", async () => {
   const item = (await altaEjemplar(prendas[0].productId)).json().id;
   await mover(MOSTRADOR, item, { to: "EN_LAVADO", laundry: { kind: "PROPIO", place: "Local CTG" } });
-  assert.equal((await pedir({ items: [item], start: fecha(3), end: fecha(5) })).statusCode, 201);
+  assert.equal((await pedir({ items: [item], start: habil(3), end: habil(5) })).statusCode, 201);
   const res = await mover(MOSTRADOR, item, { to: "DISPONIBLE" });
   assert.equal(res.json().status, "RESERVADA");
 });
@@ -281,7 +298,7 @@ test("una reserva que ya empezó también espera: la prenda devuelta tarde queda
   // la prenda. Sigue esperándola, así que no puede volver como Disponible.
   const item = (await altaEjemplar(prendas[0].productId)).json().id;
   await mover(MOSTRADOR, item, { to: "EN_LAVADO", laundry: { kind: "PROPIO", place: "Local CTG" } });
-  const pedido = await pedir({ items: [item], start: fecha(0), end: fecha(2) });
+  const pedido = await pedir({ items: [item], start: habil(0), end: habil(2) });
   assert.equal(pedido.statusCode, 201);
   // La API no acepta inicios en el pasado: se adelanta la reserva a mano.
   await prisma.orderItem.updateMany({ where: { orderId: pedido.json().id }, data: { start: isoToDate(fecha(-1)) } });
@@ -309,7 +326,7 @@ test("perdida y retirada son de Administración; el mostrador anota desperfectos
 test("un ejemplar no alquilable no se puede pedir, y uno retirado sale del catálogo", async () => {
   const item = (await altaEjemplar(prendas[0].productId)).json().id;
   await mover(ADMIN, item, { to: "NO_ALQUILABLE", reason: "RETIRADA", note: "fin de su vida útil" });
-  const res = await pedir({ items: [item], start: fecha(2), end: fecha(3) });
+  const res = await pedir({ items: [item], start: habil(2), end: habil(3) });
   assert.equal(res.statusCode, 409);
   const p = (await demoItems(app)).find((x) => x.productId === prendas[0].productId);
   assert.ok(!p.items.some((i) => i.id === item));
@@ -368,24 +385,24 @@ test("solo Inventario da de alta, y con talla y color de la taxonomía", async (
 /* ---- Capacidades ---- */
 
 test("Caja confirma cobros; Mostrador no", async () => {
-  const p = (await pedir({ items: [prendas[3].id], start: fecha(2), end: fecha(3) })).json();
+  const p = (await pedir({ items: [prendas[3].id], start: habil(2), end: habil(3) })).json();
   assert.equal((await como(MOSTRADOR, { method: "POST", url: `/api/orders/${p.id}/settle` })).statusCode, 403);
   assert.equal((await como(CAJA, { method: "POST", url: `/api/orders/${p.id}/settle` })).statusCode, 200);
 });
 
 test("anular un pedido ajeno es de Administración, no de Caja", async () => {
-  const p = (await pedir({ items: [prendas[3].id], start: fecha(2), end: fecha(3) })).json();
+  const p = (await pedir({ items: [prendas[3].id], start: habil(2), end: habil(3) })).json();
   assert.equal((await como(CAJA, { method: "POST", url: `/api/orders/${p.id}/cancel` })).statusCode, 404);
   assert.equal((await como(ADMIN, { method: "POST", url: `/api/orders/${p.id}/cancel` })).statusCode, 200);
 });
 
 test("una cuenta del personal no alquila", async () => {
-  const res = await pedir({ items: [prendas[3].id], start: fecha(2), end: fecha(3) }, CAJA);
+  const res = await pedir({ items: [prendas[3].id], start: habil(2), end: habil(3) }, CAJA);
   assert.equal(res.statusCode, 403);
 });
 
 test("quitar una capacidad surte efecto en la siguiente petición, sin reiniciar", async () => {
-  const p = (await pedir({ items: [prendas[3].id], start: fecha(2), end: fecha(3) })).json();
+  const p = (await pedir({ items: [prendas[3].id], start: habil(2), end: habil(3) })).json();
   await grant(CAJA, []);
   assert.equal((await como(CAJA, { method: "POST", url: `/api/orders/${p.id}/settle` })).statusCode, 403);
 });
@@ -399,7 +416,7 @@ test("parseCapabilities entiende plantillas, listas y rechaza lo inventado", () 
 });
 
 test("staff:grant anota el alta en la bitácora y no convierte a un cliente con pedidos", async () => {
-  await pedir({ items: [prendas[3].id], start: fecha(2), end: fecha(3) });
+  await pedir({ items: [prendas[3].id], start: habil(2), end: habil(3) });
   await assert.rejects(
     setCapabilities(prisma, { who: `${CLIENTE}@test`, capabilities: ["MOSTRADOR"] }),
     /un cliente no puede ser trabajador/,
@@ -417,7 +434,7 @@ test("staff:grant anota el alta en la bitácora y no convierte a un cliente con 
 /* ---- Bitácoras ---- */
 
 test("cobrar y anular escriben en la bitácora financiera, que el cliente no puede leer", async () => {
-  const p = (await pedir({ items: [prendas[3].id], start: fecha(2), end: fecha(3) })).json();
+  const p = (await pedir({ items: [prendas[3].id], start: habil(2), end: habil(3) })).json();
   await como(CAJA, { method: "POST", url: `/api/orders/${p.id}/settle` });
   await como(ADMIN, { method: "POST", url: `/api/orders/${p.id}/cancel` });
 
@@ -432,7 +449,7 @@ test("cobrar y anular escriben en la bitácora financiera, que el cliente no pue
 });
 
 test("las dos bitácoras son de solo añadir: la base no deja editar ni borrar", async () => {
-  const p = (await pedir({ items: [prendas[3].id], start: fecha(2), end: fecha(3) })).json();
+  const p = (await pedir({ items: [prendas[3].id], start: habil(2), end: habil(3) })).json();
   await como(CAJA, { method: "POST", url: `/api/orders/${p.id}/settle` });
   const deItem = await prisma.itemLog.findFirst({ where: { orderId: p.id } });
   const financiera = await prisma.financeLog.findFirst({ where: { orderId: p.id } });
@@ -454,7 +471,7 @@ test("el ajuste manual no baja del coste por ciclo y se cobra en el pedido", asy
   const ok = await como(ADMIN, { method: "PATCH", url, payload: { priceOverride: 20, depositOverride: 7 } });
   assert.equal(ok.statusCode, 200, ok.body);
 
-  const p = (await pedir({ items: [prenda.id], start: fecha(2), end: fecha(2) })).json();
+  const p = (await pedir({ items: [prenda.id], start: habil(2), end: habil(2) })).json();
   const alquiler = p.charges.find((c) => c.type === "RENTAL");
   const deposito = p.charges.find((c) => c.type === "DEPOSIT_HOLD");
   assert.equal(alquiler.amountCents, 2000);

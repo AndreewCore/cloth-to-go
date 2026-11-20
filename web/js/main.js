@@ -393,6 +393,8 @@ function initWeb(){
   // El catálogo del backend sustituye al embebido en cuanto llegue; si no hay
   // servidor (todavía no existe la base de datos), la web sigue con los datos
   // locales — el mismo trato que la app.
+  // Días cerrados y feriados: encaja las fechas elegidas y repinta el carrito.
+  hydrateCalendar(true).then(ok => { if(ok) renderCart(); });
   hydrateCatalog().then(hidratado => {
     // Si el catálogo llegó del backend, las cifras de la portada (cuántas
     // prendas, cuánto se ahorra, cuánta agua) ya no son las de los datos

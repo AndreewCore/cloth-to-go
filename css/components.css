@@ -1108,6 +1108,7 @@ main::-webkit-scrollbar { display: none; }
 .date-field input:focus { outline: none; border-color: var(--accent); }
 .date-total { font-size: 12px; color: var(--accent); font-weight: 700; margin-top: 8px; }
 .date-total.pending { color: var(--muted); }
+.date-window { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.35; }
 
 /* ---- Calendario de tarifas ----
    Bajo cada día se imprime lo que ese día suma al total. Es el mismo modelo de
@@ -1140,6 +1141,11 @@ main::-webkit-scrollbar { display: none; }
 .cal-day .cd-c { font-size: 9px; font-weight: 700; line-height: 1; min-height: 9px; }
 .cal-day.out .cd-n { color: var(--muted); opacity: .55; }
 .cal-day.past { opacity: .3; cursor: default; }
+/* Fin de semana o feriado: el local no entrega ni recibe (§6.0). Se tacha en
+   vez de apagarlo del todo porque puede quedar dentro de un rango elegido, y
+   ahí la barra tiene que seguir viéndose continua. */
+.cal-day.closed { cursor: default; }
+.cal-day.closed .cd-n { opacity: .4; text-decoration: line-through; }
 .cal-day:hover:not(:disabled):not(.in) { background: var(--accent-soft); border-radius: 9px; }
 
 /* La barra del rango. Solo los extremos redondean, así los días de en medio

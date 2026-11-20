@@ -13,7 +13,7 @@ import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { buildApp } from "../src/app.js";
 import prisma from "../src/db.js";
-import { demoItems, grant, purge } from "./helpers/db.js";
+import { demoItems, grant, habil, loadHolidays, purge } from "./helpers/db.js";
 
 const CLIENTE = "test-sub-cliente";
 const OTRO = "test-sub-otro-cliente";
@@ -57,8 +57,8 @@ async function crearPedido(over = {}, sub = CLIENTE) {
     url: "/api/orders",
     payload: {
       items: [prendas[0].id],
-      start: fecha(1),
-      end: fecha(4),
+      start: habil(1),
+      end: habil(4),
       delivery: "pickup",
       ret: "store",
       pay: "credit",
@@ -77,6 +77,7 @@ async function limpiar() {
 }
 
 before(async () => {
+  await loadHolidays();
   // El token falso es su propio `sub`: determinista y sin red, igual que en
   // auth.test.js.
   app = buildApp({ verifyGoogleToken: async (token) => ({ sub: token, email: `${token}@test`, name: token }) });
@@ -205,7 +206,7 @@ test("el pedido rechaza vocabulario, fechas y prendas imposibles", async () => {
     [{ pay: "cheque" }, "pago inventado"],
     [{ start: "ayer" }, "fecha sin formato"],
     [{ start: fecha(-3), end: fecha(-1) }, "alquiler en el pasado"],
-    [{ start: fecha(5), end: fecha(2) }, "devolución antes del inicio"],
+    [{ start: habil(5), end: habil(2) }, "devolución antes del inicio"],
     [{ items: [] }, "pedido vacío"],
     [{ items: [prendas[0].id, prendas[0].id] }, "prenda repetida"],
     [{ items: ["1"] }, "id que no es número"],
@@ -218,8 +219,8 @@ test("el pedido rechaza vocabulario, fechas y prendas imposibles", async () => {
       url: "/api/orders",
       payload: {
         items: [prendas[0].id],
-        start: fecha(1),
-        end: fecha(4),
+        start: habil(1),
+        end: habil(4),
         delivery: "pickup",
         ret: "store",
         pay: "credit",
@@ -249,8 +250,8 @@ test("una prenda ya alquilada no se puede volver a alquilar", async () => {
     url: "/api/orders",
     payload: {
       items: [prendas[0].id],
-      start: fecha(1),
-      end: fecha(4),
+      start: habil(1),
+      end: habil(4),
       delivery: "pickup",
       ret: "store",
       pay: "credit",
@@ -383,65 +384,17 @@ test("liberar el depósito lo devuelve entero y no toca el ingreso", async () =>
   assert.equal(otraVez.statusCode, 409, "el depósito no se devuelve dos veces");
 });
 
-test("solo el local libera el depósito y cobra el atraso", async () => {
+test("solo el local libera el depósito", async () => {
   const pedido = await crearPedido();
-  for (const ruta of ["deposit-release", "late-penalty"]) {
-    const res = await como(CLIENTE, { method: "POST", url: `/api/orders/${pedido.id}/${ruta}` });
-    assert.equal(res.statusCode, 403, `${ruta} no puede ser del cliente`);
-  }
+  const res = await como(CLIENTE, { method: "POST", url: `/api/orders/${pedido.id}/deposit-release` });
+  assert.equal(res.statusCode, 403, "liberar la garantía no puede ser del cliente");
 });
 
-test("la penalización por atraso se cobra de verdad y queda pendiente", async () => {
+test("la multa por atraso ya no existe: el atraso se cobra en días, no en multa", async () => {
+  // §6.0: la ventana de devolución sustituye a los días de gracia y a los $15.
   const pedido = await crearPedido();
-  const res = await como(ADMIN, {
-    method: "POST",
-    url: `/api/orders/${pedido.id}/late-penalty`,
-    payload: { note: "Devuelto 5 días tarde" },
-  });
-  assert.equal(res.statusCode, 200);
-
-  const penalizado = res.json();
-  const multa = penalizado.charges.find((c) => c.type === "LATE_PENALTY");
-  assert.equal(multa.amountCents, 1500);
-  assert.equal(multa.status, "PENDING", "la multa la cobra el local, no la tarjeta guardada");
-  assert.equal(multa.note, "Devuelto 5 días tarde");
-  assert.equal(penalizado.totalCents, pedido.totalCents + 1500);
-  assert.equal(penalizado.status, "pending");
-});
-
-test("la misma penalización no se cobra dos veces por dos clics", async () => {
-  // Las otras rutas del local ya eran idempotentes (settle, deposit-release y
-  // cancel dan 409 al repetir); esta no, y el precio de la distracción eran $30
-  // donde había $15, en dos líneas idénticas que nadie sabría separar después.
-  const pedido = await crearPedido();
-  const url = `/api/orders/${pedido.id}/late-penalty`;
-
-  assert.equal((await como(ADMIN, { method: "POST", url })).statusCode, 200);
-  const repetida = await como(ADMIN, { method: "POST", url });
-  assert.equal(repetida.statusCode, 409);
-
-  // Se lee como CLIENTE: `GET /api/orders` devuelve los pedidos de quien
-  // pregunta, y el pedido es suyo, no del local.
-  const estado = (await como(CLIENTE, { method: "GET", url: "/api/orders" })).json();
-  const multas = estado[0].charges.filter((c) => c.type === "LATE_PENALTY");
-  assert.equal(multas.length, 1, "solo puede quedar una línea de multa");
-});
-
-test("un atraso distinto sí se puede cobrar aparte, si trae su propia nota", async () => {
-  // La guarda es contra el clic repetido, no contra dos hechos distintos: una
-  // prórroga puede volver a devolverse tarde, y esa multa tiene que poder
-  // explicarse por sí sola, con su motivo escrito.
-  const pedido = await crearPedido();
-  const url = `/api/orders/${pedido.id}/late-penalty`;
-
-  await como(ADMIN, { method: "POST", url, payload: { note: "Primera devolución, 2 días tarde" } });
-  const segunda = await como(ADMIN, {
-    method: "POST",
-    url,
-    payload: { note: "Prórroga devuelta 3 días tarde" },
-  });
-  assert.equal(segunda.statusCode, 200);
-  assert.equal(segunda.json().charges.filter((c) => c.type === "LATE_PENALTY").length, 2);
+  const res = await como(ADMIN, { method: "POST", url: `/api/orders/${pedido.id}/late-penalty` });
+  assert.equal(res.statusCode, 404);
 });
 
 /* ---- Anulación ---- */
@@ -524,8 +477,8 @@ test("anular libera la prenda para otro cliente", async () => {
     url: "/api/orders",
     payload: {
       items: [prendas[0].id],
-      start: fecha(1),
-      end: fecha(4),
+      start: habil(1),
+      end: habil(4),
       delivery: "pickup",
       ret: "store",
       pay: "credit",
@@ -547,9 +500,6 @@ test("un pedido anulado no se anula, ni se cobra, ni se modifica otra vez", asyn
     payload: { ret: "home" },
   });
   assert.equal(cambio.statusCode, 409);
-
-  const multa = await como(ADMIN, { method: "POST", url: `/api/orders/${pedido.id}/late-penalty` });
-  assert.equal(multa.statusCode, 409);
 });
 
 test("empezado el alquiler el cliente ya no anula solo, pero el local sí", async () => {

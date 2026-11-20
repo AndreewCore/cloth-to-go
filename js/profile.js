@@ -2,7 +2,7 @@
    CLOTH TO GO · profile.js
    Vista de perfil: datos de contacto editables (con validación),
    puntos (placeholder) y prendas en alquiler (con edición de
-   devolución e indicadores de vencimiento/penalización).
+   devolución e indicadores de vencimiento y de la ventana de devolución).
    Depende de data.js (LATE_*, SHIPPING_FEE, helpers), state.js y dom.js.
    ============================================================ */
 
@@ -180,6 +180,8 @@ function orderCardHTML(o, i, archived){
         </div>`; }).join("")}
 
       <div class="order-period">${icon("calendar", { size: 14 })} ${fmtDate(o.start)} → ${fmtDate(o.end)} · ${days} ${days === 1 ? "día" : "días"}</div>
+      ${!archived && !voided && o.returnBy && o.returnBy > o.end ? `
+        <div class="order-period">${icon("undo", { size: 14 })} Puedes devolverla sin costo extra hasta el ${fmtDate(o.returnBy)}</div>` : ""}
 
       <div class="order-charge">
         <span>${voided ? "Cobro anulado" : (archived ? "Total cobrado" : "Total del cobro")}</span>
@@ -201,11 +203,11 @@ function orderCardHTML(o, i, archived){
         ${canCancelOrder(o) ? `
           <button class="order-cancel" data-action="cancelOrder" data-idx="${i}">${icon("trash", { size: 14 })} Anular pedido</button>` : ""}
         ${late ? `
-          <button class="late-info-btn" data-action="toggleLateInfo" data-idx="${i}">ⓘ Penalización por atraso</button>
+          <button class="late-info-btn" data-action="toggleLateInfo" data-idx="${i}">ⓘ Devolución atrasada</button>
           <div class="late-info" id="lateInfo${i}">
-            Fecha límite vencida (${fmtDate(o.end)}). Si no devuelves dentro de
-            <b>${LATE_GRACE_DAYS} días hábiles</b> tras esa fecha, se cobrará una penalización de
-            <b>$${LATE_PENALTY.toFixed(2)}</b> y podría retenerse tu depósito ($${orderDeposit(o).toFixed(2)}).
+            La fecha límite fue el ${fmtDate(o.returnBy || o.end)}. No hay multa: cada día
+            extra se cobra con la tarifa normal del alquiler. Si no avisas, se retiene
+            parte de tu depósito ($${orderDeposit(o).toFixed(2)}) por cada día de atraso.
           </div>` : ""}
       ` : ""}
       ${/* Fuera del bloque !archived: un pedido TERMINADO es justo cuando se
@@ -610,7 +612,7 @@ function cancelOrder(i){
   );
 }
 
-// Mostrar/ocultar la nota de penalización de una prenda vencida.
+// Mostrar/ocultar la nota de devolución atrasada de un pedido vencido.
 function toggleLateInfo(i){
   document.getElementById("lateInfo"+i).classList.toggle("show");
 }

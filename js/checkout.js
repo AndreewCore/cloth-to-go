@@ -71,7 +71,9 @@ function calGridHTML(){
   const dows = ["L","M","X","J","V","S","D"];
   const cells = monthGrid(ym).map(c => {
     const past = c.iso < hoy;
-    const cost = past ? null : calDayCost(c.iso);
+    // Fin de semana o feriado: el local no entrega ni recibe (§6.0).
+    const closed = !past && !isBusinessDayISO(c.iso);
+    const cost = past || closed ? null : calDayCost(c.iso);
     // Con un rango a medio elegir solo se resalta ese día: marcar el rango
     // viejo mientras se elige el nuevo confunde sobre qué está seleccionado.
     const sel = calPendingStart
@@ -87,13 +89,14 @@ function calGridHTML(){
       "cal-day",
       c.out ? "out" : "",
       past ? "past" : "",
+      closed ? "closed" : "",
       sel ? "in" : "",
       sel && esInicio ? "start" : "",
       sel && esFin ? "end" : "",
       c.iso === calPendingStart ? "pending" : "",
     ].filter(Boolean).join(" ");
-    return `<button type="button" class="${cls}" data-action="pickDay" data-iso="${c.iso}" ${past?"disabled":""}
-              aria-label="${fmtDate(c.iso)}${cost ? ` · ${cost.txt}` : ""}">
+    return `<button type="button" class="${cls}" data-action="pickDay" data-iso="${c.iso}" ${past || closed ? "disabled" : ""}
+              aria-label="${fmtDate(c.iso)}${closed ? " · cerrado" : ""}${cost ? ` · ${cost.txt}` : ""}">
         <span class="cd-n">${c.day}</span>
         <span class="cd-c ${cost ? cost.cls : ""}">${cost ? cost.txt : ""}</span>
       </button>`;
@@ -118,6 +121,11 @@ function dateBoxHTML(){
   const resumen = calPendingStart
     ? `${icon("calendar", { size: 13 })} Inicio ${fmtDate(calPendingStart)} · elige hasta cuándo`
     : `${dias} ${dias===1?'día':'días'} de alquiler · ${fmtDate(rentalStart)} → ${fmtDate(rentalEnd)}`;
+  // La ventana regala días: se dice cuáles, para que nadie pague de más.
+  const limite = returnByISO(rentalStart, rentalEnd);
+  const ventana = !calPendingStart && limite > rentalEnd
+    ? `<div class="date-window">${icon("undo", { size: 13 })} Puedes devolver sin costo extra hasta el ${fmtDate(limite)}. Sin retiros ni devoluciones en fin de semana o feriado.</div>`
+    : "";
   return `
     <div class="date-box">
       <div class="dl">${icon("calendar", { size: 15 })} Período de alquiler</div>
@@ -133,6 +141,7 @@ function dateBoxHTML(){
       </div>
       ${calGridHTML()}
       <div class="date-total ${calPendingStart ? "pending" : ""}">${resumen}</div>
+      ${ventana}
     </div>`;
 }
 
@@ -144,6 +153,7 @@ function dateBoxHTML(){
  */
 function pickCalendarDay(iso){
   if(!iso || iso < isoOffset(0)) return;         // no se alquila hacia atrás
+  if(!isBusinessDayISO(iso)) return;             // ni en fin de semana o feriado
   if(calPendingStart === null){
     calPendingStart = iso;
   } else if(iso > calPendingStart){
@@ -527,6 +537,8 @@ function placeOrder(){
     items: cart.map(c => c.id),
     start: rentalStart,
     end: rentalEnd,
+    // Hasta cuándo puede devolver sin costo extra: el cierre de la ventana.
+    returnBy: returnByISO(rentalStart, rentalEnd),
     delivery,
     ret: returnMethod,
     retAddr: returnMethod === RETURN_TO.HOME ? returnAddress.trim() : "",

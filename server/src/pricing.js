@@ -26,12 +26,6 @@
 /** Tarifa de envío/retiro a domicilio, en USD. */
 export const SHIPPING_FEE = 4.5;
 
-/** Penalización por no devolver dentro de los días de gracia, en USD. */
-export const LATE_PENALTY = 15.0;
-
-/** Días hábiles de gracia tras la fecha límite antes de penalizar. */
-export const LATE_GRACE_DAYS = 3;
-
 /** Cómo RECIBE el cliente el pedido. */
 export const DELIVERY = Object.freeze({ SHIP: "ship", PICKUP: "pickup" });
 

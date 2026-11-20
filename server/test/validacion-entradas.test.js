@@ -18,18 +18,13 @@ import assert from "node:assert/strict";
 import { buildApp } from "../src/app.js";
 import prisma from "../src/db.js";
 import { ADDRESS_MAX } from "../src/ledger.js";
-import { demoItems, purge } from "./helpers/db.js";
+import { demoItems, habil, loadHolidays, purge } from "./helpers/db.js";
 
 const CLIENTE = "test-sub-validacion";
 const DIRECCION = "Av. Principal 123 y Segunda";
 
 let app;
 let prendas;
-
-/** Fecha `YYYY-MM-DD` desplazada `dias` desde hoy (hora de Guayaquil). */
-function fecha(dias) {
-  return new Date(Date.now() + (dias * 24 * 60 - 5 * 60) * 60000).toISOString().slice(0, 10);
-}
 
 /** Petición autenticada como el cliente de prueba. */
 function como(opts) {
@@ -43,8 +38,8 @@ function crear(over = {}) {
     url: "/api/orders",
     payload: {
       items: [prendas[0].id],
-      start: fecha(1),
-      end: fecha(4),
+      start: habil(1),
+      end: habil(4),
       delivery: "ship",
       ret: "home",
       pay: "credit",
@@ -61,6 +56,7 @@ async function limpiar() {
 }
 
 before(async () => {
+  await loadHolidays();
   app = buildApp({
     verifyGoogleToken: async (token) => ({ sub: token, email: `${token}@test`, name: token }),
   });

@@ -428,7 +428,7 @@ test("render del bloque de fechas", async (t) => {
   await t.test("el resumen pide el día final mientras hay un pendiente", () => {
     const { app, document } = setup([1]);
     app.view = "cart";
-    app.pickCalendarDay(app.isoOffset(1));
+    app.pickCalendarDay(app.nextBusinessDayISO(app.isoOffset(1)));
     assert.match(document.querySelector(".date-total").textContent, /hasta cuándo/);
   });
 
@@ -460,12 +460,16 @@ test("el calendario no altera lo que se cobra", async (t) => {
       const p = v => String(v).padStart(2, "0");
       return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
     };
-    const a = setup([1, 2], { rentalStart: iso(2), rentalEnd: iso(9) });
+    // Días hábiles: el calendario no deja elegir fines de semana ni feriados.
+    const a = setup([1, 2]);
+    const desde = a.app.nextBusinessDayISO(iso(2));
+    const hasta = a.app.nextBusinessDayISO(a.app.addDaysISO(desde, 7));
+    a.app.setCheckout({ rentalStart: desde, rentalEnd: hasta });
     const porInput = a.app.grandTotal();
 
     const b = setup([1, 2]);
-    b.app.pickCalendarDay(iso(2));
-    b.app.pickCalendarDay(iso(9));
+    b.app.pickCalendarDay(desde);
+    b.app.pickCalendarDay(hasta);
     assert.equal(b.app.grandTotal(), porInput);
   });
 });

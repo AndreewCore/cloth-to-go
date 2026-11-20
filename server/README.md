@@ -40,8 +40,8 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | POST | `/api/orders/:id/cancel` | Anula el pedido y revierte sus cargos. |
 | POST | `/api/orders/:id/settle` | **Solo local**: confirma que el efectivo entró. |
 | POST | `/api/orders/:id/deposit-release` | **Solo local**: libera el depósito. |
-| POST | `/api/orders/:id/late-penalty` | **Solo local**: cobra la devolución fuera de plazo. |
 | GET | `/api/impact/water` | **Pública**: litros de agua ahorrados entre todos (contador de la web). |
+| GET | `/api/config` | **Pública**: días cerrados y feriados, para el calendario del checkout. |
 | GET | `/api/chat/status` | **Pública**: si el asistente está encendido y de qué fundación habla. |
 | POST | `/api/chat` | **Pública, con límite**: pregunta al asistente sobre la huella hídrica. |
 
@@ -160,8 +160,16 @@ catálogo de la base.
 - **El depósito se cobra pero no se gana.** Entra como `DEPOSIT_HOLD` y sale
   como `DEPOSIT_RELEASE`; la respuesta trae `revenueCents` (sin depósito) aparte
   de `totalCents` justamente para que nadie facture la garantía.
-- **Confirmar que entró dinero es del negocio.** `settle`, `deposit-release` y
-  `late-penalty` exigen la capacidad **Caja**; el cliente no puede darse por
+- **Ventanas de devolución (§6.0), no multa.** No se retira ni se devuelve en
+  fin de semana o feriado (400). Quien retira de lunes a miércoles devuelve
+  hasta el viernes; jueves o viernes, hasta el lunes (feriado en el cierre → el
+  siguiente día hábil). La ventana solo extiende: `returnBy` es la más tardía
+  entre la devolución elegida y el cierre, y la reserva del ejemplar llega
+  hasta ahí. El precio sigue saliendo de los días elegidos. La multa fija de
+  $15 y su ruta desaparecieron; los días extra se cobrarán al registrar la
+  devolución (fase 4). Los feriados viven en la tabla `holidays`.
+- **Confirmar que entró dinero es del negocio.** `settle` y `deposit-release`
+  exigen la capacidad **Caja**; el cliente no puede darse por
   cobrado a sí mismo. Cada uno deja su entrada en la bitácora financiera, que
   Caja lee en `GET /api/orders/:id/finance-log`.
 - **Un pedido reserva ejemplares**: `items` son ids de ejemplar. La respuesta

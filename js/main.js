@@ -273,13 +273,15 @@ sheet.addEventListener("change", e=>{
   if(t.id === "rentStart"){
     rentalStart = t.value;
     if(new Date(rentalEnd) <= new Date(rentalStart)) rentalEnd = rentalStart;
+    // Un día cerrado escrito a mano salta al siguiente hábil (§6.0).
+    snapRentalDates(false);
     // Escribir la fecha a mano manda sobre el rango a medio elegir en el
     // calendario: si no, quedarían dos inicios distintos compitiendo.
     calPendingStart = null;
     calMonth = null;
     renderSheet();
   } else if(t.id === "rentEnd"){
-    rentalEnd = t.value; calPendingStart = null; calMonth = null; renderSheet();
+    rentalEnd = t.value; snapRentalDates(false); calPendingStart = null; calMonth = null; renderSheet();
   } else if(t.id === "donDate"){
     donDate = t.value; renderSheet();
   }
@@ -332,3 +334,4 @@ initGoogleAuth();
 // Si el backend está levantado, refresca el catálogo desde la base;
 // si no, la app se queda con los datos embebidos (funciona en file://).
 hydrateCatalog();
+hydrateCalendar();

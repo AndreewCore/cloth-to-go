@@ -184,9 +184,10 @@ base en Supabase:
 | `GET` | `/api/products` | Catálogo, en el mismo formato que espera el frontend. |
 | `POST` | `/api/auth/google` | Verifica el ID token de Google y registra al usuario. |
 | `GET` | `/api/impact/water` | Litros de agua ahorrados por los alquileres entregados. |
+| `GET` | `/api/config` | Días cerrados y feriados: el calendario no ofrece fines de semana ni feriados. |
 | `GET` · `POST` | `/api/chat/status` · `/api/chat` | Asistente sobre la huella hídrica (Gemini), solo con los documentos de `server/knowledge/`. |
 | `GET` · `POST` | `/api/orders` | Pedidos del usuario, con su libro de cargos. |
-| `PATCH` · `POST` | `/api/orders/:id/…` | Cambiar la devolución, cancelar y, solo personal, cobrar, liberar garantía o cobrar atraso. |
+| `PATCH` · `POST` | `/api/orders/:id/…` | Cambiar la devolución, cancelar y, solo personal, cobrar o liberar garantía. |
 
 Postgres en desarrollo, en CI y en producción: el mismo motor en los tres sitios, para
 que las migraciones de `server/prisma/migrations/` se ejerciten siempre. Si el servidor
