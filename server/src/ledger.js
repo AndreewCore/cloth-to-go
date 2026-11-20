@@ -151,6 +151,33 @@ export function initialCharges({ items, start, end, delivery, ret, pay }) {
 }
 
 /**
+ * Línea de descuento por un premio canjeado (§2 de PENDIENTE).
+ *
+ * Negativa, con el mismo estado y método que el resto del pedido: en efectivo
+ * el descuento también se "cobra" al pagar. Va en su propia línea DISCOUNT y
+ * nunca rebaja el depósito, que es reembolsable y no ingreso.
+ * @param {number} amountCents Descuento en centavos (positivo).
+ * @param {string} pay Método de pago del pedido.
+ * @param {string} note Por qué existe la línea, en lenguaje humano.
+ * @returns {object} Línea lista para insertar (sin `orderId`).
+ */
+export function discountCharge(amountCents, pay, note) {
+  const { status, method } = settlementFor(pay);
+  return { type: CHARGE_TYPE.DISCOUNT, amountCents: -amountCents, status, method, itemId: null, note };
+}
+
+/**
+ * Descuento vigente de un pedido: lo que suman sus líneas DISCOUNT, en positivo.
+ * @param {Array<object>} charges Líneas del pedido.
+ * @returns {number} Centavos.
+ */
+export function discountCents(charges) {
+  return -charges
+    .filter((c) => c.type === CHARGE_TYPE.DISCOUNT && c.status !== CHARGE_STATUS.VOID)
+    .reduce((s, c) => s + c.amountCents, 0);
+}
+
+/**
  * Ajuste por cambiar el modo de devolución de un pedido ya confirmado.
  *
  * No edita la línea RETURN existente: **añade** la diferencia. Un pedido que

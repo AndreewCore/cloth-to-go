@@ -7,8 +7,10 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { createGoogleVerifier } from "./googleAuth.js";
-import { createAuthGuards, upsertUser } from "./auth.js";
+import { createAuthGuards, isStaff, upsertUser } from "./auth.js";
+import { createSession, revokeSession } from "./sessions.js";
 import { registerOrderRoutes } from "./orders.js";
+import { registerPointsRoutes } from "./points.js";
 import { registerCatalogRoutes } from "./catalog.js";
 import { registerItemRoutes } from "./items.js";
 import { registerImpactRoutes } from "./impact.js";
@@ -119,10 +121,32 @@ export function buildApp(opts = {}) {
     }
 
     const user = await upsertUser(payload);
+    // La sesión propia: el frontend la guarda y la manda en vez del ID token,
+    // que caduca en una hora (ver sessions.js).
+    const { token, expiresAt } = await createSession(user.id);
 
     return {
-      user: { sub: user.googleSub, name: user.name, email: user.email, picture: user.picture },
+      user: {
+        sub: user.googleSub,
+        name: user.name,
+        email: user.email,
+        picture: user.picture,
+        // El personal no alquila (§2.1): el cliente lo sabe antes de intentar
+        // pagar, en vez de enterarse por un 403 al final del checkout.
+        staff: isStaff(user),
+      },
+      token,
+      expiresAt,
     };
+  });
+
+  // Cerrar sesión: revoca el token que llega en la cabecera. Siempre 204, haya
+  // o no sesión viva: el cliente borra su copia igual, y responder distinto
+  // solo diría a un tercero si un token adivinado existía.
+  app.post("/api/auth/logout", async (req, reply) => {
+    const [esquema, token] = (req.headers.authorization ?? "").split(" ");
+    if (esquema === "Bearer" && token) await revokeSession(token);
+    return reply.code(204).send();
   });
 
   // Catálogo, taxonomía, ejemplares y pedidos. Las de lectura del catálogo son
@@ -131,6 +155,7 @@ export function buildApp(opts = {}) {
   registerCatalogRoutes(app, guards);
   registerItemRoutes(app, guards);
   registerOrderRoutes(app, guards);
+  registerPointsRoutes(app, guards);
 
   // Contador común de agua ahorrada (sección de impacto de la web). Pública.
   registerImpactRoutes(app);

@@ -33,7 +33,10 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 |---|---|---|
 | GET | `/api/health` | Estado del servicio (`{ "status": "ok" }`). |
 | GET | `/api/products` | Catálogo completo, ordenado por `id`. |
-| POST | `/api/auth/google` | Verifica un ID token de Google y registra/actualiza al usuario. |
+| POST | `/api/auth/google` | Verifica un ID token de Google, registra/actualiza al usuario y abre una **sesión**. |
+| POST | `/api/auth/logout` | Revoca el token de sesión de la cabecera (siempre 204). |
+| GET | `/api/me/points` | Saldo de puntos, canjes, premios y metas de agua (ya liquidados). |
+| POST | `/api/rewards/:id/redeem` | Canjea un premio por un cupón (409 sin saldo). |
 | GET | `/api/orders` | Pedidos del usuario autenticado, con su libro de cargos. |
 | POST | `/api/orders` | Crea un pedido y sus cargos iniciales. |
 | PATCH | `/api/orders/:id/return` | Cambia el modo de devolución → **genera un ajuste**. |
@@ -53,8 +56,12 @@ frontend obtiene de Google Identity Services) y lo verifica en el servidor con
 contra `GOOGLE_CLIENT_ID` (audience). El frontend por sí solo solo *decodifica*
 ese token (sin comprobar la firma) — esta ruta es la que de verdad autentica.
 
-- **200** → `{ "user": { "sub", "name", "email", "picture" } }`. El usuario
-  queda registrado (upsert por `googleSub`) en la tabla `users`.
+- **200** → `{ "user": { "sub", "name", "email", "picture", "staff" }, "token", "expiresAt" }`.
+  El usuario queda registrado (upsert por `googleSub`) en la tabla `users`, y
+  `token` es una **sesión propia** de 30 días: el cliente la manda en
+  `Authorization: Bearer …` en vez del ID token, que caduca en una hora. La
+  base guarda solo su SHA-256 (`sessions`); `POST /api/auth/logout` la revoca.
+  Un ID token de Google válido se sigue aceptando en esa misma cabecera.
 - **401** → credential ausente o que no verifica (firma, expiración o
   audience inválidas). El mensaje no expone el motivo interno.
 - **500** → falta `GOOGLE_CLIENT_ID` en el entorno del servidor.
@@ -160,6 +167,15 @@ catálogo de la base.
 - **El depósito se cobra pero no se gana.** Entra como `DEPOSIT_HOLD` y sale
   como `DEPOSIT_RELEASE`; la respuesta trae `revenueCents` (sin depósito) aparte
   de `totalCents` justamente para que nadie facture la garantía.
+- **Puntos y canjes en el servidor (§2 de PENDIENTE).** El saldo es la suma de
+  `points_entries`, nunca un contador. Un pedido fija al crearse los puntos que
+  gana (`pointsEarned`, por lo pagado sin depósito ni premio) y se acreditan de
+  forma perezosa al día siguiente del inicio, cuando ya no se puede anular; las
+  metas de agua, igual. El checkout manda `couponId`, nunca un importe: el
+  descuento sale como línea `DISCOUNT`, no toca el depósito, un cupón que rebaja
+  $0 no se consume (la respuesta trae `couponIssue`) y el canje condicional más
+  el índice único impiden gastarlo dos veces. Anular libera el cupón y revierte
+  los puntos, revocando canjes sin usar si el saldo ya se gastó.
 - **Ventanas de devolución (§6.0), no multa.** No se retira ni se devuelve en
   fin de semana o feriado (400). Quien retira de lunes a miércoles devuelve
   hasta el viernes; jueves o viernes, hasta el lunes (feriado en el cierre → el

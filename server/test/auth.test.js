@@ -10,12 +10,14 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { buildApp } from "../src/app.js";
 import prisma from "../src/db.js";
+import { purge } from "./helpers/db.js";
 
 const FAKE_SUB = "test-google-sub-12345";
 
 after(async () => {
-  // No dejar rastro del usuario de prueba en la base compartida por los tests.
-  await prisma.user.deleteMany({ where: { googleSub: FAKE_SUB } });
+  // No dejar rastro del usuario de prueba en la base compartida por los tests
+  // (ni de sus sesiones, que lo referencian).
+  await purge({ subs: [FAKE_SUB] });
   await prisma.$disconnect();
 });
 
@@ -82,9 +84,12 @@ test("POST /api/auth/google con credential válida registra y devuelve al usuari
   });
 
   assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.json(), {
-    user: { sub: payload.sub, name: payload.name, email: payload.email, picture: payload.picture },
+  const body = res.json();
+  assert.deepEqual(body.user, {
+    sub: payload.sub, name: payload.name, email: payload.email, picture: payload.picture, staff: false,
   });
+  assert.match(body.token, /^[A-Za-z0-9_-]{43}$/, "32 bytes aleatorios en base64url");
+  assert.ok(new Date(body.expiresAt) > new Date());
 
   const stored = await prisma.user.findUnique({ where: { googleSub: FAKE_SUB } });
   assert.ok(stored, "el usuario debería quedar guardado en la base");
