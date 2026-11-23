@@ -77,8 +77,11 @@ test("lo cotizado es exactamente lo que se cobra al pedir", async () => {
 });
 
 test("desglosa alquiler, logística, garantía y ahorro por volumen", async () => {
-  const q = (await cotizar(BASE(), null)).json();
-  assert.equal(q.days, 3);
+  const base = BASE();
+  const q = (await cotizar(base, null)).json();
+  // Días naturales entre las fechas: según el día en que corra la prueba, los
+  // hábiles 1 → 4 cruzan o no un fin de semana, así que no es un número fijo.
+  assert.equal(q.days, (Date.parse(base.end) - Date.parse(base.start)) / 86_400_000);
   assert.equal(q.shippingCents, 450);
   assert.equal(q.returnCents, 450);
   assert.equal(q.totalCents, q.rentalCents + q.shippingCents + q.returnCents + q.depositCents - q.discountCents);
