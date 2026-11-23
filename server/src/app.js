@@ -6,6 +6,7 @@
  */
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import { registerAdminPanel } from "./admin.js";
 import { createGoogleVerifier } from "./googleAuth.js";
 import { createAuthGuards, isStaff, upsertUser } from "./auth.js";
 import { createSession, revokeSession } from "./sessions.js";
@@ -14,6 +15,7 @@ import { registerPointsRoutes } from "./points.js";
 import { registerQuoteRoutes } from "./quote.js";
 import { registerCatalogRoutes } from "./catalog.js";
 import { registerItemRoutes } from "./items.js";
+import { registerOperationRoutes } from "./operations.js";
 import { registerImpactRoutes } from "./impact.js";
 import { registerCalendarRoutes } from "./calendar.js";
 import { registerChatRoutes, createGeminiAsk, createChatLimiter, loadKnowledge } from "./chat.js";
@@ -158,6 +160,11 @@ export function buildApp(opts = {}) {
   registerOrderRoutes(app, guards);
   registerPointsRoutes(app, guards);
   registerQuoteRoutes(app, guards);
+  registerOperationRoutes(app, guards);
+
+  // Panel de administración (fase 4): estáticos del mismo origen que la API,
+  // así no necesita CORS ni conocer la URL de la API.
+  registerAdminPanel(app);
 
   // Contador común de agua ahorrada (sección de impacto de la web). Pública.
   registerImpactRoutes(app);

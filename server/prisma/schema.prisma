@@ -393,6 +393,7 @@ model User {
   financeActs  FinanceLog[] @relation("FinanceActor")
   financeAbout FinanceLog[] @relation("FinanceSubject")
   sessions     Session[]
+  received     OrderItem[]  @relation("OrderItemReceiver")
   points       PointsEntry[]
   coupons      Coupon[]
 
@@ -485,6 +486,15 @@ model OrderItem {
   /// Cuándo dejó de reservar (anulación). Una fila liberada no cuenta para el
   /// solape, pero se conserva: es historia del pedido.
   releasedAt DateTime?
+  /// Día en que la prenda volvió DE VERDAD, que puede ser anterior al registro
+  /// (§6.3): los días extra se cuentan desde aquí, no desde cuándo se anotó,
+  /// para que un olvido del mostrador no lo pague el cliente.
+  returnedOn   DateTime? @db.Date
+  /// Cuándo se registró la recepción y quién. La distancia con `returnedOn`
+  /// es la medida de cuánto se olvida el mostrador.
+  receivedAt   DateTime?
+  receivedById Int?
+  receivedBy   User?     @relation("OrderItemReceiver", fields: [receivedById], references: [id], onDelete: Restrict)
 
   @@unique([orderId, itemId])
   @@index([itemId])
@@ -569,6 +579,8 @@ enum FinanceEvent {
   ANULACION
   /// Alta, cambio o baja de capacidades de una persona del personal.
   CAPACIDADES
+  /// Días extra cobrados al recibir una prenda pasada su ventana (§6.0).
+  DIAS_EXTRA
 }
 
 /// Bitácora financiera: por qué se movió (o no) dinero de un pedido, y quién
