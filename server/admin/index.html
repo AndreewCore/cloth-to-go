@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Panel · CLOTH TO GO</title>
+  <link rel="stylesheet" href="admin.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script type="module" src="admin.js"></script>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">CLOTH TO GO <span>Panel</span></div>
+    <nav id="tabs" class="tabs" role="tablist" hidden></nav>
+    <div id="who" class="who"></div>
+  </header>
+
+  <main>
+    <section id="login" class="login" hidden>
+      <h1>Panel del local</h1>
+      <p>Inicia sesión con la cuenta de Google del personal.</p>
+      <div id="gsi-button"></div>
+      <p id="login-msg" class="msg" role="status"></p>
+    </section>
+
+    <section id="view" aria-live="polite"></section>
+  </main>
+
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>

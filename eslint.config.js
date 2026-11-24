@@ -264,7 +264,7 @@ module.exports = [
   // compartido. Nada de estilo: no hay formateador a propósito (§12).
   {
     files: ["server/**/*.js"],
-    ignores: ["server/node_modules/**"],
+    ignores: ["server/node_modules/**", "server/admin/**"],
     languageOptions: {
       ecmaVersion: 2023,
       sourceType: "module",
@@ -294,6 +294,25 @@ module.exports = [
         "selector": "ExpressionStatement > CallExpression[callee.object.object.name=/^(prisma|tx)$/]",
         "message": "Llamada a Prisma sin await: la escritura puede no existir cuando respondas."
       }]
+    }
+  },
+  // El panel (server/admin/): módulo ES del navegador, servido por la API. No
+  // comparte el ámbito global de la app: lo único ajeno que ve es el SDK de Google.
+  {
+    files: ["server/admin/**/*.js"],
+    languageOptions: {
+      ecmaVersion: 2023,
+      sourceType: "module",
+      globals: { ...globals.browser, google: "readonly" }
+    },
+    rules: {
+      "no-undef": "error",
+      "no-unused-vars": ["error", { "args": "none", "caughtErrors": "none" }],
+      "no-unreachable": "error",
+      "no-dupe-keys": "error",
+      "no-redeclare": "error",
+      "no-cond-assign": ["error", "always"],
+      "eqeqeq": ["warn", "smart"]
     }
   }
 ];

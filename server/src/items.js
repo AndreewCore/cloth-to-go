@@ -32,6 +32,16 @@ const MANUAL = Object.freeze({
   [S.PERDIDA]: [],
 });
 
+/**
+ * Estados a los que el mostrador puede mover a mano un ejemplar. El panel los
+ * pide al servidor en vez de copiar la tabla, para que no haya dos versiones.
+ * @param {string} status Estado actual.
+ * @returns {string[]}
+ */
+export function manualTargets(status) {
+  return MANUAL[status] ?? [];
+}
+
 const LAUNDRY_KINDS = ["PROPIO", "EXTERNO"];
 const REASONS = ["DESPERFECTO", "RETIRADA"];
 

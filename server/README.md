@@ -43,6 +43,12 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | POST | `/api/orders/:id/cancel` | Anula el pedido y revierte sus cargos. |
 | POST | `/api/orders/:id/settle` | **Solo local**: confirma que el efectivo entró. |
 | POST | `/api/orders/:id/deposit-release` | **Solo local**: libera el depósito. |
+| POST | `/api/orders/:id/receive` | **Mostrador**: registra la devolución (día real) y cobra los días extra. |
+| GET | `/api/me` | Quién es la sesión y sus capacidades (el panel decide qué pestañas enseñar). |
+| GET | `/api/admin/orders` | **Mostrador o Caja**: pedidos en curso, con cliente y ejemplares (`?scope=all`, todos). |
+| GET | `/api/admin/items` | **Mostrador o Inventario**: ejemplares con su estado interno y a qué estados pueden pasar. |
+| GET | `/api/admin/stragglers` | **Mostrador**: rezagadas (vencidas sin recibir, recibidas sin lavar, >2 días en lavado). |
+| GET | `/admin/` | El **panel del local** (estáticos de `admin/`, con CSP estricta). |
 | GET | `/api/impact/water` | **Pública**: litros de agua ahorrados entre todos (contador de la web). |
 | GET | `/api/config` | **Pública**: días cerrados y feriados, más el envío y el tope por volumen para los textos. |
 | POST | `/api/quote` | **Pública** (con sesión valora el premio): cotiza el carrito con la misma función que cobra. |
@@ -229,6 +235,36 @@ pnpm staff:grant persona@correo.com ninguna        # baja
 
 La persona tiene que haber entrado una vez con Google. Una cuenta con pedidos no
 se convierte en personal. Cada cambio queda en la bitácora financiera.
+
+### Panel del local (`/admin/`)
+
+La misma API sirve el panel desde `admin/` (`@fastify/static`), así que llama a
+`/api/…` en su propio origen: sin CORS y sin URL que configurar. Se entra con
+Google y la sesión vive en `sessionStorage` (equipos compartidos). Para que el
+botón de Google funcione, el origen del panel (`http://localhost:3000` en local
+y la URL de Render) tiene que estar en los **orígenes autorizados** del cliente
+OAuth en Google Cloud.
+
+Pestaña **Pedidos**: entregar (Reservada → En alquiler), **registrar la
+devolución**, confirmar el cobro y liberar la garantía (Caja), anular
+(Administración). **Ejemplares**: cambio manual de estado y bitácora.
+**Rezagadas**: los umbrales del §3.
+
+Cada pedido enseña una **tira de días** (alquiler, margen sin costo, días extra,
+días cerrados rayados, hoy remarcado), y al registrar la devolución la tira se
+rehace con el día elegido para anticipar los días extra (el importe lo decide
+siempre el servidor). Cada prenda tiene **«Ver foto»**: las fotos del modelo
+(`products.imgs`) se sirven en `/admin/fotos/` desde `../img/products/`, en el
+mismo origen para no abrir la CSP. Si esa carpeta no está (un despliegue que
+solo trae `server/`), el panel arranca igual y la galería dice que no pudo
+cargar la foto.
+
+Recibir anota el **día real** en que volvió la prenda (puede ser anterior al
+registro, §6.3) y quién lo registró. Pasada la fecha límite se cobran los días
+**hábiles** extra continuando la escalera del pedido —`precio(días + extra) −
+precio(días)`—, en una línea `RENTAL` y una entrada `DIAS_EXTRA`. Recibir no
+cambia el estado físico: llevarla a lavado es otro acto, y lo que se olvida ahí
+aparece como rezagada.
 
 > Cupones y puntos **todavía no**: el pedido aún no acepta `couponId`. Es la §2
 > del plan de backend, y sin el ledger de puntos aceptar un descuento del

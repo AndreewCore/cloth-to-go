@@ -49,7 +49,7 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
  * @param {object} order Pedido con `items` y `charges` incluidos.
  * @returns {object} Pedido para la API, con importes en USD y en centavos.
  */
-function orderToApi(order) {
+export function orderToApi(order) {
   const charges = order.charges ?? [];
   return {
     id: order.id,
@@ -99,7 +99,7 @@ function orderToApi(order) {
 }
 
 /** Qué relaciones hay que traer para poder derivar los totales. */
-const CON_LINEAS = {
+export const CON_LINEAS = {
   items: { include: { item: { select: { productId: true } } }, orderBy: { id: "asc" } },
   charges: { orderBy: { id: "asc" } },
   coupon: { select: { id: true, rewardId: true } },
