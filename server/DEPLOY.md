@@ -147,6 +147,23 @@ versión anterior, se puede borrar: ya no se lee.
 
 ---
 
+### 1.5 Cubos de fotos (Storage)
+
+El panel sube fotos (fase 4). En **Storage → New bucket** se crean dos:
+
+| Cubo | Público | Para qué |
+|---|---|---|
+| `catalogo` | **Sí** | Fotos de catálogo: la app y la web las cargan con su URL pública. |
+| `ejemplares-privado` | **No** | Fotos de cómo salió y llegó cada prenda. Solo se ven con enlaces firmados de 10 min que genera la API. |
+
+No hacen falta políticas RLS: la API sube y firma con la clave de servicio, y
+el navegador nunca habla con Storage salvo para *ver* una URL ya hecha. Otros
+nombres se configuran con `SUPABASE_BUCKET_PUBLIC` / `SUPABASE_BUCKET_PRIVATE`.
+
+> Sin `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` la API guarda las fotos en su
+> disco y avisa en el log: en Render ese disco **se borra en cada despliegue**,
+> así que en producción las dos variables son obligatorias en la práctica.
+
 ## 2. Servidor Fastify en Render
 
 ### 2.1 Crear el servicio
@@ -168,7 +185,7 @@ proyecto de Supabase en *East US* igualmente.
 ### 2.2 Variables de entorno
 
 En el servicio → **Environment**. `NODE_ENV=production` y `NODE_VERSION=22` ya
-vienen del blueprint; estas cuatro las escribís vos, más las dos del asistente
+vienen del blueprint; estas cuatro las escribís vos, más las dos de fotos (1.5) y las dos del asistente
 de la web:
 
 | Variable | Valor |
@@ -178,6 +195,8 @@ de la web:
 | `CORS_ORIGINS` | `https://andreewcore.github.io` — **exacto, sin barra final y sin comodines**. |
 | `GOOGLE_CLIENT_ID` | `115840486389-f3vitcouhua5eckn3grn1gk9kqb7ccjs.apps.googleusercontent.com` (idéntico al de `js/auth.js`). |
 | `GEMINI_API_KEY` | *(Opcional)* Clave gratuita de [Google AI Studio](https://aistudio.google.com/apikey). Sin ella el asistente de la web queda apagado. |
+| `SUPABASE_URL` | `https://<proyecto>.supabase.co` (Project Settings → API). Activa las fotos en Storage; ver 1.5. |
+| `SUPABASE_SERVICE_KEY` | La clave **service_role** (o *secret key*) del mismo sitio. Da acceso total: solo aquí, nunca en el frontend. |
 | `TRUST_PROXY` | `1`. Sin esto, el límite por IP del asistente ve a todos los visitantes como la IP del proxy de Render. Tras desplegar, el `remoteAddress` de los logs debe ser tu IP pública; si es una del proxy, súbelo a `2`. |
 
 Tres avisos que ahorran una tarde:

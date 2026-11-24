@@ -17,6 +17,8 @@ import { holidaySet } from "./calendar.js";
 import { manualTargets } from "./items.js";
 import { FINANCE_EVENT, logFinance, logItem } from "./logs.js";
 import { CON_LINEAS, orderToApi } from "./orders.js";
+import { panelPhotoUrl } from "./catalogAdmin.js";
+import { requestOrigin } from "./storage.js";
 
 const S = ITEM_STATUS;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -82,9 +84,10 @@ const diasDesde = (fecha, now = Date.now()) => Math.floor((now - new Date(fecha)
  * Pedido para el panel: lo que ve el cliente más quién es y, por prenda, su
  * código, estado interno y recepción. Nada de esto sale nunca hacia un cliente.
  * @param {object} order Pedido con `user`, `charges` e `items.item.product`.
+ * @param {(img: string) => string} photo URL de una foto para el panel.
  * @returns {object}
  */
-function orderForPanel(order) {
+function orderForPanel(order, photo) {
   const base = orderToApi(order);
   return {
     ...base,
@@ -93,7 +96,7 @@ function orderForPanel(order) {
       itemId: oi.itemId,
       code: oi.item.code,
       productName: oi.item.product.name,
-      imgs: oi.item.product.imgs,
+      imgs: oi.item.product.imgs.map(photo),
       size: oi.item.size,
       color: oi.item.color,
       status: oi.item.status,
@@ -149,8 +152,12 @@ function parseReceipt(body, today) {
  * Registra las rutas de operación del panel.
  * @param {import("fastify").FastifyInstance} app Instancia Fastify.
  * @param {{requireUser: Function, requireCapability: Function}} guards preHandlers.
+ * @param {{storage: object}} deps Almacenamiento, para las URLs de las fotos.
  */
-export function registerOperationRoutes(app, { requireUser, requireCapability }) {
+export function registerOperationRoutes(app, { requireUser, requireCapability }, { storage }) {
+  /** URLs de fotos para el panel, vistas desde el origen de la petición. */
+  const fotosPara = (req) => (img) => panelPhotoUrl(storage, img, requestOrigin(req));
+
   const mostradorOCaja = requireCapability(CAPABILITY.MOSTRADOR, CAPABILITY.CAJA);
   const mostrador = requireCapability(CAPABILITY.MOSTRADOR);
 
@@ -176,7 +183,7 @@ export function registerOperationRoutes(app, { requireUser, requireCapability })
       orderBy: { id: "desc" },
       take: todos ? 200 : undefined,
     });
-    const vista = pedidos.map(orderForPanel);
+    const vista = pedidos.map((o) => orderForPanel(o, fotosPara(req)));
     if (todos) return vista;
     return vista.filter((o) => o.status === "pending" || o.depositHeldCents > 0 || o.lines.some((l) => !l.receivedAt));
   });
@@ -185,7 +192,8 @@ export function registerOperationRoutes(app, { requireUser, requireCapability })
   app.get(
     "/api/admin/items",
     { preHandler: requireCapability(CAPABILITY.MOSTRADOR, CAPABILITY.INVENTARIO) },
-    async () => {
+    async (req) => {
+      const foto = fotosPara(req);
       const items = await prisma.item.findMany({
         include: { product: { select: FICHA_PRODUCTO } },
         orderBy: { id: "asc" },
@@ -195,7 +203,7 @@ export function registerOperationRoutes(app, { requireUser, requireCapability })
         code: it.code,
         productId: it.productId,
         productName: it.product.name,
-        imgs: it.product.imgs,
+        imgs: it.product.imgs.map(foto),
         size: it.size,
         color: it.color,
         status: it.status,
@@ -210,8 +218,9 @@ export function registerOperationRoutes(app, { requireUser, requireCapability })
 
   // Rezagadas (§3): lo que el sistema esperaba ver moverse y nadie movió. Son
   // alertas para el local, nunca cargos para el cliente (§6.3).
-  app.get("/api/admin/stragglers", { preHandler: mostrador }, async () => {
+  app.get("/api/admin/stragglers", { preHandler: mostrador }, async (req) => {
     const hoy = todayISO();
+    const foto = fotosPara(req);
     const vivas = await prisma.orderItem.findMany({
       where: { releasedAt: null, order: { cancelledAt: null } },
       include: { item: { include: { product: { select: FICHA_PRODUCTO } } }, order: { select: { id: true, user: { select: { name: true } } } } },
@@ -222,7 +231,7 @@ export function registerOperationRoutes(app, { requireUser, requireCapability })
       itemId: oi.itemId,
       code: oi.item.code,
       productName: oi.item.product.name,
-      imgs: oi.item.product.imgs,
+      imgs: oi.item.product.imgs.map(foto),
       status: oi.item.status,
       ...extra,
     });
@@ -247,7 +256,7 @@ export function registerOperationRoutes(app, { requireUser, requireCapability })
       itemId: it.id,
       code: it.code,
       productName: it.product.name,
-      imgs: it.product.imgs,
+      imgs: it.product.imgs.map(foto),
       since: it.statusSince,
       laundryKind: it.laundryKind,
       laundryPlace: it.laundryPlace,
@@ -330,7 +339,7 @@ export function registerOperationRoutes(app, { requireUser, requireCapability })
     });
 
     const actualizado = await prisma.order.findUnique({ where: { id }, include: PARA_PANEL });
-    return orderForPanel(actualizado);
+    return orderForPanel(actualizado, fotosPara(req));
   });
 }
 

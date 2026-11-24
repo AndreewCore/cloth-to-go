@@ -333,6 +333,7 @@ model Item {
   orderItems       OrderItem[]
   charges          Charge[]
   logs             ItemLog[]
+  photos           ItemPhoto[]
 
   @@index([productId])
   @@map("items")
@@ -394,6 +395,7 @@ model User {
   financeAbout FinanceLog[] @relation("FinanceSubject")
   sessions     Session[]
   received     OrderItem[]  @relation("OrderItemReceiver")
+  photosTaken  ItemPhoto[]  @relation("ItemPhotoTaker")
   points       PointsEntry[]
   coupons      Coupon[]
 
@@ -457,6 +459,7 @@ model Order {
   charges     Charge[]
   itemLogs    ItemLog[]
   financeLogs FinanceLog[]
+  itemPhotos  ItemPhoto[]
 
   @@index([userId])
   @@map("orders")
@@ -715,4 +718,36 @@ model Coupon {
 
   @@index([userId])
   @@map("coupons")
+}
+
+/// Momento en que se fotografió un ejemplar.
+enum PhotoKind {
+  /// Al entregarla al cliente: cómo salió.
+  SALIDA
+  /// Al recibirla de vuelta: cómo llegó.
+  LLEGADA
+  /// En cualquier otro momento (alta, desperfecto, vuelta del lavado).
+  ESTADO
+}
+
+/// Foto de cómo estaba un ejemplar concreto en un momento dado. Es la prueba
+/// que respalda retener una garantía (§6.2), así que, como las bitácoras, solo
+/// se añade: un disparador impide editarla o borrarla.
+model ItemPhoto {
+  id        Int       @id @default(autoincrement())
+  itemId    Int
+  item      Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  /// Pedido en cuya entrega o recepción se sacó; null para ESTADO.
+  orderId   Int?
+  order     Order?    @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  kind      PhotoKind
+  /// Clave del objeto en el almacenamiento PRIVADO. Nunca una URL: se sirve
+  /// con un enlace firmado de corta duración.
+  key       String    @unique
+  takenById Int
+  takenBy   User      @relation("ItemPhotoTaker", fields: [takenById], references: [id], onDelete: Restrict)
+  createdAt DateTime  @default(now())
+
+  @@index([itemId])
+  @@map("item_photos")
 }

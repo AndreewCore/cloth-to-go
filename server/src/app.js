@@ -6,6 +6,7 @@
  */
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import { registerAdminPanel } from "./admin.js";
 import { createGoogleVerifier } from "./googleAuth.js";
 import { createAuthGuards, isStaff, upsertUser } from "./auth.js";
@@ -16,6 +17,9 @@ import { registerQuoteRoutes } from "./quote.js";
 import { registerCatalogRoutes } from "./catalog.js";
 import { registerItemRoutes } from "./items.js";
 import { registerOperationRoutes } from "./operations.js";
+import { registerCatalogAdminRoutes } from "./catalogAdmin.js";
+import { MULTIPART_LIMITS, createUploadLimiter } from "./photos.js";
+import { storageFromEnv } from "./storage.js";
 import { registerImpactRoutes } from "./impact.js";
 import { registerCalendarRoutes } from "./calendar.js";
 import { registerChatRoutes, createGeminiAsk, createChatLimiter, loadKnowledge } from "./chat.js";
@@ -65,13 +69,19 @@ function corsOrigin() {
  *   Verificador de ID tokens; por defecto se crea contra GOOGLE_CLIENT_ID.
  * @param {{ask?: Function|null, knowledge?: string, allow?: Function}} [opts.chat]
  *   Piezas del asistente; los tests las reemplazan para no llamar a Gemini.
+ * @param {object} [opts.storage] Almacenamiento de fotos; por defecto según el
+ *   entorno (disco o Supabase). Las pruebas pasan uno en una carpeta temporal.
+ * @param {(userId: number) => boolean} [opts.allowUpload] Límite de subidas.
  * @returns {import("fastify").FastifyInstance}
  */
 export function buildApp(opts = {}) {
-  const { verifyGoogleToken, chat = {}, ...fastifyOpts } = opts;
+  const { verifyGoogleToken, chat = {}, storage = storageFromEnv(), allowUpload, ...fastifyOpts } = opts;
   const app = Fastify(fastifyOpts);
 
   app.register(cors, { origin: corsOrigin() });
+  // Solo las rutas de fotos leen multipart; los límites cortan el archivo
+  // antes de leerlo entero (ver photos.js).
+  app.register(multipart, { limits: MULTIPART_LIMITS });
 
   // Nada de errores internos hacia el cliente. El handler por defecto de
   // Fastify responde 500 con `err.message`, que en un fallo de Prisma incluye
@@ -155,12 +165,16 @@ export function buildApp(opts = {}) {
   // Catálogo, taxonomía, ejemplares y pedidos. Las de lectura del catálogo son
   // públicas; el resto exige credencial y, las del local, una capacidad.
   const guards = createAuthGuards(verify);
-  registerCatalogRoutes(app, guards);
+  registerCatalogRoutes(app, guards, { storage });
+  registerCatalogAdminRoutes(app, guards, {
+    storage,
+    allowUpload: allowUpload ?? createUploadLimiter({ perMinute: Number(process.env.UPLOADS_PER_MINUTE) || 30 }),
+  });
   registerItemRoutes(app, guards);
   registerOrderRoutes(app, guards);
   registerPointsRoutes(app, guards);
   registerQuoteRoutes(app, guards);
-  registerOperationRoutes(app, guards);
+  registerOperationRoutes(app, guards, { storage });
 
   // Panel de administración (fase 4): estáticos del mismo origen que la API,
   // así no necesita CORS ni conocer la URL de la API.

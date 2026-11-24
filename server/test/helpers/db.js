@@ -17,12 +17,16 @@ import { addDaysISO, nextBusinessDay, todayISO } from "../../src/dates.js";
  * @param {object} what Qué limpiar.
  * @param {string[]} [what.subs] `googleSub` de las cuentas de prueba.
  * @param {number[]} [what.itemIds] Ejemplares creados por la prueba (se borran).
+ * @param {number[]} [what.productIds] Modelos creados por la prueba (se borran
+ *   con todos sus ejemplares).
  */
-export async function purge({ subs = [], itemIds = [] } = {}) {
+export async function purge({ subs = [], itemIds: sueltos = [], productIds = [] } = {}) {
   await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT set_config('ctg.purge', 'on', true)`;
     const users = await tx.user.findMany({ where: { googleSub: { in: subs } }, select: { id: true } });
     const userIds = users.map((u) => u.id);
+    const deModelos = await tx.item.findMany({ where: { productId: { in: productIds } }, select: { id: true } });
+    const itemIds = [...new Set([...sueltos, ...deModelos.map((i) => i.id)])];
     const orders = await tx.order.findMany({
       where: { userId: { in: userIds } },
       select: { id: true, items: { select: { itemId: true } } },
@@ -41,9 +45,13 @@ export async function purge({ subs = [], itemIds = [] } = {}) {
     await tx.pointsEntry.deleteMany({ where: { userId: { in: userIds } } });
     await tx.coupon.deleteMany({ where: { userId: { in: userIds } } });
     await tx.session.deleteMany({ where: { userId: { in: userIds } } });
+    await tx.itemPhoto.deleteMany({
+      where: { OR: [{ orderId: { in: orderIds } }, { takenById: { in: userIds } }, { itemId: { in: itemIds } }] },
+    });
     await tx.orderItem.deleteMany({ where: { OR: [{ orderId: { in: orderIds } }, { itemId: { in: itemIds } }] } });
     await tx.order.deleteMany({ where: { id: { in: orderIds } } });
     await tx.item.deleteMany({ where: { id: { in: itemIds } } });
+    await tx.product.deleteMany({ where: { id: { in: productIds } } });
     await tx.user.deleteMany({ where: { id: { in: userIds } } });
     await tx.item.updateMany({
       where: { id: { in: [...tocados].filter((id) => !itemIds.includes(id)) } },

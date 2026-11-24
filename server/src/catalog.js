@@ -12,6 +12,7 @@ import { CAPABILITY, httpError } from "./auth.js";
 import { logItem } from "./logs.js";
 import { todayISO } from "./dates.js";
 import { depositFor, rentalPrice, validatePriceOverride } from "./pricing.js";
+import { catalogPhotoUrl, requestOrigin } from "./storage.js";
 
 /** Id del dueño Oficial (CTG), sembrado por la migración. */
 export const OFFICIAL_OWNER_ID = 1;
@@ -138,9 +139,11 @@ function isListed(item) {
  * pintar mientras no conozca los ejemplares.
  * @param {object} p Modelo con MODELO_COMPLETO incluido.
  * @param {Set<number>} busy Ejemplares ocupados hoy.
+ * @param {(img: string) => string} [photoUrl] Convierte una clave del
+ *   almacenamiento en URL; las rutas antiguas pasan tal cual.
  * @returns {object|null} Modelo para la API, o null si no tiene nada listado.
  */
-export function productToApi(p, busy) {
+export function productToApi(p, busy, photoUrl = (img) => img) {
   const listados = p.items.filter(isListed).map((i) => ({
     id: i.id,
     size: i.size,
@@ -162,7 +165,7 @@ export function productToApi(p, busy) {
     stars: p.stars,
     material: p.material,
     weightKg: p.weightKg,
-    imgs: p.imgs,
+    imgs: p.imgs.map(photoUrl),
     brand: p.brand,
     audience: p.audienceKey,
     season: p.seasonKey,
@@ -257,15 +260,18 @@ export function routeId(raw, what) {
  * Registra las rutas del catálogo y la taxonomía.
  * @param {import("fastify").FastifyInstance} app Instancia Fastify.
  * @param {{requireCapability: Function}} guards preHandlers de autorización.
+ * @param {{storage: object}} deps Almacenamiento, para las URLs de las fotos.
  */
-export function registerCatalogRoutes(app, { requireCapability }) {
-  // Catálogo público: un modelo por entrada, ordenado por id.
-  app.get("/api/products", async () => {
+export function registerCatalogRoutes(app, { requireCapability }, { storage }) {
+  // Catálogo público: un modelo por entrada, ordenado por id. Las fotos subidas
+  // desde el panel salen como URL absoluta: la app y la web viven en otro origen.
+  app.get("/api/products", async (req) => {
     const [modelos, busy] = await Promise.all([
       prisma.product.findMany({ include: MODELO_COMPLETO, orderBy: { id: "asc" } }),
       busyItemIds(prisma),
     ]);
-    return modelos.map((p) => productToApi(p, busy)).filter(Boolean);
+    const origin = requestOrigin(req);
+    return modelos.map((p) => productToApi(p, busy, (img) => catalogPhotoUrl(storage, img, origin))).filter(Boolean);
   });
 
   // Taxonomía pública: con ella se construyen los filtros (fase 3) y el

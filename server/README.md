@@ -48,6 +48,15 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | GET | `/api/admin/orders` | **Mostrador o Caja**: pedidos en curso, con cliente y ejemplares (`?scope=all`, todos). |
 | GET | `/api/admin/items` | **Mostrador o Inventario**: ejemplares con su estado interno y a qué estados pueden pasar. |
 | GET | `/api/admin/stragglers` | **Mostrador**: rezagadas (vencidas sin recibir, recibidas sin lavar, >2 días en lavado). |
+| GET | `/api/admin/products` | **Inventario**: todos los modelos (también sin ejemplares) con sus fotos y ejemplares. |
+| POST | `/api/products` | **Inventario**: alta de un modelo (validado contra la taxonomía). |
+| PATCH | `/api/products/:id` | **Inventario** edita; valor y estrellas solo **Administración**. |
+| POST | `/api/products/:id/photos` | **Inventario**: sube fotos de catálogo (multipart, JPG/PNG, 5 MB, 6 por modelo). |
+| PUT | `/api/products/:id/photos` | **Inventario**: reordena o quita fotos de catálogo (`{imgs}`). |
+| PATCH | `/api/items/:id` | **Inventario**: corrige condición o medidas de un ejemplar. |
+| POST | `/api/items/:id/photos` | **Mostrador o Inventario**: fotos de estado (`kind` SALIDA/LLEGADA con `orderId`, o ESTADO). |
+| GET | `/api/items/:id/photos` | **Mostrador o Inventario**: fotos de estado con enlaces firmados (10 min). |
+| GET | `/media/…` | Solo con el conductor de **disco**: sirve `catalogo/` y, con firma, `ejemplares/`. |
 | GET | `/admin/` | El **panel del local** (estáticos de `admin/`, con CSP estricta). |
 | GET | `/api/impact/water` | **Pública**: litros de agua ahorrados entre todos (contador de la web). |
 | GET | `/api/config` | **Pública**: días cerrados y feriados, más el envío y el tope por volumen para los textos. |
@@ -150,7 +159,32 @@ comprobación en el código no aguanta.
 
 **Bitácoras.** `item_logs` (prendas) y `finance_logs` (dinero y personal) son de
 solo añadir: un disparador rechaza `UPDATE` y `DELETE`. Ninguna se devuelve al
-cliente.
+cliente. `item_photos` (fotos de estado) también: es la prueba que respalda
+retener una garantía.
+
+### Fotos
+
+Dos clases, con destinos distintos (`src/storage.js`):
+
+- **De catálogo** (`products.imgs`): las ve cualquiera. Van al cubo **público** y
+  en la base se guarda la clave (`catalogo/<uuid>.webp`); `GET /api/products` la
+  devuelve como URL absoluta, que la app y la web pintan tal cual. Las rutas
+  antiguas `img/products/…` (las 16 prendas de demostración) siguen igual.
+- **De estado** (`item_photos`): cómo **salió** y cómo **llegó** cada ejemplar en
+  cada pedido, más las sueltas. Van al cubo **privado** y solo se ven con un
+  enlace firmado de 10 minutos.
+
+Toda subida pasa por la tubería de `src/photos.js`: límites de multipart antes
+de leer, tipo por **bytes mágicos** (JPG o PNG; extensión y `Content-Type` no
+cuentan), tope de 40 MP contra bombas de descompresión, y **recodificación a
+WebP** con `sharp` (1600 px de lado, sin EXIF ni GPS). El nombre es un UUID.
+Las subidas tienen límite por persona (`UPLOADS_PER_MINUTE`, 30).
+
+**Conductores.** Sin `SUPABASE_URL` + `SUPABASE_SERVICE_KEY`, las fotos van a
+disco (`MEDIA_DIR`, por defecto `server/uploads/`, ignorado por git) y la API
+las sirve en `/media/`. Con ellas, van a Supabase Storage (ver `DEPLOY.md`). En
+producción sin Supabase el servidor avisa: el disco de Render se borra en cada
+despliegue.
 
 ### Pedidos y libro de cargos
 
@@ -248,16 +282,24 @@ OAuth en Google Cloud.
 Pestaña **Pedidos**: entregar (Reservada → En alquiler), **registrar la
 devolución**, confirmar el cobro y liberar la garantía (Caja), anular
 (Administración). **Ejemplares**: cambio manual de estado y bitácora.
-**Rezagadas**: los umbrales del §3.
+**Rezagadas**: los umbrales del §3. **Catálogo** (Inventario): alta y edición de
+modelos, sus fotos (subir, ordenar, quitar; la primera es la portada) y alta de
+ejemplares. Un modelo sin ejemplares no sale en la app y el panel lo avisa.
+
+**Entregar** y **registrar la devolución** piden al menos una foto de cada
+prenda: la de salida es la referencia y la de llegada se compara con ella. Se
+suben antes del cambio de estado, para que no quede una entrega o devolución
+registrada sin su prueba. El navegador reduce las fotos grandes del móvil antes
+de subirlas; quien las limpia de verdad es el servidor.
 
 Cada pedido enseña una **tira de días** (alquiler, margen sin costo, días extra,
 días cerrados rayados, hoy remarcado), y al registrar la devolución la tira se
 rehace con el día elegido para anticipar los días extra (el importe lo decide
-siempre el servidor). Cada prenda tiene **«Ver foto»**: las fotos del modelo
-(`products.imgs`) se sirven en `/admin/fotos/` desde `../img/products/`, en el
-mismo origen para no abrir la CSP. Si esa carpeta no está (un despliegue que
-solo trae `server/`), el panel arranca igual y la galería dice que no pudo
-cargar la foto.
+siempre el servidor). Cada prenda tiene **«Ver foto»**: una galería con las
+fotos de salida y llegada de ese ejemplar y las del modelo. Las rutas antiguas
+`img/products/…` se sirven en `/admin/fotos/` desde `../img/products/`; si esa
+carpeta no está (un despliegue que solo trae `server/`), la galería dice que no
+pudo cargar la foto. Con Supabase, la CSP del panel añade su origen a `img-src`.
 
 Recibir anota el **día real** en que volvió la prenda (puede ser anterior al
 registro, §6.3) y quién lo registró. Pasada la fecha límite se cobran los días
@@ -293,6 +335,11 @@ aparece como rezagada.
 | `PORT` | Puerto del servidor (por defecto `3000`). |
 | `CORS_ORIGINS` | Orígenes autorizados a leer la API, separados por comas: `CORS_ORIGINS="https://clothtogo.app"`. Vacía refleja cualquier origen — cómodo en desarrollo y para abrir el frontend por `file://`. **Con `NODE_ENV=production` es obligatoria: si falta, el servidor no arranca** (#18), para que un despliegue no quede abierto a todos los orígenes sin avisar. |
 | `GOOGLE_CLIENT_ID` | Client ID de Google Cloud Console usado como `audience` al verificar el ID token en `POST /api/auth/google`. Debe coincidir con el `GOOGLE_CLIENT_ID` de `js/auth.js`. Sin esta variable, la ruta responde `500` en vez de arrancar rota. |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` | Activan Supabase Storage para las fotos. La clave de servicio **solo** vive en el servidor. Sin las dos, las fotos van a disco. |
+| `SUPABASE_BUCKET_PUBLIC` / `SUPABASE_BUCKET_PRIVATE` | Nombres de los cubos (por defecto `catalogo` y `ejemplares-privado`). |
+| `MEDIA_DIR` | Carpeta del conductor de disco (por defecto `server/uploads/`). |
+| `MEDIA_SIGNING_SECRET` | Secreto de los enlaces firmados en disco; sin él, uno aleatorio por proceso (los enlaces vivos caducan al reiniciar, que es inocuo). |
+| `UPLOADS_PER_MINUTE` | Subidas por persona y minuto (por defecto 30). |
 
 > CORS limita quién puede **leer** la respuesta, no quién puede **enviar** la
 > petición, así que no protege contra CSRF. Cuando se agregue autenticación, la
