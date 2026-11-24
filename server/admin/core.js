@@ -28,6 +28,12 @@ export const STATUS_LABEL = {
 export const STATUS_TONE = { DISPONIBLE: "", RESERVADA: "warn", EN_ALQUILER: "warn", EN_LAVADO: "muted", NO_ALQUILABLE: "bad", PERDIDA: "bad" };
 export const PAY_LABEL = { cash: "Efectivo", credit: "Crédito", debit: "Débito" };
 
+/** Filtros del catálogo sin tocar: sirve para iniciarlos y para «Limpiar». */
+export const CATALOG_FILTERS_DEFAULT = Object.freeze({
+  category: "", material: "", status: "", size: "", color: "",
+  occasion: "", season: "", audience: "", pending: "", sort: "new",
+});
+
 export const state = {
   token: null,
   me: null,
@@ -43,6 +49,8 @@ export const state = {
   taxonomy: null,
   /** Modelo abierto en la pestaña Catálogo, o null para la lista. */
   openProduct: null,
+  /** Filtros de la lista del catálogo; "" es «todos». */
+  catalogFilters: { ...CATALOG_FILTERS_DEFAULT },
   filter: "",
 };
 

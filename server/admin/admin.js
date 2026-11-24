@@ -568,6 +568,16 @@ document.addEventListener("click", async (e) => {
   }
 });
 
+// Los desplegables de filtros del catálogo: repintar no pierde nada, porque
+// el valor elegido vive en `state` y el desplegable se vuelve a pintar con él.
+document.addEventListener("change", (e) => {
+  const el = e.target;
+  if (el.dataset?.action !== "catalog-filter") return;
+  state.catalogFilters = { ...state.catalogFilters, [el.dataset.key]: el.value };
+  render();
+  document.querySelector(`[data-action="catalog-filter"][data-key="${el.dataset.key}"]`)?.focus();
+});
+
 document.addEventListener("input", (e) => {
   if (e.target.dataset?.action !== "filter") return;
   state.filter = e.target.value;

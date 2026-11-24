@@ -5,7 +5,9 @@
  * Un modelo sin ejemplares no sale en la app: el panel lo avisa, porque es el
  * paso que más fácil se olvida al dar de alta una prenda.
  */
-import { api, can, formDialog, h, hooks, state, statusChip, toast, upload } from "./core.js";
+import {
+  CATALOG_FILTERS_DEFAULT, STATUS_LABEL, api, can, formDialog, h, hooks, state, statusChip, toast, upload,
+} from "./core.js";
 import { photoButton, photoPicker, thumb } from "./photos.js";
 
 const CONDITION_LABEL = { NUEVA: "Nueva", COMO_NUEVA: "Como nueva", BUENA: "Buena", USO_VISIBLE: "Uso visible" };
@@ -30,14 +32,98 @@ export function renderCatalog(searchBar, matches) {
   return abierto ? renderModel(abierto) : renderList(searchBar, matches);
 }
 
-/** Lista de modelos, de los más nuevos a los más viejos. */
+/** Qué le falta a un modelo para estar completo, para el filtro «Pendiente». */
+const PENDING = {
+  "no-items": { label: "Sin ejemplares (no sale en la app)", test: (p) => p.items.length === 0 },
+  "no-photos": { label: "Sin fotos", test: (p) => p.photos.length === 0 },
+  "few-photos": { label: "Con menos de 3 fotos", test: (p) => p.photos.length < 3 },
+};
+
+/** Órdenes de la lista. Los ids crecen con el alta, así que «más nuevos» es id descendente. */
+const SORTS = {
+  new: { label: "Más nuevos", cmp: (a, b) => b.id - a.id },
+  name: { label: "Nombre", cmp: (a, b) => a.name.localeCompare(b.name, "es") },
+  "value-asc": { label: "Valor ↑", cmp: (a, b) => a.value - b.value || b.id - a.id },
+  "value-desc": { label: "Valor ↓", cmp: (a, b) => b.value - a.value || b.id - a.id },
+  items: { label: "Más ejemplares", cmp: (a, b) => b.items.length - a.items.length || b.id - a.id },
+};
+
+/**
+ * Indica si un modelo pasa los filtros. Los de ejemplar (estado, talla, color)
+ * piden que **alguno** de sus ejemplares cumpla: se busca la prenda, y basta
+ * con que haya una así.
+ * @param {object} p Modelo del panel.
+ * @param {object} [f] Filtros.
+ * @returns {boolean}
+ */
+export function matchesFilters(p, f = state.catalogFilters) {
+  const alguno = (pred) => p.items.some(pred);
+  return (!f.category || p.categoryKey === f.category)
+    && (!f.material || p.material === f.material)
+    && (!f.occasion || p.occasions.includes(f.occasion))
+    && (!f.season || p.seasonKey === f.season)
+    && (!f.audience || p.audienceKey === f.audience)
+    && (!f.status || alguno((i) => i.status === f.status))
+    && (!f.size || alguno((i) => `${i.sizeScale}|${i.size}` === f.size))
+    && (!f.color || alguno((i) => i.color === f.color))
+    && (!f.pending || (PENDING[f.pending]?.test(p) ?? true));
+}
+
+/** Ordena una copia de la lista según el filtro de orden. */
+export const sortModels = (list, sort = state.catalogFilters.sort) =>
+  [...list].sort((SORTS[sort] ?? SORTS.new).cmp);
+
+/** Indica si hay algún filtro distinto del inicial (para enseñar «Limpiar»). */
+const anyCatalogFilter = () =>
+  Object.entries(CATALOG_FILTERS_DEFAULT).some(([k, v]) => state.catalogFilters[k] !== v);
+
+/** Barra de filtros: un desplegable por criterio, con «Limpiar» si hay alguno puesto. */
+function catalogFilterBar() {
+  const f = state.catalogFilters;
+  const tax = state.taxonomy ?? {};
+  /** Un desplegable con su etiqueta; `items` son pares [valor, texto]. */
+  const filtro = (key, label, items, todos = "Todos") => h("label", {}, label,
+    h("select", { dataset: { action: "catalog-filter", key } },
+      todos !== null ? h("option", { value: "", selected: !f[key] || null }, todos) : null,
+      items.map(([v, t]) => h("option", { value: v, selected: f[key] === v || null }, t))));
+  const deTax = (lista) => (tax[lista] ?? []).map((x) => [x.key, x.name]);
+  // Solo las tallas que algún ejemplar tiene: la lista completa (ropa más
+  // calzado) es larga y casi toda daría cero resultados.
+  const tallas = [...new Set(state.products.flatMap((p) => p.items.map((i) => `${i.sizeScale}|${i.size}`)))]
+    .sort((a, b) => {
+      const orden = (k) => (tax.sizes ?? []).findIndex((s) => `${s.scale}|${s.label}` === k);
+      return orden(a) - orden(b);
+    })
+    .map((k) => [k, `${k.split("|")[1]}${k.startsWith("CALZADO") ? " (calzado)" : ""}`]);
+
+  return h("div.filters", {},
+    filtro("category", "Categoría", deTax("categories"), "Todas"),
+    filtro("status", "Ejemplares", Object.entries(STATUS_LABEL)),
+    filtro("pending", "Pendiente", Object.entries(PENDING).map(([k, v]) => [k, v.label]), "—"),
+    filtro("size", "Talla", tallas, "Todas"),
+    filtro("color", "Color", deTax("colors")),
+    filtro("material", "Material", deTax("materials")),
+    filtro("occasion", "Ocasión", deTax("occasions"), "Todas"),
+    filtro("season", "Temporada", deTax("seasons"), "Todas"),
+    filtro("audience", "Público", deTax("audiences")),
+    filtro("sort", "Orden", Object.entries(SORTS).map(([k, v]) => [k, v.label]), null),
+    anyCatalogFilter()
+      ? h("button.btn.small", { type: "button", dataset: { action: "catalog-filters-clear" } }, "Limpiar filtros") : null,
+  );
+}
+
+/** Lista de modelos con el buscador y los filtros aplicados. */
 function renderList(searchBar, matches) {
-  const lista = state.products.filter((p) => matches(p.name, p.category, p.brand, ...p.items.map((i) => i.code)));
+  const lista = sortModels(state.products.filter((p) =>
+    matchesFilters(p) && matches(p.name, p.category, p.brand, ...p.items.map((i) => i.code))));
+  const filtrado = lista.length !== state.products.length;
   return [
-    h("h2", {}, "Catálogo ", h("small", {}, `${state.products.length} modelos`)),
+    h("h2", {}, "Catálogo ", h("small", {},
+      filtrado ? `${lista.length} de ${state.products.length} modelos` : `${state.products.length} modelos`)),
     h("div.bar", {},
       h("button.btn.primary", { type: "button", dataset: { action: "model-new" } }, "Nuevo modelo")),
     searchBar("Buscar por nombre, categoría, marca o código"),
+    catalogFilterBar(),
     lista.length ? h("div.models", {}, lista.map((p) => h("article.model", {},
       h("button.model-open", { type: "button", dataset: { action: "model-open", product: p.id }, "aria-label": `Abrir ${p.name}` },
         thumb(p.photos.map((f) => f.url))),
@@ -283,8 +369,12 @@ export function catalogClick(el) {
       modelDialog(null);
       return true;
     case "model-open":
+      // El buscador y los filtros se conservan: al volver, la lista sigue igual.
       state.openProduct = p.id;
-      state.filter = "";
+      hooks.render();
+      return true;
+    case "catalog-filters-clear":
+      state.catalogFilters = { ...CATALOG_FILTERS_DEFAULT };
       hooks.render();
       return true;
     case "model-close":
