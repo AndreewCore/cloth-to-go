@@ -14,6 +14,7 @@ import {
 } from "./core.js";
 import { photoButton, photoPicker, showPhotos, thumb } from "./photos.js";
 import { catalogClick, loadCatalog, renderCatalog } from "./catalog.js";
+import { loadTaxonomyAdmin, renderTaxonomy, taxonomyClick } from "./taxonomy.js";
 
 /** Mismo cliente OAuth que la app y la web (js/auth.js): es público. */
 const GOOGLE_CLIENT_ID = "115840486389-f3vitcouhua5eckn3grn1gk9kqb7ccjs.apps.googleusercontent.com";
@@ -94,6 +95,7 @@ function tabs() {
     { id: "items", label: "Ejemplares", show: can("MOSTRADOR") || can("INVENTARIO") },
     { id: "stragglers", label: "Rezagadas", show: can("MOSTRADOR") },
     { id: "catalog", label: "Catálogo", show: can("INVENTARIO") },
+    { id: "taxonomy", label: "Taxonomía", show: can("INVENTARIO") },
   ].filter((t) => t.show);
 }
 
@@ -137,6 +139,7 @@ async function loadTab() {
     if (state.tab === "orders") state.orders = await api("/api/admin/orders");
     if (state.tab === "items") state.items = await api("/api/admin/items");
     if (state.tab === "catalog") await loadCatalog();
+    if (state.tab === "taxonomy") await loadTaxonomyAdmin();
     // Las rezagadas se piden siempre que se pueda: alimentan el número de la pestaña.
     if (can("MOSTRADOR")) state.stragglers = await api("/api/admin/stragglers");
   } catch (err) {
@@ -154,6 +157,7 @@ function render() {
     items: renderItems,
     stragglers: renderStragglers,
     catalog: () => renderCatalog(searchBar, matches),
+    taxonomy: renderTaxonomy,
   }[state.tab];
   $("view").replaceChildren(...(view ? view() : []));
 }
@@ -564,7 +568,7 @@ document.addEventListener("click", async (e) => {
     case "photos":
       return showPhotos(item);
     default:
-      catalogClick(el);
+      if (!catalogClick(el)) taxonomyClick(el);
   }
 });
 

@@ -47,6 +47,8 @@ export const state = {
   products: [],
   /** Taxonomía (`GET /api/taxonomy`); se pide una vez. */
   taxonomy: null,
+  /** Taxonomía con usos y coste de lavado, para la pestaña Taxonomía. */
+  taxAdmin: null,
   /** Modelo abierto en la pestaña Catálogo, o null para la lista. */
   openProduct: null,
   /** Filtros de la lista del catálogo; "" es «todos». */
