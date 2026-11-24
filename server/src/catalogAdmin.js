@@ -12,7 +12,7 @@ import prisma from "./db.js";
 import { CAPABILITY, hasCapability, httpError } from "./auth.js";
 import { routeId, validateMeasurements } from "./catalog.js";
 import { PHOTO_LIMITS, readPhotoUpload } from "./photos.js";
-import { BUCKET, catalogPhotoUrl, isStorageKey, newKey, requestOrigin } from "./storage.js";
+import { BUCKET, PRIVATE_FOLDERS, catalogPhotoUrl, isStorageKey, newKey, requestOrigin } from "./storage.js";
 import { logValueChange } from "./pricingAdmin.js";
 import { ACTIVITY, logActivity } from "./logs.js";
 
@@ -433,8 +433,10 @@ function registerDiskMedia(app, storage) {
     return servir(reply, key, "public, max-age=31536000, immutable");
   });
 
-  app.get("/media/ejemplares/:file", async (req, reply) => {
-    const key = `ejemplares/${req.params.file}`;
+  // Lo privado (fotos de estado y de reseñas sin aprobar), solo con firma.
+  app.get("/media/:folder/:file", async (req, reply) => {
+    if (!PRIVATE_FOLDERS.includes(req.params.folder)) throw httpError(404, "Foto no encontrada.");
+    const key = `${req.params.folder}/${req.params.file}`;
     if (!storage.verify(key, req.query?.exp, req.query?.sig)) throw httpError(403, "Enlace caducado o no válido.");
     return servir(reply, key, "private, no-store");
   });

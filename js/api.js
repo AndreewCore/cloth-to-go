@@ -368,6 +368,59 @@ async function apiFetch(path, { method = "GET", body } = {}) {
   }
 }
 
+/**
+ * Como apiFetch, pero con un formulario multipart (fotos). El navegador pone
+ * el `Content-Type` con su frontera; por eso aquí no se fija.
+ * @param {string} path Ruta.
+ * @param {FormData} form Campos y archivos.
+ * @returns {Promise<{ok: boolean, status: number, data: any}>}
+ */
+async function apiUpload(path, form) {
+  if (!backend.enabled) return { ok: false, status: 0, data: { error: "Hace falta conexión con el servidor." } };
+  const token = readSessionToken();
+  try {
+    const res = await fetch(`${backend.base}${path}`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    const data = await res.json().catch(() => null);
+    if (res.status === 401 && token) {
+      clearSessionToken();
+      if (typeof onSessionExpired === "function") onSessionExpired();
+    }
+    return { ok: res.ok, status: res.status, data };
+  } catch {
+    return { ok: false, status: 0, data: { error: "No hay conexión con el servidor. Inténtalo de nuevo." } };
+  }
+}
+
+/**
+ * Trae las reseñas propias (GET /api/me/reviews): con ellas la app sabe qué
+ * prendas de cada pedido ya reseñó y enseña las suyas pendientes.
+ * @returns {Promise<boolean>} true si llegaron.
+ */
+async function loadMyReviews() {
+  if (!readSessionToken()) return false;
+  const r = await apiFetch("/api/me/reviews");
+  if (!r.ok || !Array.isArray(r.data)) return false;
+  reviews = r.data;
+  return true;
+}
+
+/**
+ * Trae las reseñas publicadas de una prenda y su media
+ * (GET /api/products/:id/reviews) y las deja en `productReviewCache`.
+ * @param {number} id Prenda.
+ * @returns {Promise<boolean>} true si llegaron.
+ */
+async function loadProductReviews(id) {
+  const r = await apiFetch(`/api/products/${id}/reviews`);
+  if (!r.ok || !r.data || !Array.isArray(r.data.reviews)) return false;
+  productReviewCache[id] = r.data;
+  return true;
+}
+
 /** Mensaje de error de una respuesta de apiFetch, listo para un toast. */
 function apiErrorText(r) {
   return (r && r.data && r.data.error) || "No se pudo completar. Inténtalo de nuevo.";
@@ -461,7 +514,8 @@ function couponFromApi(c) {
  */
 async function refreshAccount() {
   if (!readSessionToken()) return null;
-  const [o, p] = await Promise.all([apiFetch("/api/orders"), apiFetch("/api/me/points")]);
+  // Las reseñas propias van aparte: si fallan, la cuenta se sincroniza igual.
+  const [o, p] = await Promise.all([apiFetch("/api/orders"), apiFetch("/api/me/points"), loadMyReviews()]);
   if (!o.ok || !p.ok || !Array.isArray(o.data)) return null;
   return { goals: applyAccount({ orders: o.data.map(orderFromApi), points: p.data }) };
 }

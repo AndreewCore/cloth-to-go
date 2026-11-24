@@ -11,7 +11,8 @@
  *   `SUPABASE_SERVICE_KEY`. Se habla con su API REST con `fetch`; no hace
  *   falta el SDK para subir, borrar y firmar.
  *
- * Las claves (`catalogo/<uuid>.webp`, `ejemplares/<uuid>.webp`) son lo único
+ * Las claves (`catalogo/<uuid>.webp`, `ejemplares/<uuid>.webp`,
+ * `resenas/<uuid>.webp`) son lo único
  * que se guarda en la base: así cambiar de conductor no rompe ninguna fila.
  */
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
@@ -22,11 +23,14 @@ import path from "node:path";
 /** Cubos lógicos. */
 export const BUCKET = Object.freeze({ PUBLIC: "public", PRIVATE: "private" });
 
-/** Carpeta de cada cubo dentro de la clave. */
+/** Carpeta por defecto de cada cubo dentro de la clave. */
 const PREFIX = { [BUCKET.PUBLIC]: "catalogo", [BUCKET.PRIVATE]: "ejemplares" };
 
+/** Carpetas del cubo privado: fotos de estado y fotos de reseñas sin aprobar. */
+export const PRIVATE_FOLDERS = Object.freeze(["ejemplares", "resenas"]);
+
 /** Clave válida: prefijo conocido + UUID + `.webp`. Nada que el usuario escriba. */
-const KEY_RE = /^(catalogo|ejemplares)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$/;
+const KEY_RE = /^(catalogo|ejemplares|resenas)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.webp$/;
 
 /** Duración de un enlace firmado a una foto privada, en segundos. */
 export const SIGNED_TTL = 10 * 60;
@@ -35,10 +39,12 @@ export const SIGNED_TTL = 10 * 60;
  * Crea una clave nueva para un cubo. El nombre original del archivo nunca se
  * usa: podría traer rutas, caracteres raros o datos personales.
  * @param {string} bucket `BUCKET.PUBLIC` o `BUCKET.PRIVATE`.
+ * @param {string} [folder] Carpeta dentro del cubo privado (`PRIVATE_FOLDERS`).
  * @returns {string}
  */
-export function newKey(bucket) {
-  return `${PREFIX[bucket]}/${randomUUID()}.webp`;
+export function newKey(bucket, folder = PREFIX[bucket]) {
+  if (bucket === BUCKET.PRIVATE && !PRIVATE_FOLDERS.includes(folder)) throw new Error(`Carpeta privada desconocida: ${folder}`);
+  return `${bucket === BUCKET.PUBLIC ? PREFIX[bucket] : folder}/${randomUUID()}.webp`;
 }
 
 /** Indica si un texto es una clave del almacenamiento (y no una ruta antigua). */

@@ -72,9 +72,11 @@ export async function toWebp(buf) {
  * recodificadas. Si una sola falla, no se guarda ninguna (aún no se escribió
  * nada en el almacenamiento).
  * @param {import("fastify").FastifyRequest} req Petición `multipart/form-data`.
+ * @param {{optional?: boolean, maxFiles?: number}} [opts] Foto opcional (reseñas)
+ *   y tope propio de fotos por subida.
  * @returns {Promise<{fields: Record<string, string>, photos: Buffer[]}>}
  */
-export async function readPhotoUpload(req) {
+export async function readPhotoUpload(req, { optional = false, maxFiles = PHOTO_LIMITS.maxFiles } = {}) {
   if (!req.isMultipart()) throw httpError(415, "Envía las fotos como multipart/form-data.");
   const fields = {};
   const crudas = [];
@@ -93,7 +95,8 @@ export async function readPhotoUpload(req) {
     if (err.code?.startsWith?.("FST_")) throw httpError(400, "La subida no es válida.");
     throw err;
   }
-  if (!crudas.length) throw httpError(400, "No llegó ninguna foto.");
+  if (!crudas.length && !optional) throw httpError(400, "No llegó ninguna foto.");
+  if (crudas.length > maxFiles) throw httpError(413, `Como máximo ${maxFiles} foto${maxFiles === 1 ? "" : "s"}.`);
   for (const buf of crudas) {
     if (!sniffImage(buf)) throw httpError(415, "Solo se aceptan fotos JPG o PNG.");
   }

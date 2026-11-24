@@ -21,6 +21,7 @@ import { registerCatalogAdminRoutes } from "./catalogAdmin.js";
 import { registerTaxonomyAdminRoutes } from "./taxonomyAdmin.js";
 import { registerPricingAdminRoutes } from "./pricingAdmin.js";
 import { registerActivityRoutes } from "./activity.js";
+import { registerReviewRoutes } from "./reviews.js";
 import { MULTIPART_LIMITS, createUploadLimiter } from "./photos.js";
 import { storageFromEnv } from "./storage.js";
 import { registerImpactRoutes } from "./impact.js";
@@ -169,10 +170,10 @@ export function buildApp(opts = {}) {
   // públicas; el resto exige credencial y, las del local, una capacidad.
   const guards = createAuthGuards(verify);
   registerCatalogRoutes(app, guards, { storage });
-  registerCatalogAdminRoutes(app, guards, {
-    storage,
-    allowUpload: allowUpload ?? createUploadLimiter({ perMinute: Number(process.env.UPLOADS_PER_MINUTE) || 30 }),
-  });
+  // Un solo límite de subidas por persona para todo lo que trae fotos.
+  const uploads = allowUpload ?? createUploadLimiter({ perMinute: Number(process.env.UPLOADS_PER_MINUTE) || 30 });
+  registerCatalogAdminRoutes(app, guards, { storage, allowUpload: uploads });
+  registerReviewRoutes(app, guards, { storage, allowUpload: uploads });
   registerItemRoutes(app, guards);
   registerOrderRoutes(app, guards);
   registerPointsRoutes(app, guards);

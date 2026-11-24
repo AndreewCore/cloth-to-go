@@ -334,10 +334,30 @@ function openDetail(id){
   detailId = id;
   detailImg = 0;                     // cada prenda se abre por su portada
   stackedDetail = FULL_VIEWS.has(view) && sheet.classList.contains("show");
-  if(stackedDetail){ renderDetail(); openStackSheet(); return; }
-  view = "detail";
-  renderSheet();
-  openSheet();
+  if(stackedDetail){ renderDetail(); openStackSheet(); }
+  else {
+    view = "detail";
+    renderSheet();
+    openSheet();
+  }
+  refreshProductReviews(id);
+}
+
+/**
+ * Pide las reseñas de la prenda y, si su detalle sigue abierto, lo repinta.
+ * Se piden cada vez que se abre: una reseña recién aprobada debe verse sin
+ * recargar la app.
+ * @param {number} id Prenda.
+ */
+function refreshProductReviews(id){
+  if(!backend.enabled || !catalogFromApi) return;
+  loadProductReviews(id).then(ok => {
+    // Un fallo se apunta para no dejar «Cargando…» para siempre; la próxima
+    // apertura lo vuelve a intentar.
+    if(!ok && !productReviewCache[id]) productReviewCache[id] = { error: true, reviews: [], average: 0, count: 0 };
+    const abierto = detailId === id && (stackedDetail || view === "detail");
+    if(abierto) renderDetail();
+  });
 }
 
 /**
@@ -421,18 +441,28 @@ function showGalleryImage(i){
  * @returns {string} HTML del bloque.
  */
 function reviewsHTML(p){
+  const cache = productReviewCache[p.id];
+  const cargadas = !!cache && !cache.error;
   const rs = productReviews(p.id);
   if(!rs.length){
+    // Sin servidor no hay reseñas que enseñar: decirlo es más honesto que
+    // «todavía no tiene», que daría a entender que nadie la ha alquilado.
+    const texto = !backend.enabled || !catalogFromApi ? "Las reseñas se ven con conexión al servidor."
+      : cache && cache.error ? "No se pudieron cargar las reseñas. Vuelve a abrir la prenda."
+        : !cargadas ? "Cargando reseñas…"
+          : "Todavía no tiene reseñas. Si la alquilas, podrás dejar la primera.";
     return `<div class="reviews">
         <div class="rev-head"><h3>Reseñas</h3></div>
-        <p class="rev-empty">Todavía no tiene reseñas. Si la alquilas, podrás dejar la primera.</p>
+        <p class="rev-empty">${texto}</p>
       </div>`;
   }
   const media = productRating(p.id);
+  const publicadas = cargadas ? cache.count : 0;
   const item = r => `
     <div class="review">
       <div class="rev-top">
-        <span class="rev-author">${escapeHTML(r.author || profile.name || "Tú")}</span>
+        <span class="rev-author">${escapeHTML(r.author || profile.name || "Tú")}
+          ${REVIEW_STATUS_LABEL[r.status] ? `<span class="rev-status">${REVIEW_STATUS_LABEL[r.status]}</span>` : ""}</span>
         <span class="rev-date">${fmtDate(r.date)}</span>
       </div>
       <div class="rev-stars">${starStr(r.rating)}</div>
@@ -443,8 +473,8 @@ function reviewsHTML(p){
     <div class="reviews">
       <div class="rev-head">
         <h3>Reseñas</h3>
-        <span class="rev-avg">${starStr(Math.round(media))}
-          <b>${media.toFixed(1)}</b> <small>(${rs.length})</small></span>
+        ${publicadas ? `<span class="rev-avg">${starStr(Math.round(media))}
+          <b>${media.toFixed(1)}</b> <small>(${publicadas})</small></span>` : ""}
       </div>
       ${rs.map(item).join("")}
     </div>`;
