@@ -235,14 +235,16 @@ test("un modelo tiene 6 fotos como máximo", async () => {
   assert.equal(septima.statusCode, 409);
 });
 
-test("reordenar y quitar fotos: la lista sale de la actual y lo quitado se borra del almacenamiento", async () => {
+test("reordenar y quitar fotos: la lista sale de la actual y lo quitado se conserva para la bitácora", async () => {
   const m = await nuevoModelo();
   const { imgs } = (await subir(INVENTARIO, `/api/products/${m.id}/photos`, [{ data: await png() , type: "image/png" }, { data: await jpgConExif() }])).json();
   const url = `/api/products/${m.id}/photos`;
   const reordenado = await como(INVENTARIO, { method: "PUT", url, payload: { imgs: [imgs[1]] } });
   assert.equal(reordenado.statusCode, 200, reordenado.body);
   assert.deepEqual(reordenado.json().imgs, [imgs[1]]);
-  assert.equal(await storage.read(imgs[0]), null, "la quitada ya no está");
+  assert.ok(await storage.read(imgs[0]), "la quitada sigue guardada: la bitácora la enseña");
+  const registro = await prisma.activityLog.findFirst({ where: { productId: m.id, action: "FOTO_CATALOGO_QUITADA" } });
+  assert.deepEqual(registro.detail.keys, [imgs[0]]);
   const ajena = await como(INVENTARIO, { method: "PUT", url, payload: { imgs: [imgs[1], "../../etc/passwd"] } });
   assert.equal(ajena.statusCode, 409);
 });

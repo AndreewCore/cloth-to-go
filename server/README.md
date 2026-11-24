@@ -52,7 +52,7 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | POST | `/api/products` | **Inventario**: alta de un modelo (validado contra la taxonomía). |
 | PATCH | `/api/products/:id` | **Inventario** edita; valor y estrellas solo **Administración**. |
 | POST | `/api/products/:id/photos` | **Inventario**: sube fotos de catálogo (multipart, JPG/PNG, 5 MB, 6 por modelo). |
-| PUT | `/api/products/:id/photos` | **Inventario**: reordena o quita fotos de catálogo (`{imgs}`). |
+| PUT | `/api/products/:id/photos` | **Inventario**: reordena o quita fotos de catálogo (`{imgs}`). Lo quitado se conserva en el almacenamiento para la bitácora. |
 | PATCH | `/api/items/:id` | **Inventario**: corrige condición o medidas de un ejemplar. |
 | POST | `/api/items/:id/photos` | **Mostrador o Inventario**: fotos de estado (`kind` SALIDA/LLEGADA con `orderId`, o ESTADO). |
 | GET | `/api/items/:id/photos` | **Mostrador o Inventario**: fotos de estado con enlaces firmados (10 min). |
@@ -61,6 +61,8 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | PATCH | `/api/taxonomy/:list/:key` | **Inventario**: nombre, hex o coste de lavado (**Administración**). Clave, prefijo y talla no cambian. |
 | PUT | `/api/taxonomy/:list/order` | **Inventario**: orden nuevo de una lista entera (`{keys}`; tallas, por escala con `ESCALA\|talla`). |
 | DELETE | `/api/taxonomy/:list/:key` | **Inventario**: borra si nada la usa (si no, 409 con cuántos). |
+| GET | `/api/admin/activity` | **Administración**: bitácora general (catálogo, fotos, prendas, dinero, precio, personal, taxonomía) con filtros `category`, `action`, `actor` (id o `system`), `from`/`to`, `q`, `product` y paginación (`limit`, `before`+`beforeKey`). |
+| GET | `/api/admin/activity/meta` | **Administración**: categorías, acciones y personas para pintar los filtros. |
 | GET | `/media/…` | Solo con el conductor de **disco**: sirve `catalogo/` y, con firma, `ejemplares/`. |
 | GET | `/admin/` | El **panel del local** (estáticos de `admin/`, con CSP estricta). |
 | GET | `/api/impact/water` | **Pública**: litros de agua ahorrados entre todos (contador de la web). |
@@ -177,7 +179,12 @@ comprobación en el código no aguanta.
 **Bitácoras.** `item_logs` (prendas) y `finance_logs` (dinero y personal) son de
 solo añadir: un disparador rechaza `UPDATE` y `DELETE`. Ninguna se devuelve al
 cliente. `item_photos` (fotos de estado) también: es la prueba que respalda
-retener una garantía.
+retener una garantía. `activity_logs` guarda lo que no mueve dinero ni el estado
+de una prenda: altas y ediciones de modelos y ejemplares, fotos de catálogo
+subidas, **quitadas** (la foto quitada no se borra del almacenamiento, para poder
+enseñar cuál fue) y reordenadas, y toda la taxonomía. `GET /api/admin/activity`
+(`src/activity.js`) junta las cuatro tablas en una lista sin escribir nada dos
+veces.
 
 ### Fotos
 
@@ -305,7 +312,9 @@ ejemplares. Un modelo sin ejemplares no sale en la app y el panel lo avisa; la
 lista se filtra por categoría, estado de los ejemplares, pendientes (sin
 ejemplares o fotos), talla, color, material, ocasión, temporada y público.
 **Taxonomía** (Inventario): añadir, renombrar, reordenar y borrar lo que nada
-usa en cada lista. La ficha de un modelo enseña su **precio** (de dónde sale el
+usa en cada lista. **Bitácora** (Administración): todo lo que hizo el personal,
+agrupado por día, con filtros por categoría, acción, persona, fechas y texto (que
+busca también en el nombre de la prenda), y las fotos de cada acción. La ficha de un modelo enseña su **precio** (de dónde sale el
 primer día —fórmula, ajuste o suelo—, coste, escalera, garantía e historial) y
 Administración lo ajusta con vista previa.
 

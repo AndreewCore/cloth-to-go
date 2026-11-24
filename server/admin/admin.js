@@ -15,6 +15,7 @@ import {
 import { photoButton, photoPicker, showPhotos, thumb } from "./photos.js";
 import { catalogClick, loadCatalog, renderCatalog } from "./catalog.js";
 import { loadTaxonomyAdmin, renderTaxonomy, taxonomyClick } from "./taxonomy.js";
+import { activityClick, loadActivity, renderActivity, setActivityFilter } from "./activity.js";
 
 /** Mismo cliente OAuth que la app y la web (js/auth.js): es público. */
 const GOOGLE_CLIENT_ID = "115840486389-f3vitcouhua5eckn3grn1gk9kqb7ccjs.apps.googleusercontent.com";
@@ -96,6 +97,8 @@ function tabs() {
     { id: "stragglers", label: "Rezagadas", show: can("MOSTRADOR") },
     { id: "catalog", label: "Catálogo", show: can("INVENTARIO") },
     { id: "taxonomy", label: "Taxonomía", show: can("INVENTARIO") },
+    // Al extremo derecho: no es una tarea del día, es para revisar.
+    { id: "activity", label: "Bitácora", show: can("ADMINISTRACION"), end: true },
   ].filter((t) => t.show);
 }
 
@@ -114,7 +117,7 @@ function renderTabs() {
     ? state.stragglers.notReceived.length + state.stragglers.receivedNotWashed.length + state.stragglers.inLaundry.length
     : 0;
   nav.replaceChildren(...tabs().map((t) => h(
-    "button",
+    t.end ? "button.tab-end" : "button",
     { type: "button", role: "tab", "aria-selected": String(state.tab === t.id), dataset: { action: "tab", tab: t.id } },
     t.label,
     t.id === "stragglers" && rezagadas > 0 ? h("span.count", {}, rezagadas) : null,
@@ -140,6 +143,7 @@ async function loadTab() {
     if (state.tab === "items") state.items = await api("/api/admin/items");
     if (state.tab === "catalog") await loadCatalog();
     if (state.tab === "taxonomy") await loadTaxonomyAdmin();
+    if (state.tab === "activity") await loadActivity();
     // Las rezagadas se piden siempre que se pueda: alimentan el número de la pestaña.
     if (can("MOSTRADOR")) state.stragglers = await api("/api/admin/stragglers");
   } catch (err) {
@@ -158,6 +162,7 @@ function render() {
     stragglers: renderStragglers,
     catalog: () => renderCatalog(searchBar, matches),
     taxonomy: renderTaxonomy,
+    activity: renderActivity,
   }[state.tab];
   $("view").replaceChildren(...(view ? view() : []));
 }
@@ -568,7 +573,7 @@ document.addEventListener("click", async (e) => {
     case "photos":
       return showPhotos(item);
     default:
-      if (!catalogClick(el)) taxonomyClick(el);
+      if (!catalogClick(el) && !taxonomyClick(el)) activityClick(el, render);
   }
 });
 
@@ -576,10 +581,33 @@ document.addEventListener("click", async (e) => {
 // el valor elegido vive en `state` y el desplegable se vuelve a pintar con él.
 document.addEventListener("change", (e) => {
   const el = e.target;
+  if (el.dataset?.action === "activity-filter") {
+    // La bitácora se filtra en el servidor: recarga y devuelve el foco.
+    setActivityFilter(el.dataset.key, el.value, () => {
+      render();
+      document.querySelector(`[data-action="activity-filter"][data-key="${el.dataset.key}"]`)?.focus();
+    });
+    return;
+  }
   if (el.dataset?.action !== "catalog-filter") return;
   state.catalogFilters = { ...state.catalogFilters, [el.dataset.key]: el.value };
   render();
   document.querySelector(`[data-action="catalog-filter"][data-key="${el.dataset.key}"]`)?.focus();
+});
+
+// Texto de la bitácora: espera a que se deje de escribir, para no pedir una
+// página por cada tecla.
+let activityTimer;
+document.addEventListener("input", (e) => {
+  if (e.target.dataset?.action !== "activity-q") return;
+  const valor = e.target.value;
+  clearTimeout(activityTimer);
+  activityTimer = setTimeout(() => setActivityFilter("q", valor, () => {
+    render();
+    const campo = document.querySelector('[data-action="activity-q"]');
+    campo?.focus();
+    campo?.setSelectionRange(valor.length, valor.length);
+  }), 350);
 });
 
 document.addEventListener("input", (e) => {

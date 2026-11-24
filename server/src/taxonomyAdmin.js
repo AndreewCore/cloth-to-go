@@ -13,8 +13,18 @@
  */
 import prisma from "./db.js";
 import { CAPABILITY, hasCapability, httpError } from "./auth.js";
+import { ACTIVITY, logActivity } from "./logs.js";
 
 const SCALES = ["ROPA", "CALZADO"];
+
+/** Nombre de cada lista en singular, para las notas de la bitácora. */
+const LIST_LABEL = {
+  categories: "Categoría", colors: "Color", materials: "Material", sizes: "Talla",
+  occasions: "Ocasión", seasons: "Temporada", audiences: "Público",
+};
+
+/** Cómo se llama una fila en la nota: su nombre o, en tallas, escala y talla. */
+const rowName = (list, r) => (list === "sizes" ? `${r.label} (${r.scale === "CALZADO" ? "calzado" : "ropa"})` : r.name);
 
 /**
  * Cada lista: su modelo Prisma y cuántos modelos o ejemplares usan una
@@ -171,7 +181,18 @@ export function registerTaxonomyAdminRoutes(app, { requireCapability }) {
       ...(list.name === "sizes" ? { where: { scale: data.scale } } : {}),
     });
     data.sort = (ultima._max.sort ?? 0) + 1;
-    const fila = await prisma[list.model].create({ data });
+    const fila = await prisma.$transaction(async (tx) => {
+      const creada = await tx[list.model].create({ data });
+      const extra = list.name === "categories" ? ` · prefijo ${creada.prefix}`
+        : list.name === "colors" ? ` · ${creada.hex}`
+          : list.name === "materials" ? ` · lavado $${(creada.laundryCents / 100).toFixed(2)}` : "";
+      await logActivity(tx, {
+        action: ACTIVITY.TAXONOMIA_ALTA, actorId: req.user.id,
+        note: `${LIST_LABEL[list.name]} nueva: «${rowName(list.name, creada)}»${extra}`,
+        detail: { list: list.name, key: rowKey(list.name, creada) },
+      });
+      return creada;
+    });
     return reply.code(201).send({ ...fila, id: rowKey(list.name, fila), uses: 0 });
   });
 
@@ -203,7 +224,21 @@ export function registerTaxonomyAdminRoutes(app, { requireCapability }) {
       data.laundryCents = parseLaundry(b.laundryCents);
     }
     if (!Object.keys(data).length) throw httpError(400, "No hay nada que cambiar.");
-    const fila = await prisma[list.model].update({ where: whereFor(list.name, key), data });
+    const fila = await prisma.$transaction(async (tx) => {
+      const nueva = await tx[list.model].update({ where: whereFor(list.name, key), data });
+      const partes = [];
+      if ("name" in data && data.name !== actual.name) partes.push(`«${actual.name}» → «${data.name}»`);
+      if ("hex" in data && data.hex !== actual.hex) partes.push(`${actual.hex} → ${data.hex}`);
+      if ("laundryCents" in data && data.laundryCents !== actual.laundryCents) {
+        partes.push(`lavado $${(actual.laundryCents / 100).toFixed(2)} → $${(data.laundryCents / 100).toFixed(2)}`);
+      }
+      await logActivity(tx, {
+        action: ACTIVITY.TAXONOMIA_EDICION, actorId: req.user.id,
+        note: `${LIST_LABEL[list.name]} «${rowName(list.name, actual)}»: ${partes.join(" · ") || "sin cambios visibles"}`,
+        detail: { list: list.name, key, changes: data },
+      });
+      return nueva;
+    });
     return { ...fila, id: rowKey(list.name, fila), uses: await list.uses(key) };
   });
 
@@ -221,8 +256,16 @@ export function registerTaxonomyAdminRoutes(app, { requireCapability }) {
     if (keys.length !== actuales.size || !keys.every((k) => actuales.has(k))) {
       throw httpError(409, "La lista cambió mientras tanto; vuelve a cargar.");
     }
-    await prisma.$transaction(keys.map((k, i) =>
-      prisma[list.model].update({ where: whereFor(list.name, k), data: { sort: i + 1 } })));
+    await prisma.$transaction([
+      ...keys.map((k, i) => prisma[list.model].update({ where: whereFor(list.name, k), data: { sort: i + 1 } })),
+      prisma.activityLog.create({
+        data: {
+          action: ACTIVITY.TAXONOMIA_ORDEN, actorId: req.user.id,
+          note: `Nuevo orden de ${list.name === "sizes" ? `tallas de ${scale === "CALZADO" ? "calzado" : "ropa"}` : LIST_LABEL[list.name].toLowerCase()}`,
+          detail: { list: list.name, keys },
+        },
+      }),
+    ]);
     return { ok: true };
   });
 
@@ -237,7 +280,14 @@ export function registerTaxonomyAdminRoutes(app, { requireCapability }) {
     if (n > 0) {
       throw httpError(409, `No se puede borrar: la usa${n === 1 ? "" : "n"} ${n} ${list.what}${n === 1 ? "" : "s"}. Puedes renombrarla.`);
     }
-    await prisma[list.model].delete({ where: whereFor(list.name, key) });
+    await prisma.$transaction(async (tx) => {
+      await tx[list.model].delete({ where: whereFor(list.name, key) });
+      await logActivity(tx, {
+        action: ACTIVITY.TAXONOMIA_BAJA, actorId: req.user.id,
+        note: `${LIST_LABEL[list.name]} borrada: «${rowName(list.name, actual)}»`,
+        detail: { list: list.name, key },
+      });
+    });
     return reply.code(204).send();
   });
 }

@@ -14,6 +14,13 @@ import { routeId, validateMeasurements } from "./catalog.js";
 import { PHOTO_LIMITS, readPhotoUpload } from "./photos.js";
 import { BUCKET, catalogPhotoUrl, isStorageKey, newKey, requestOrigin } from "./storage.js";
 import { logValueChange } from "./pricingAdmin.js";
+import { ACTIVITY, logActivity } from "./logs.js";
+
+/** Nombre legible de cada campo del modelo, para la nota de la bitácora. */
+const FIELD_LABEL = {
+  name: "nombre", desc: "descripción", categoryKey: "categoría", material: "material", value: "valor",
+  stars: "estrellas", weightKg: "peso", brand: "marca", audienceKey: "público", seasonKey: "temporada",
+};
 
 const CONDITIONS = ["NUEVA", "COMO_NUEVA", "BUENA", "USO_VISIBLE"];
 const PHOTO_KINDS = ["SALIDA", "LLEGADA", "ESTADO"];
@@ -208,9 +215,16 @@ export function registerCatalogAdminRoutes(app, { requireCapability }, { storage
   // ajuste manual es otra ruta, de Administración.
   app.post("/api/products", { preHandler: inventario }, async (req, reply) => {
     const { data, occasions } = await parseModel(req.body, false);
-    const creado = await prisma.product.create({
-      data: { ...data, imgs: [], ...(occasions ? { occasions: { connect: occasions.map((key) => ({ key })) } } : {}) },
-      include: MODELO_PANEL,
+    const creado = await prisma.$transaction(async (tx) => {
+      const fila = await tx.product.create({
+        data: { ...data, imgs: [], ...(occasions ? { occasions: { connect: occasions.map((key) => ({ key })) } } : {}) },
+        include: MODELO_PANEL,
+      });
+      await logActivity(tx, {
+        action: ACTIVITY.MODELO_ALTA, actorId: req.user.id, productId: fila.id,
+        note: `Alta de «${fila.name}» (${fila.category.name}, $${fila.value}, ${fila.stars}★)`,
+      });
+      return fila;
     });
     return reply.code(201).send(modelForPanel(creado, storage, requestOrigin(req)));
   });
@@ -234,6 +248,13 @@ export function registerCatalogAdminRoutes(app, { requireCapability }, { storage
       });
       // Valor y estrellas mueven precio y garantía: quedan en la bitácora.
       await logValueChange(tx, antes, data, req.user.id);
+      const cambiados = Object.keys(data).filter((k) => data[k] !== antes[k]).map((k) => FIELD_LABEL[k] ?? k);
+      if (occasions) cambiados.push("ocasiones");
+      await logActivity(tx, {
+        action: ACTIVITY.MODELO_EDICION, actorId: req.user.id, productId: id,
+        note: `«${fila.name}»: cambió ${cambiados.join(", ") || "nada visible"}`,
+        detail: { fields: Object.keys(data), ...(occasions ? { occasions } : {}) },
+      });
       return fila;
     });
     return modelForPanel(actualizado, storage, requestOrigin(req));
@@ -256,7 +277,13 @@ export function registerCatalogAdminRoutes(app, { requireCapability }, { storage
         if (ahora.length + keys.length > PHOTO_LIMITS.maxFiles) {
           throw httpError(409, `Un modelo tiene ${PHOTO_LIMITS.maxFiles} fotos como máximo (ya tiene ${ahora.length}).`);
         }
-        return (await tx.product.update({ where: { id }, data: { imgs: [...ahora, ...keys] } })).imgs;
+        const fila = await tx.product.update({ where: { id }, data: { imgs: [...ahora, ...keys] } });
+        await logActivity(tx, {
+          action: ACTIVITY.FOTO_CATALOGO_SUBIDA, actorId: req.user.id, productId: id,
+          note: `${keys.length} foto${keys.length === 1 ? "" : "s"} subida${keys.length === 1 ? "" : "s"} a «${fila.name}»`,
+          detail: { keys },
+        });
+        return fila.imgs;
       });
       return { imgs, photos: imgs.map((img) => ({ img, url: panelPhotoUrl(storage, img, requestOrigin(req)) })) };
     } catch (err) {
@@ -266,22 +293,34 @@ export function registerCatalogAdminRoutes(app, { requireCapability }, { storage
   });
 
   // Reordena o quita fotos de catálogo: la lista nueva tiene que salir de la
-  // actual (no se cuela una ruta ajena). Las quitadas se borran del cubo.
+  // actual (no se cuela una ruta ajena). Las quitadas salen del catálogo pero
+  // NO se borran del cubo: la bitácora las enseña, para saber qué se quitó.
   app.put("/api/products/:id/photos", { preHandler: inventario }, async (req) => {
     const id = routeId(req.params.id, "Modelo");
     const pedidas = req.body?.imgs;
     if (!Array.isArray(pedidas) || !pedidas.every((x) => typeof x === "string") || new Set(pedidas).size !== pedidas.length) {
       throw httpError(400, "Envía la lista de fotos, sin repetir.");
     }
-    const { imgs, quitadas } = await prisma.$transaction(async (tx) => {
+    const { imgs } = await prisma.$transaction(async (tx) => {
       const ahora = await lockModelPhotos(tx, id);
       if (!pedidas.every((x) => ahora.includes(x))) throw httpError(409, "La lista de fotos cambió mientras tanto; vuelve a cargar.");
       const nuevo = await tx.product.update({ where: { id }, data: { imgs: pedidas } });
-      return { imgs: nuevo.imgs, quitadas: ahora.filter((x) => !pedidas.includes(x)) };
+      const quitadas = ahora.filter((x) => !pedidas.includes(x));
+      if (quitadas.length) {
+        await logActivity(tx, {
+          action: ACTIVITY.FOTO_CATALOGO_QUITADA, actorId: req.user.id, productId: id,
+          note: `${quitadas.length} foto${quitadas.length === 1 ? "" : "s"} quitada${quitadas.length === 1 ? "" : "s"} de «${nuevo.name}»`,
+          detail: { keys: quitadas },
+        });
+      } else if (pedidas.join() !== ahora.join()) {
+        await logActivity(tx, {
+          action: ACTIVITY.FOTOS_CATALOGO_ORDEN, actorId: req.user.id, productId: id,
+          note: `Nuevo orden de fotos de «${nuevo.name}»${pedidas[0] !== ahora[0] ? " (cambió la portada)" : ""}`,
+          detail: { before: ahora, after: pedidas },
+        });
+      }
+      return { imgs: nuevo.imgs };
     });
-    // Las rutas antiguas (`img/products/…`) son archivos del repositorio: se
-    // dejan de usar, pero no se borran.
-    await removeQuietly(storage, quitadas.filter(isStorageKey), req.log);
     return { imgs, photos: imgs.map((img) => ({ img, url: panelPhotoUrl(storage, img, requestOrigin(req)) })) };
   });
 
@@ -301,9 +340,19 @@ export function registerCatalogAdminRoutes(app, { requireCapability }, { storage
       data.measurements = b.measurements ?? null;
     }
     if (!Object.keys(data).length) throw httpError(400, "No hay nada que cambiar.");
-    const existe = await prisma.item.findUnique({ where: { id }, select: { id: true } });
-    if (!existe) throw httpError(404, "Ejemplar no encontrado.");
-    return prisma.item.update({ where: { id }, data });
+    return prisma.$transaction(async (tx) => {
+      const antes = await tx.item.findUnique({ where: { id }, include: { product: { select: { id: true, name: true } } } });
+      if (!antes) throw httpError(404, "Ejemplar no encontrado.");
+      const fila = await tx.item.update({ where: { id }, data });
+      const partes = [];
+      if ("condition" in data) partes.push(`condición: ${antes.condition ?? "—"} → ${data.condition ?? "—"}`);
+      if ("measurements" in data) partes.push("medidas");
+      await logActivity(tx, {
+        action: ACTIVITY.EJEMPLAR_EDICION, actorId: req.user.id, productId: antes.product.id, itemId: id,
+        note: `${antes.code ?? `#${id}`} (${antes.product.name}): ${partes.join(" · ")}`,
+      });
+      return fila;
+    });
   });
 
   // Fotos de estado de un ejemplar: al entregarlo (SALIDA), al recibirlo
