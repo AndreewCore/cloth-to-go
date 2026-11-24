@@ -160,3 +160,66 @@ dialog.wide { width: min(620px, calc(100vw - 32px)); }
 .thumb-btn img { width: 56px; height: 72px; object-fit: cover; border-radius: 6px; display: block; }
 .thumb-btn[aria-current="true"] { border-color: var(--accent); }
 dialog label.check { display: flex; align-items: center; gap: 8px; }
+
+/* ---------- selector de fotos ---------- */
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+dialog label.pick-btn, .pick-btn { display: inline-flex; width: max-content; align-items: center; }
+.pick-btn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.picker { display: grid; gap: 8px; }
+.picks { display: flex; flex-wrap: wrap; gap: 6px; }
+.pick { position: relative; margin: 0; }
+.pick img { width: 72px; height: 92px; object-fit: cover; border-radius: 8px; display: block; }
+.pick-x {
+  position: absolute; top: 2px; right: 2px; width: 24px; height: 24px; border-radius: 50%;
+  border: 0; background: rgba(0,0,0,.65); color: #fff; font-size: 16px; line-height: 1; cursor: pointer;
+}
+.picker-row { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 10px; }
+.receive-item { display: grid; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.receive-item:last-child { border-bottom: 0; }
+.receive-photos { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; padding-left: 26px; }
+dialog h4 { margin: 6px 0 0; font-size: 14px; }
+dialog .msg:empty { display: none; }
+.photo-caption { margin: 0; text-align: center; }
+
+/* ---------- catálogo ---------- */
+.grow { flex: 1; margin: 0; }
+.models { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.model {
+  display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px;
+}
+.model h3 { margin: 0 0 2px; font-size: 15px; }
+.model .chip { margin: 4px 4px 0 0; }
+.model-open { padding: 0; border: 0; background: none; cursor: pointer; border-radius: 6px; }
+.panel-box { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; }
+.facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px 16px; margin: 0; }
+.facts dt { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.facts dd { margin: 0; font-weight: 600; }
+.photo-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); margin-bottom: 10px; }
+.photo-card { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.photo-card img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; background: var(--line); }
+.photo-card figcaption { display: flex; justify-content: space-between; align-items: center; gap: 4px; padding: 6px; flex-wrap: wrap; }
+.photo-tools { display: flex; gap: 4px; margin-left: auto; }
+.grid2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+.checks { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+fieldset { border: 1px solid var(--line); border-radius: 8px; }
+
+@media (max-width: 600px) {
+  .grid2 { grid-template-columns: 1fr; }
+  .model { grid-template-columns: auto 1fr; }
+  .model > .btn { grid-column: 1 / -1; }
+}
+
+/* ---------- filtros del catálogo ---------- */
+.filters {
+  display: grid; gap: 8px 10px; align-items: end; margin-bottom: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+.filters label { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+.filters select { width: 100%; }
+@media (max-width: 600px) {
+  .filters { grid-template-columns: 1fr 1fr; }
+}

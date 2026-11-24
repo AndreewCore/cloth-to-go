@@ -4,3 +4,6 @@ allowBuilds:
   '@prisma/client': true
   '@prisma/engines': true
   prisma: true
+  # sharp trae su binario precompilado (@img/sharp-<plataforma>); su script
+  # solo compilaría libvips desde el código fuente, que no hace falta.
+  sharp: false

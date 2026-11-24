@@ -19,20 +19,30 @@ const PHOTOS = fileURLToPath(new URL("../../img/products/", import.meta.url));
 /**
  * CSP del panel. Solo el propio origen y lo imprescindible de Google Identity
  * (botón, ventana y su hoja de estilos). Sin `unsafe-inline`: un texto que se
- * cuele en el HTML no se ejecuta aunque falle el escapado.
+ * cuele en el HTML no se ejecuta aunque falle el escapado. `blob:` deja ver
+ * la vista previa de una foto elegida antes de subirla.
+ * @param {string} [supabaseUrl] Origen de Supabase Storage, si se usa.
+ * @returns {string}
  */
-export const ADMIN_CSP = [
-  "default-src 'self'",
-  "script-src 'self' https://accounts.google.com/gsi/client",
-  "style-src 'self' https://accounts.google.com/gsi/style",
-  "frame-src https://accounts.google.com/gsi/",
-  "connect-src 'self' https://accounts.google.com/gsi/",
-  "img-src 'self' data: https://*.googleusercontent.com",
-  "base-uri 'none'",
-  "form-action 'none'",
-  "frame-ancestors 'none'",
-  "object-src 'none'",
-].join("; ");
+export function adminCsp(supabaseUrl) {
+  // Con Supabase Storage las fotos (públicas y firmadas) vienen de su origen.
+  const fotos = supabaseUrl ? ` ${new URL(supabaseUrl).origin}` : "";
+  return [
+    "default-src 'self'",
+    "script-src 'self' https://accounts.google.com/gsi/client",
+    "style-src 'self' https://accounts.google.com/gsi/style",
+    "frame-src https://accounts.google.com/gsi/",
+    "connect-src 'self' https://accounts.google.com/gsi/",
+    `img-src 'self' data: blob: https://*.googleusercontent.com${fotos}`,
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+  ].join("; ");
+}
+
+/** CSP del panel con el entorno de este proceso. */
+export const ADMIN_CSP = adminCsp(process.env.SUPABASE_URL);
 
 /**
  * Registra los estáticos del panel y sus cabeceras de seguridad.

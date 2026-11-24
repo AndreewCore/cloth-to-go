@@ -69,3 +69,9 @@ services:
       # queda apagado y la web oculta la burbuja.
       - key: GEMINI_API_KEY
         sync: false
+      # Fotos del panel en Supabase Storage (ver DEPLOY.md). Sin ellas van al
+      # disco de Render, que se borra en cada despliegue.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false

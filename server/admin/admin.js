@@ -2,198 +2,23 @@
  * Panel del local (fase 4). Módulo ES: a diferencia de la app, el panel siempre
  * se sirve desde la API por HTTP, así que no necesita abrirse por `file://`.
  *
- * Todo lo que viene de la base se pinta con `textContent` (vía `h()`), nunca
- * con `innerHTML`: nombres de clientes, notas y direcciones son texto ajeno.
- * Los permisos que aquí esconden botones son comodidad; la comprobación real
- * la hace cada ruta del servidor.
+ * Este archivo lleva la sesión, las pestañas de operación y los eventos; las
+ * piezas comunes están en core.js, las fotos en photos.js y el catálogo en
+ * catalog.js. Los permisos que aquí esconden botones son comodidad; la
+ * comprobación real la hace cada ruta del servidor.
  */
+import {
+  $, PAY_LABEL, STATUS_LABEL, WEEKDAY, act, addDays, api, can, confirmWithNote, daysBetween, fmtDay,
+  formDialog, h, holidayName, hooks, isOpen, isoDate, lateDays, money, relDays, since, state, statusChip,
+  toast, todayISO, upload, when,
+} from "./core.js";
+import { photoButton, photoPicker, showPhotos, thumb } from "./photos.js";
+import { catalogClick, loadCatalog, renderCatalog } from "./catalog.js";
 
 /** Mismo cliente OAuth que la app y la web (js/auth.js): es público. */
 const GOOGLE_CLIENT_ID = "115840486389-f3vitcouhua5eckn3grn1gk9kqb7ccjs.apps.googleusercontent.com";
 /** sessionStorage y no localStorage: el panel se usa en equipos compartidos del local. */
 const SESSION_KEY = "clothToGo:admin:session";
-
-const STATUS_LABEL = {
-  DISPONIBLE: "Disponible",
-  RESERVADA: "Reservada",
-  EN_ALQUILER: "En alquiler",
-  EN_LAVADO: "En lavado",
-  NO_ALQUILABLE: "No alquilable",
-  PERDIDA: "Perdida",
-};
-const STATUS_TONE = { DISPONIBLE: "", RESERVADA: "warn", EN_ALQUILER: "warn", EN_LAVADO: "muted", NO_ALQUILABLE: "bad", PERDIDA: "bad" };
-const PAY_LABEL = { cash: "Efectivo", credit: "Crédito", debit: "Débito" };
-
-const state = {
-  token: null,
-  me: null,
-  tab: null,
-  orders: [],
-  items: [],
-  stragglers: null,
-  /** Días que el local no abre (`GET /api/config`); null hasta cargarlos. */
-  calendar: null,
-  filter: "",
-};
-
-const $ = (id) => document.getElementById(id);
-
-/* ---------- utilidades ---------- */
-
-/**
- * Crea un elemento. Los hijos de texto entran como nodos de texto, así que
- * ningún dato llega a interpretarse como HTML.
- * @param {string} tag Etiqueta, con clases opcionales: `"button.btn.primary"`.
- * @param {object} [attrs] Atributos (`dataset` se reparte en `data-*`).
- * @param {...(Node|string|number|null|false)} children Hijos; los falsos se omiten.
- * @returns {HTMLElement}
- */
-function h(tag, attrs = {}, ...children) {
-  const [name, ...classes] = tag.split(".");
-  const el = document.createElement(name);
-  if (classes.length) el.className = classes.join(" ");
-  for (const [k, v] of Object.entries(attrs ?? {})) {
-    if (v == null || v === false) continue;
-    if (k === "dataset") Object.assign(el.dataset, v);
-    else el.setAttribute(k, v === true ? "" : String(v));
-  }
-  for (const c of children.flat()) {
-    if (c == null || c === false) continue;
-    el.append(c instanceof Node ? c : String(c));
-  }
-  return el;
-}
-
-/** Centavos a "$12.34". */
-const money = (c) => `$${(c / 100).toFixed(2)}`;
-
-/** Día local `YYYY-MM-DD` de un instante (no `toISOString()`, que es UTC). */
-const localISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-/** Hoy en hora local, `YYYY-MM-DD`. */
-const todayISO = () => localISO(new Date());
-
-/** Fecha y hora cortas para las marcas de tiempo del servidor. */
-const when = (iso) => new Date(iso).toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short" });
-
-/* ---------- fechas de calendario ---------- */
-
-const DIA_MS = 86_400_000;
-const WEEKDAY = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
-const MONTH = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-
-/**
- * Las fechas `YYYY-MM-DD` se tratan como días de calendario en UTC: así sumar
- * días o sacar el día de la semana no depende de la zona horaria del equipo.
- */
-const isoDate = (iso) => new Date(`${iso}T00:00:00Z`);
-
-/** Suma días a una fecha `YYYY-MM-DD`. */
-const addDays = (iso, n) => new Date(isoDate(iso).getTime() + n * DIA_MS).toISOString().slice(0, 10);
-
-/** Días de calendario de `a` a `b` (negativo si `b` es anterior). */
-const daysBetween = (a, b) => Math.round((isoDate(b) - isoDate(a)) / DIA_MS);
-
-/** "lun 24 nov". */
-function fmtDay(iso) {
-  const d = isoDate(iso);
-  return `${WEEKDAY[d.getUTCDay()]} ${d.getUTCDate()} ${MONTH[d.getUTCMonth()]}`;
-}
-
-/** Nombre del feriado de ese día, si lo es. */
-const holidayName = (iso) => state.calendar?.holidays.find((x) => x.date === iso)?.name ?? null;
-
-/**
- * Indica si el local abre ese día. Es la misma regla que `isBusinessDay()` del
- * servidor; aquí solo sirve para dibujar y para anticipar los días extra, el
- * cobro lo calcula siempre el servidor.
- */
-function isOpen(iso) {
-  const cerrados = state.calendar?.closedWeekdays ?? [0, 6];
-  return !cerrados.includes(isoDate(iso).getUTCDay()) && !holidayName(iso);
-}
-
-/** Días hábiles después de `returnBy` hasta `until`, inclusive (como `lateDays()`). */
-function lateDays(returnBy, until) {
-  let n = 0;
-  for (let d = addDays(returnBy, 1), i = 0; d <= until && i < 366; d = addDays(d, 1), i++) {
-    if (isOpen(d)) n++;
-  }
-  return n;
-}
-
-/** "hace 3 días", "hoy", "en 2 días". */
-function relDays(iso) {
-  const n = daysBetween(todayISO(), iso);
-  if (n === 0) return "hoy";
-  if (n === 1) return "mañana";
-  if (n === -1) return "ayer";
-  return n > 0 ? `en ${n} días` : `hace ${-n} días`;
-}
-
-/** Instante del servidor como «hace N días», con la fecha exacta al pasar el ratón. */
-const since = (instant) => h("span", { title: when(instant) }, relDays(localISO(new Date(instant))));
-
-/** Indica si la sesión tiene la capacidad (Administración cuenta como todas). */
-function can(cap) {
-  const caps = state.me?.capabilities ?? [];
-  return caps.includes(cap) || caps.includes("ADMINISTRACION");
-}
-
-/** Muestra un aviso breve. */
-function toast(text, error = false) {
-  const t = $("toast");
-  t.textContent = text;
-  t.className = error ? "toast error" : "toast";
-  t.hidden = false;
-  clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => { t.hidden = true; }, 4000);
-}
-
-/** Chip con el estado interno de un ejemplar. */
-const statusChip = (s) => h(`span.chip${STATUS_TONE[s] ? `.${STATUS_TONE[s]}` : ""}`, {}, STATUS_LABEL[s] ?? s);
-
-/* ---------- API ---------- */
-
-/**
- * Llama a la API del mismo origen con la sesión. Un 401 cierra la sesión: el
- * token venció o lo revocaron, y seguir enseñando datos sería engañoso.
- * @param {string} path Ruta, p. ej. `/api/admin/orders`.
- * @param {object} [opts] `method` y `body` (se envía como JSON).
- * @returns {Promise<any>} Cuerpo de la respuesta.
- */
-async function api(path, { method = "GET", body } = {}) {
-  const res = await fetch(path, {
-    method,
-    headers: {
-      ...(state.token ? { authorization: `Bearer ${state.token}` } : {}),
-      ...(body !== undefined ? { "content-type": "application/json" } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-  if (res.status === 401 && state.token) {
-    signOut(false);
-    throw new Error("La sesión venció; vuelve a entrar.");
-  }
-  const data = res.status === 204 ? null : await res.json().catch(() => null);
-  if (!res.ok) throw new Error(data?.error ?? `Error ${res.status}`);
-  return data;
-}
-
-/**
- * Ejecuta una acción del panel, avisa del resultado y recarga la pestaña.
- * @param {() => Promise<any>} fn Acción.
- * @param {string} ok Mensaje de éxito.
- */
-async function act(fn, ok) {
-  try {
-    await fn();
-    toast(ok);
-    await loadTab();
-  } catch (err) {
-    toast(err.message, true);
-  }
-}
 
 /* ---------- sesión ---------- */
 
@@ -268,6 +93,7 @@ function tabs() {
     { id: "orders", label: "Pedidos", show: can("MOSTRADOR") || can("CAJA") },
     { id: "items", label: "Ejemplares", show: can("MOSTRADOR") || can("INVENTARIO") },
     { id: "stragglers", label: "Rezagadas", show: can("MOSTRADOR") },
+    { id: "catalog", label: "Catálogo", show: can("INVENTARIO") },
   ].filter((t) => t.show);
 }
 
@@ -310,6 +136,7 @@ async function loadTab() {
   try {
     if (state.tab === "orders") state.orders = await api("/api/admin/orders");
     if (state.tab === "items") state.items = await api("/api/admin/items");
+    if (state.tab === "catalog") await loadCatalog();
     // Las rezagadas se piden siempre que se pueda: alimentan el número de la pestaña.
     if (can("MOSTRADOR")) state.stragglers = await api("/api/admin/stragglers");
   } catch (err) {
@@ -322,7 +149,12 @@ async function loadTab() {
 
 /** Pinta la pestaña abierta. */
 function render() {
-  const view = { orders: renderOrders, items: renderItems, stragglers: renderStragglers }[state.tab];
+  const view = {
+    orders: renderOrders,
+    items: renderItems,
+    stragglers: renderStragglers,
+    catalog: () => renderCatalog(searchBar, matches),
+  }[state.tab];
   $("view").replaceChildren(...(view ? view() : []));
 }
 
@@ -468,12 +300,12 @@ function orderCard(o) {
     h("ul.lines", {}, o.lines.map((l) => h("li", {},
       h("span", {}, `${l.productName} `, h("span.meta", {}, `${l.code ?? `#${l.itemId}`} · ${l.size} · ${l.color}`)),
       h("span.line-actions", {},
-        photoButton(l.itemId, l.imgs),
+        photoButton(l.itemId),
         " ",
         l.receivedAt ? h("span.chip", { title: `Registrada ${when(l.receivedAt)}` }, `Volvió ${fmtDay(l.returnedOn)}`) : statusChip(l.status),
         " ",
         !l.receivedAt && l.status === "RESERVADA" && can("MOSTRADOR")
-          ? h("button.btn", { type: "button", disabled: o.start > hoy || null, title: o.start > hoy ? `Se entrega desde el ${fmtDay(o.start)}` : null, dataset: { action: "deliver", item: l.itemId } }, "Entregar")
+          ? h("button.btn", { type: "button", disabled: o.start > hoy || null, title: o.start > hoy ? `Se entrega desde el ${fmtDay(o.start)}` : null, dataset: { action: "deliver", order: o.id, item: l.itemId } }, "Entregar")
           : null,
       ),
     ))),
@@ -495,40 +327,6 @@ function orderCard(o) {
   );
 }
 
-/**
- * Abre un diálogo modal con un formulario y resuelve con sus datos, o con null
- * si se cancela.
- * @param {string} title Título.
- * @param {Node[]} fields Campos del formulario.
- * @param {string} submit Texto del botón de confirmar.
- * @param {{cancel?: boolean, wide?: boolean}} [opts] Sin botón de cancelar
- *   (diálogos que solo enseñan) o más ancho (fotos).
- * @returns {Promise<FormData|null>}
- */
-function formDialog(title, fields, submit, { cancel = true, wide = false } = {}) {
-  return new Promise((resolve) => {
-    const form = h("form", { method: "dialog" },
-      h("h3", {}, title),
-      ...fields,
-      h("div.actions", {},
-        cancel ? h("button.btn", { type: "button", value: "cancel" }, "Cancelar") : null,
-        h("button.btn.primary", { type: "submit" }, submit),
-      ),
-    );
-    const dlg = h(wide ? "dialog.wide" : "dialog", {}, form);
-    let datos = null;
-    form.querySelector('button[value="cancel"]')?.addEventListener("click", () => dlg.close());
-    form.addEventListener("submit", (e) => {
-      e.preventDefault();
-      datos = new FormData(form);
-      dlg.close();
-    });
-    dlg.addEventListener("close", () => { dlg.remove(); resolve(datos); });
-    document.body.append(dlg);
-    dlg.showModal();
-  });
-}
-
 /** Diálogo de recepción: qué prendas, qué día volvieron de verdad y observación. */
 async function receiveOrder(id) {
   const o = state.orders.find((x) => x.id === id);
@@ -540,38 +338,82 @@ async function receiveOrder(id) {
   fecha.addEventListener("input", () => {
     if (/^\d{4}-\d{2}-\d{2}$/.test(fecha.value)) vista.replaceChildren(dayStrip(o, fecha.value));
   });
+  // Una tanda de fotos por prenda: así cada foto queda atada a su ejemplar y
+  // se puede comparar con las de su salida.
+  const fichas = recibibles.map((l) => ({ l, picker: photoPicker({ label: "Fotos de cómo llegó" }) }));
+  const marcadas = (form) => new Set(new FormData(form).getAll("item").map(Number));
   const datos = await formDialog(`Devolución del pedido #${id}`, [
     h("p.meta", {}, `Límite sin costo: ${fmtDay(o.returnBy)}. Los días hábiles después se cobran como días extra.`),
     h("label", {}, "Día en que volvió de verdad", fecha),
     vista,
     h("fieldset", {}, h("legend", {}, "Prendas que volvieron"),
-      recibibles.map((l) => h("label.check", {},
-        h("input", { type: "checkbox", name: "item", value: l.itemId, checked: true }),
-        thumb(l.imgs),
-        ` ${l.productName} (${l.code ?? `#${l.itemId}`})`,
+      fichas.map(({ l, picker }) => h("div.receive-item", {},
+        h("label.check", {},
+          h("input", { type: "checkbox", name: "item", value: l.itemId, checked: true }),
+          thumb(l.imgs),
+          ` ${l.productName} (${l.code ?? `#${l.itemId}`})`),
+        h("div.receive-photos", {},
+          h("button.btn.small", { type: "button", dataset: { action: "photos", item: l.itemId } }, "Ver cómo salió"),
+          picker.el),
       ))),
     h("label", {}, "Observación (opcional)", h("textarea", { name: "note", maxlength: 500, rows: 2 })),
-  ], "Registrar", { wide: true });
-  if (!datos) return;
-  const itemIds = datos.getAll("item").map(Number);
-  if (!itemIds.length) return toast("Marca al menos una prenda.", true);
-  await act(
-    () => api(`/api/orders/${id}/receive`, {
-      method: "POST",
-      body: { returnedOn: datos.get("returnedOn"), itemIds, note: datos.get("note") || undefined },
-    }),
-    "Devolución registrada.",
-  );
+  ], "Registrar", {
+    wide: true,
+    validate: (form) => {
+      const elegidas = marcadas(form);
+      if (!elegidas.size) return "Marca al menos una prenda.";
+      const sinFoto = fichas.find(({ l, picker }) => elegidas.has(l.itemId) && !picker.count());
+      return sinFoto ? `Falta al menos una foto de cómo llegó ${sinFoto.l.productName}.` : null;
+    },
+  });
+  try {
+    if (!datos) return;
+    const itemIds = datos.getAll("item").map(Number);
+    // Las fotos primero: si la subida falla, no queda registrada una
+    // devolución sin su prueba, y se puede reintentar entera.
+    for (const { l, picker } of fichas.filter(({ l: x }) => itemIds.includes(x.itemId))) {
+      await upload(`/api/items/${l.itemId}/photos`, await picker.files(), { kind: "LLEGADA", orderId: String(id) });
+    }
+    await act(
+      () => api(`/api/orders/${id}/receive`, {
+        method: "POST",
+        body: { returnedOn: datos.get("returnedOn"), itemIds, note: datos.get("note") || undefined },
+      }),
+      "Devolución registrada con sus fotos.",
+    );
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    fichas.forEach(({ picker }) => picker.dispose());
+  }
 }
 
-/** Pide una confirmación con nota opcional; null si se cancela. */
-async function confirmWithNote(title, text, submit, noteRequired = false) {
-  const datos = await formDialog(title, [
-    h("p", {}, text),
-    h("label", {}, noteRequired ? "Motivo" : "Observación (opcional)",
-      h("textarea", { name: "note", maxlength: 500, rows: 2, required: noteRequired || null })),
-  ], submit);
-  return datos ? { note: datos.get("note") || undefined } : null;
+/**
+ * Entrega una prenda: pide fotos de cómo sale (son la referencia con la que
+ * se comparará al volver) y la pasa a En Alquiler.
+ * @param {number} orderId Pedido.
+ * @param {number} itemId Ejemplar.
+ */
+async function deliverItem(orderId, itemId) {
+  const l = state.orders.find((o) => o.id === orderId)?.lines.find((x) => x.itemId === itemId);
+  const picker = photoPicker({ label: "Fotos de cómo sale" });
+  const datos = await formDialog(`Entregar ${l?.productName ?? "prenda"} (${l?.code ?? `#${itemId}`})`, [
+    h("p.meta", {}, "Fotografía la prenda tal como sale: de frente, de espalda y cualquier detalle (manchas, botones, costuras). Es lo que se compara cuando vuelva."),
+    h("button.btn.small", { type: "button", dataset: { action: "photos", item: itemId } }, "Ver fotos del catálogo"),
+    picker.el,
+  ], "Entregar", { wide: true, validate: () => (picker.count() ? null : "Saca al menos una foto de cómo sale.") });
+  try {
+    if (!datos) return;
+    await upload(`/api/items/${itemId}/photos`, await picker.files(), { kind: "SALIDA", orderId: String(orderId) });
+    await act(
+      () => api(`/api/items/${itemId}/status`, { method: "POST", body: { to: "EN_ALQUILER", note: "Entregada al cliente" } }),
+      "Prenda entregada con sus fotos.",
+    );
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    picker.dispose();
+  }
 }
 
 /* ---------- Ejemplares ---------- */
@@ -594,7 +436,7 @@ function renderItems() {
           i.unrentableReason ? h("div.meta", {}, i.unrentableReason === "RETIRADA" ? "Retirada" : "Desperfecto") : null),
         h("td", {}, since(i.statusSince)),
         h("td.row-actions", {},
-          photoButton(i.id, i.imgs), " ",
+          photoButton(i.id), " ",
           h("button.btn", { type: "button", dataset: { action: "log", item: i.id } }, "Bitácora"), " ",
           can("MOSTRADOR") && i.next.length
             ? h("button.btn", { type: "button", dataset: { action: "move", item: i.id } }, "Cambiar estado") : null),
@@ -658,74 +500,6 @@ async function showLog(id) {
   ], "Cerrar", { cancel: false });
 }
 
-/* ---------- Fotos ---------- */
-
-/**
- * URL servible de una foto del modelo. Las del catálogo son rutas del sitio
- * (`img/products/…`) que el panel sirve en `/admin/fotos/`.
- * @param {string} path Ruta guardada en `products.imgs`.
- * @returns {string|null}
- */
-function photoSrc(path) {
-  if (typeof path !== "string") return null;
-  if (path.startsWith("img/products/")) return `fotos/${path.slice("img/products/".length)}`;
-  return null;
-}
-
-/** Miniatura de la portada; un hueco del mismo tamaño si no hay foto. */
-function thumb(imgs) {
-  const src = photoSrc(imgs?.[0]);
-  if (!src) return h("span.thumb.none", { "aria-hidden": "true" });
-  const img = h("img.thumb", { src, alt: "", loading: "lazy" });
-  img.addEventListener("error", () => img.replaceWith(h("span.thumb.none", { "aria-hidden": "true" })));
-  return img;
-}
-
-/** Botón «Ver foto» de un ejemplar; nada si el modelo no tiene fotos. */
-function photoButton(itemId, imgs) {
-  if (!imgs?.some(photoSrc)) return null;
-  return h("button.btn.small", { type: "button", dataset: { action: "photos", item: itemId } }, "Ver foto");
-}
-
-/** Busca, en lo ya cargado, el nombre, código y fotos de un ejemplar. */
-function photosOf(itemId) {
-  const s = state.stragglers ?? {};
-  const fichas = [
-    ...state.items.map((i) => ({ ...i, itemId: i.id })),
-    ...state.orders.flatMap((o) => o.lines),
-    ...(s.notReceived ?? []), ...(s.receivedNotWashed ?? []), ...(s.inLaundry ?? []),
-  ];
-  return fichas.find((f) => f.itemId === itemId && f.imgs) ?? null;
-}
-
-/** Galería del modelo de un ejemplar: foto grande y miniaturas para cambiar. */
-async function showPhotos(itemId) {
-  const f = photosOf(itemId);
-  const fotos = (f?.imgs ?? []).map(photoSrc).filter(Boolean);
-  if (!fotos.length) return toast("Esta prenda no tiene fotos.", true);
-
-  const grande = h("img.photo", { alt: "" });
-  const fallo = h("p.empty", { hidden: true }, "No se pudo cargar la foto.");
-  grande.addEventListener("error", () => { grande.hidden = true; fallo.hidden = false; });
-  const miniaturas = fotos.map((src, i) => h("button.thumb-btn", { type: "button", "aria-label": `Foto ${i + 1} de ${fotos.length}` },
-    h("img", { src, alt: "" })));
-  const mostrar = (i) => {
-    grande.hidden = false;
-    fallo.hidden = true;
-    grande.src = fotos[i];
-    grande.alt = `${f.productName}, foto ${i + 1} de ${fotos.length}`;
-    miniaturas.forEach((b, j) => b.setAttribute("aria-current", String(i === j)));
-  };
-  miniaturas.forEach((b, i) => b.addEventListener("click", () => mostrar(i)));
-  mostrar(0);
-
-  await formDialog(`${f.productName} (${f.code ?? `#${itemId}`})`, [
-    h("div.gallery", {}, grande, fallo),
-    fotos.length > 1 ? h("div.thumbs", {}, miniaturas) : null,
-    h("p.meta", {}, "Foto del catálogo: es el modelo. Compara talla, color y detalles con la prenda que tienes delante."),
-  ], "Cerrar", { cancel: false, wide: true });
-}
-
 /* ---------- Rezagadas ---------- */
 
 /** Pestaña de rezagadas: lo que debió moverse y nadie movió (§3). */
@@ -737,7 +511,7 @@ function renderStragglers() {
       h("tbody", {}, filas.map((f) => h("tr", {}, f.map((c) => h("td", {}, c))))),
     ))
     : h("p.empty", {}, "Nada pendiente aquí.");
-  const prenda = (r) => h("span.line-actions", {}, `${r.productName} (${r.code ?? `#${r.itemId}`}) `, photoButton(r.itemId, r.imgs));
+  const prenda = (r) => h("span.line-actions", {}, `${r.productName} (${r.code ?? `#${r.itemId}`}) `, photoButton(r.itemId));
   return [
     h("h2", {}, "Vencidas sin recibir ", h("small", {}, "pasó la fecha límite y nadie registró la devolución")),
     // Días hábiles, como los cobra la recepción: los naturales asustarían de más.
@@ -768,7 +542,7 @@ document.addEventListener("click", async (e) => {
     case "sign-out":
       return signOut(true);
     case "deliver":
-      return act(() => api(`/api/items/${item}/status`, { method: "POST", body: { to: "EN_ALQUILER", note: "Entregada al cliente" } }), "Prenda entregada.");
+      return deliverItem(order, item);
     case "receive":
       return receiveOrder(order);
     case "settle": {
@@ -789,7 +563,19 @@ document.addEventListener("click", async (e) => {
       return showLog(item);
     case "photos":
       return showPhotos(item);
+    default:
+      catalogClick(el);
   }
+});
+
+// Los desplegables de filtros del catálogo: repintar no pierde nada, porque
+// el valor elegido vive en `state` y el desplegable se vuelve a pintar con él.
+document.addEventListener("change", (e) => {
+  const el = e.target;
+  if (el.dataset?.action !== "catalog-filter") return;
+  state.catalogFilters = { ...state.catalogFilters, [el.dataset.key]: el.value };
+  render();
+  document.querySelector(`[data-action="catalog-filter"][data-key="${el.dataset.key}"]`)?.focus();
 });
 
 document.addEventListener("input", (e) => {
@@ -804,6 +590,11 @@ document.addEventListener("input", (e) => {
 });
 
 /* ---------- arranque ---------- */
+
+// Lo que core.js y catalog.js piden de aquí sin importarlo.
+hooks.unauthorized = () => signOut(false);
+hooks.reload = loadTab;
+hooks.render = render;
 
 /** Reanuda la sesión de esta pestaña si la hay; si no, enseña el login. */
 async function boot() {
