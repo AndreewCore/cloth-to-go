@@ -45,6 +45,36 @@ export function logItem(tx, { itemId, from, to, actorId = null, note = null, ord
   });
 }
 
+/** Acciones del panel que van a `activity_logs` (enum `ActivityAction`). */
+export const ACTIVITY = Object.freeze({
+  MODELO_ALTA: "MODELO_ALTA",
+  MODELO_EDICION: "MODELO_EDICION",
+  FOTO_CATALOGO_SUBIDA: "FOTO_CATALOGO_SUBIDA",
+  FOTO_CATALOGO_QUITADA: "FOTO_CATALOGO_QUITADA",
+  FOTOS_CATALOGO_ORDEN: "FOTOS_CATALOGO_ORDEN",
+  EJEMPLAR_EDICION: "EJEMPLAR_EDICION",
+  TAXONOMIA_ALTA: "TAXONOMIA_ALTA",
+  TAXONOMIA_EDICION: "TAXONOMIA_EDICION",
+  TAXONOMIA_ORDEN: "TAXONOMIA_ORDEN",
+  TAXONOMIA_BAJA: "TAXONOMIA_BAJA",
+});
+
+/**
+ * Anota una acción del panel (catálogo, fotos, taxonomía).
+ * @param {object} tx Cliente Prisma o transacción.
+ * @param {object} entry Entrada.
+ * @param {string} entry.action Uno de ACTIVITY.
+ * @param {string} entry.note Qué pasó, en lenguaje humano.
+ * @param {number|null} [entry.actorId] Quién; null = consola o sistema.
+ * @param {number|null} [entry.productId] Modelo afectado.
+ * @param {number|null} [entry.itemId] Ejemplar afectado.
+ * @param {object|null} [entry.detail] Datos estructurados (p. ej. claves de fotos).
+ * @returns {Promise<object>} Fila creada.
+ */
+export function logActivity(tx, { action, note, actorId = null, productId = null, itemId = null, detail = null }) {
+  return tx.activityLog.create({ data: { action, note, actorId, productId, itemId, detail: detail ?? undefined } });
+}
+
 /**
  * Anota un hecho de dinero o de personal.
  * @param {object} tx Cliente Prisma o transacción.

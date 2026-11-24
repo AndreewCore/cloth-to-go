@@ -520,7 +520,7 @@ export function catalogClick(el) {
       return true;
     }
     case "photo-remove":
-      formDialog("Quitar foto", [h("p", {}, "La foto sale del catálogo y se borra del almacenamiento.")], "Quitar")
+      formDialog("Quitar foto", [h("p", {}, "La foto sale del catálogo. Se conserva en la Bitácora, con quién la quitó y cuándo.")], "Quitar")
         .then((ok) => ok && savePhotoOrder(p, p.imgs.filter((_, j) => j !== i), "Foto quitada."));
       return true;
     case "item-new":

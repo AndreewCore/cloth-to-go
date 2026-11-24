@@ -252,6 +252,7 @@ model Product {
   createdAt       DateTime      @default(now())
   items           Item[]
   financeLogs     FinanceLog[]
+  activity        ActivityLog[]
 
   @@map("products")
 }
@@ -335,6 +336,7 @@ model Item {
   charges          Charge[]
   logs             ItemLog[]
   photos           ItemPhoto[]
+  activity         ActivityLog[]
 
   @@index([productId])
   @@map("items")
@@ -397,6 +399,7 @@ model User {
   sessions     Session[]
   received     OrderItem[]  @relation("OrderItemReceiver")
   photosTaken  ItemPhoto[]  @relation("ItemPhotoTaker")
+  activity     ActivityLog[]
   points       PointsEntry[]
   coupons      Coupon[]
 
@@ -758,4 +761,41 @@ model ItemPhoto {
 
   @@index([itemId])
   @@map("item_photos")
+}
+
+/// Acciones del panel que no mueven dinero ni el estado de una prenda (esas ya
+/// tienen su bitácora): catálogo, fotos y taxonomía.
+enum ActivityAction {
+  MODELO_ALTA
+  MODELO_EDICION
+  FOTO_CATALOGO_SUBIDA
+  FOTO_CATALOGO_QUITADA
+  FOTOS_CATALOGO_ORDEN
+  EJEMPLAR_EDICION
+  TAXONOMIA_ALTA
+  TAXONOMIA_EDICION
+  TAXONOMIA_ORDEN
+  TAXONOMIA_BAJA
+}
+
+/// Bitácora de acciones del panel. Como las otras, solo se añade: es lo que se
+/// consulta cuando alguien pregunta «¿quién quitó esta foto?».
+model ActivityLog {
+  id        Int            @id @default(autoincrement())
+  action    ActivityAction
+  /// Quién. Null = consola o sistema.
+  actorId   Int?
+  actor     User?          @relation(fields: [actorId], references: [id], onDelete: Restrict)
+  productId Int?
+  product   Product?       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  itemId    Int?
+  item      Item?          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  note      String
+  /// Datos estructurados de la acción, p. ej. las claves de las fotos.
+  detail    Json?
+  createdAt DateTime       @default(now())
+
+  @@index([createdAt])
+  @@index([productId])
+  @@map("activity_logs")
 }

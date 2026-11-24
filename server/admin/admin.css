@@ -237,3 +237,20 @@ input[type="color"] { padding: 2px; width: 64px; height: 36px; }
 .ladder tbody th { text-align: left; }
 .panel-box .ladder { margin: 12px 0; }
 .panel-box h4 { margin: 14px 0 4px; }
+
+/* ---------- bitácora ---------- */
+.chip.info { background: #dfeaf7; color: #24507f; }
+@media (prefers-color-scheme: dark) { .chip.info { background: #1f2f42; color: #9cc4ee; } }
+.filters .grow-2 { grid-column: span 2; }
+.activity-day h3 { font-size: 14px; text-transform: capitalize; color: var(--muted); margin: 18px 0 6px; }
+.activity-list { list-style: none; margin: 0; padding: 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+.activity { display: grid; grid-template-columns: 64px 1fr; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.activity:last-child { border-bottom: 0; }
+.activity-when { display: grid; align-content: start; font-variant-numeric: tabular-nums; }
+.activity-note { margin-top: 3px; font-size: 14px; overflow-wrap: anywhere; }
+.activity-photos { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.activity-photos img { width: 48px; height: 62px; }
+@media (max-width: 600px) {
+  .filters .grow-2 { grid-column: 1 / -1; }
+  .activity { grid-template-columns: 52px 1fr; }
+}
