@@ -19,6 +19,7 @@ import { registerItemRoutes } from "./items.js";
 import { registerOperationRoutes } from "./operations.js";
 import { registerCatalogAdminRoutes } from "./catalogAdmin.js";
 import { registerTaxonomyAdminRoutes } from "./taxonomyAdmin.js";
+import { registerPricingAdminRoutes } from "./pricingAdmin.js";
 import { MULTIPART_LIMITS, createUploadLimiter } from "./photos.js";
 import { storageFromEnv } from "./storage.js";
 import { registerImpactRoutes } from "./impact.js";
@@ -177,6 +178,7 @@ export function buildApp(opts = {}) {
   registerQuoteRoutes(app, guards);
   registerOperationRoutes(app, guards, { storage });
   registerTaxonomyAdminRoutes(app, guards);
+  registerPricingAdminRoutes(app, guards);
 
   // Panel de administración (fase 4): estáticos del mismo origen que la API,
   // así no necesita CORS ni conocer la URL de la API.

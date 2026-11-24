@@ -21,6 +21,125 @@ export async function loadCatalog() {
   ]);
   state.products = productos;
   state.taxonomy = taxonomia;
+  // El precio del modelo abierto también: una edición de valor o estrellas lo mueve.
+  if (state.openProduct) await loadPricing(state.openProduct);
+}
+
+/** Carga el precio de un modelo con su historial. */
+async function loadPricing(id) {
+  state.pricing[id] = await api(`/api/products/${id}/pricing`);
+}
+
+/** Días que se enseñan de la escalera: los que más se alquilan. */
+const LADDER_SHOWN = [1, 2, 3, 5, 7, 14];
+
+/** "$3.00". */
+const usd = (x) => `$${Number(x).toFixed(2)}`;
+
+/** Escalera resumida: precio total por días. */
+const ladderTable = (ladder) => h("div.table-wrap", {}, h("table.ladder", {},
+  h("thead", {}, h("tr", {}, h("th", {}, "Días"), LADDER_SHOWN.map((d) => h("th", {}, d)))),
+  h("tbody", {}, h("tr", {}, h("th", {}, "Total"), LADDER_SHOWN.map((d) => h("td", {}, usd(ladder[d - 1])))))));
+
+/**
+ * De dónde sale el precio del primer día. En prendas baratas manda el suelo
+ * y no la fórmula: decirlo evita pensar que las estrellas lo fijaron.
+ */
+function origenPrimerDia(pr) {
+  const base = pr.priceOverride ?? pr.formulaDay1;
+  const quien = pr.priceOverride != null ? "el ajuste manual" : `la fórmula (${pr.stars} estrella${pr.stars === 1 ? "" : "s"})`;
+  if (pr.ladder[0] > base) return `lo fija el suelo: ${quien} daría ${usd(base)}`;
+  return pr.priceOverride != null ? `ajuste manual (la fórmula daría ${usd(pr.formulaDay1)})` : `fórmula por ${pr.stars} estrella${pr.stars === 1 ? "" : "s"}`;
+}
+
+/**
+ * Sección Precio de la ficha: de dónde sale el primer día, el coste y el
+ * suelo, la escalera, la garantía y quién cambió qué. Ajustar es de
+ * Administración; el resto lo ve Inventario.
+ */
+function pricingSection(p) {
+  const pr = state.pricing[p.id];
+  if (!pr) return [h("h3", {}, "Precio"), h("p.meta", {}, "Cargando…")];
+  const dato = (label, valor, nota) => [h("dt", {}, label), h("dd", {}, valor, nota ? h("div.meta", {}, nota) : null)];
+  const cuando = (at) => new Date(at).toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short" });
+  return [
+    h("h3", {}, "Precio ", h("small.meta", {}, "lo calcula el servidor; el cliente ve esta misma escalera")),
+    h("section.panel-box", {},
+      h("dl.facts", {},
+        dato("Primer día", usd(pr.ladder[0]), origenPrimerDia(pr)),
+        dato("Coste por ciclo", usd(pr.cycleCost), `incluye lavado de ${usd(pr.laundry)}`),
+        dato("Suelo", usd(pr.floor), "ningún alquiler se cobra por debajo"),
+        dato("Garantía", `$${pr.deposit}`, pr.depositOverride != null ? `fija (la fórmula daría $${pr.depositFormula})` : "40 % del valor, con tope"),
+      ),
+      ladderTable(pr.ladder),
+      pr.pricing !== "CTG"
+        ? h("p.meta", {}, "Este modelo usa la tarifa de su socio: CTG no la ajusta.")
+        : can("ADMINISTRACION")
+          ? h("button.btn", { type: "button", dataset: { action: "price-adjust", product: p.id } }, "Ajustar precio")
+          : h("p.meta", {}, "Ajustar el precio es de la administración."),
+      h("h4", {}, "Historial"),
+      pr.history.length
+        ? h("ul.lines", {}, pr.history.map((x) => h("li", {}, h("span", {}, x.note), h("span.meta", {}, `${cuando(x.at)} · ${x.by}`))))
+        : h("p.meta", {}, "Sin cambios desde el alta."),
+    ),
+  ];
+}
+
+/**
+ * Diálogo de ajuste con vista previa: cada cambio pide al servidor la
+ * escalera que saldría (sin guardar), así lo que se ve es lo que se cobrará.
+ */
+async function adjustPrice(p) {
+  const pr = state.pricing[p.id];
+  const dia = h("input", { name: "day1", type: "number", min: 0, step: "0.01", placeholder: `Fórmula: ${pr.formulaDay1.toFixed(2)}`, value: pr.priceOverride ?? "" });
+  const garantia = h("input", { name: "deposit", type: "number", min: 1, max: 500, step: "1", placeholder: `Fórmula: ${pr.depositFormula}`, value: pr.depositOverride ?? "" });
+  const previa = h("div", {}, ladderTable(pr.ladder));
+  const aviso = h("p.msg", { role: "status" });
+  let turno = 0;
+  const actualizar = async () => {
+    const mio = ++turno;
+    const q = new URLSearchParams({ priceOverride: dia.value, depositOverride: garantia.value });
+    try {
+      const v = await api(`/api/products/${p.id}/pricing?${q}`);
+      if (mio !== turno) return; // Llegó tarde: ya hay una consulta más nueva.
+      aviso.textContent = v.error ?? "";
+      previa.replaceChildren(ladderTable(v.ladder), h("p.meta", {}, `Garantía: $${v.deposit}`));
+    } catch (err) {
+      if (mio === turno) aviso.textContent = err.message;
+    }
+  };
+  let espera;
+  for (const input of [dia, garantia]) {
+    input.addEventListener("input", () => { clearTimeout(espera); espera = setTimeout(actualizar, 250); });
+  }
+
+  const datos = await formDialog(`Precio de ${p.name}`, [
+    h("p.meta", {}, `Vacío = fórmula. El primer día no puede bajar del coste por ciclo (${usd(pr.cycleCost)}); los días siguientes siguen la escalera.`),
+    h("div.grid2", {},
+      h("label", {}, "Primer día (USD)", dia),
+      h("label", {}, "Garantía fija (USD enteros)", garantia)),
+    h("h4", {}, "Así quedaría"),
+    previa,
+    aviso,
+    h("label", {}, "Motivo (queda en el historial)", h("textarea", { name: "note", maxlength: 300, rows: 2 })),
+  ], "Guardar precio", { wide: true });
+  clearTimeout(espera);
+  if (!datos) return;
+
+  const body = {};
+  const nuevoDia = datos.get("day1") === "" ? null : Number(datos.get("day1"));
+  const nuevaGarantia = datos.get("deposit") === "" ? null : Number(datos.get("deposit"));
+  if (nuevoDia !== pr.priceOverride) body.priceOverride = nuevoDia;
+  if (nuevaGarantia !== pr.depositOverride) body.depositOverride = nuevaGarantia;
+  if (!Object.keys(body).length) return toast("No cambió nada.");
+  if (datos.get("note")) body.note = datos.get("note");
+  try {
+    await api(`/api/products/${p.id}/pricing`, { method: "PATCH", body });
+    toast("Precio guardado.");
+    await hooks.reload();
+  } catch (err) {
+    toast(err.message, true);
+  }
 }
 
 /** Nombre de una clave de la taxonomía. */
@@ -160,6 +279,8 @@ function renderModel(p) {
         dato("Ocasiones", p.occasions.map((o) => nombre("occasions", o)).join(", ") || null),
       ),
       p.desc ? h("p", {}, p.desc) : null),
+
+    ...pricingSection(p),
 
     h("h3", {}, "Fotos del catálogo ", h("small.meta", {}, `${p.photos.length} de ${MAX_PHOTOS} · la primera es la portada`)),
     p.photos.length ? h("div.photo-grid", {}, p.photos.map((f, i) => h("figure.photo-card", {},
@@ -372,6 +493,10 @@ export function catalogClick(el) {
       // El buscador y los filtros se conservan: al volver, la lista sigue igual.
       state.openProduct = p.id;
       hooks.render();
+      loadPricing(p.id).then(hooks.render, (err) => toast(err.message, true));
+      return true;
+    case "price-adjust":
+      adjustPrice(p);
       return true;
     case "catalog-filters-clear":
       state.catalogFilters = { ...CATALOG_FILTERS_DEFAULT };
