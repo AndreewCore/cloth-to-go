@@ -231,3 +231,9 @@ fieldset { border: 1px solid var(--line); border-radius: 8px; }
 .tax-section h4 { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; }
 .swatch { display: inline-block; width: 16px; height: 16px; border-radius: 4px; border: 1px solid var(--line); vertical-align: middle; }
 input[type="color"] { padding: 2px; width: 64px; height: 36px; }
+
+/* ---------- precio ---------- */
+.ladder th, .ladder td { text-align: center; font-variant-numeric: tabular-nums; }
+.ladder tbody th { text-align: left; }
+.panel-box .ladder { margin: 12px 0; }
+.panel-box h4 { margin: 14px 0 4px; }

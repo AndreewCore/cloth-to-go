@@ -251,6 +251,7 @@ model Product {
   depositOverride Int?
   createdAt       DateTime      @default(now())
   items           Item[]
+  financeLogs     FinanceLog[]
 
   @@map("products")
 }
@@ -584,6 +585,9 @@ enum FinanceEvent {
   CAPACIDADES
   /// Días extra cobrados al recibir una prenda pasada su ventana (§6.0).
   DIAS_EXTRA
+  /// Cambio de lo que fija el precio de un modelo: ajuste manual del primer
+  /// día, garantía fija, valor de reposición o estrellas.
+  PRECIO
 }
 
 /// Bitácora financiera: por qué se movió (o no) dinero de un pedido, y quién
@@ -599,11 +603,15 @@ model FinanceLog {
   /// Persona afectada cuando no es un pedido (las altas de personal).
   subjectUserId Int?
   subjectUser   User?        @relation("FinanceSubject", fields: [subjectUserId], references: [id], onDelete: Restrict)
+  /// Modelo afectado en los cambios de precio.
+  productId     Int?
+  product       Product?     @relation(fields: [productId], references: [id], onDelete: Restrict)
   amountCents   Int?
   note          String
   createdAt     DateTime     @default(now())
 
   @@index([orderId])
+  @@index([productId])
   @@map("finance_logs")
 }
 

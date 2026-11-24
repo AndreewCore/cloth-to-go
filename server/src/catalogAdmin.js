@@ -13,6 +13,7 @@ import { CAPABILITY, hasCapability, httpError } from "./auth.js";
 import { routeId, validateMeasurements } from "./catalog.js";
 import { PHOTO_LIMITS, readPhotoUpload } from "./photos.js";
 import { BUCKET, catalogPhotoUrl, isStorageKey, newKey, requestOrigin } from "./storage.js";
+import { logValueChange } from "./pricingAdmin.js";
 
 const CONDITIONS = ["NUEVA", "COMO_NUEVA", "BUENA", "USO_VISIBLE"];
 const PHOTO_KINDS = ["SALIDA", "LLEGADA", "ESTADO"];
@@ -223,12 +224,17 @@ export function registerCatalogAdminRoutes(app, { requireCapability }, { storage
       throw httpError(403, "Cambiar el valor o las estrellas mueve el precio: es de la administración.");
     }
     if (!Object.keys(data).length && !occasions) throw httpError(400, "No hay nada que cambiar.");
-    const existe = await prisma.product.findUnique({ where: { id }, select: { id: true } });
-    if (!existe) throw httpError(404, "Modelo no encontrado.");
-    const actualizado = await prisma.product.update({
-      where: { id },
-      data: { ...data, ...(occasions ? { occasions: { set: occasions.map((key) => ({ key })) } } : {}) },
-      include: MODELO_PANEL,
+    const actualizado = await prisma.$transaction(async (tx) => {
+      const antes = await tx.product.findUnique({ where: { id } });
+      if (!antes) throw httpError(404, "Modelo no encontrado.");
+      const fila = await tx.product.update({
+        where: { id },
+        data: { ...data, ...(occasions ? { occasions: { set: occasions.map((key) => ({ key })) } } : {}) },
+        include: MODELO_PANEL,
+      });
+      // Valor y estrellas mueven precio y garantía: quedan en la bitácora.
+      await logValueChange(tx, antes, data, req.user.id);
+      return fila;
     });
     return modelForPanel(actualizado, storage, requestOrigin(req));
   });

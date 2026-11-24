@@ -11,7 +11,7 @@ import prisma from "./db.js";
 import { CAPABILITY, httpError } from "./auth.js";
 import { logItem } from "./logs.js";
 import { todayISO } from "./dates.js";
-import { depositFor, rentalPrice, validatePriceOverride } from "./pricing.js";
+import { depositFor, rentalPrice } from "./pricing.js";
 import { catalogPhotoUrl, requestOrigin } from "./storage.js";
 
 /** Id del dueño Oficial (CTG), sembrado por la migración. */
@@ -328,43 +328,6 @@ export function registerCatalogRoutes(app, { requireCapability }, { storage }) {
         return item;
       });
       return reply.code(201).send(creado);
-    },
-  );
-
-  // Ajuste manual del precio y garantía fija de un modelo con fórmula CTG.
-  app.patch(
-    "/api/products/:id/pricing",
-    { preHandler: requireCapability(CAPABILITY.ADMINISTRACION) },
-    async (req) => {
-      const id = routeId(req.params.id, "Modelo");
-      const body = req.body ?? {};
-      const modelo = await prisma.product.findUnique({ where: { id }, include: { materialRef: true } });
-      if (!modelo) throw httpError(404, "Modelo no encontrado.");
-      if (modelo.pricing !== "CTG") {
-        // Un local fija sus propias tarifas: CTG no le ajusta nada (§9).
-        throw httpError(409, "Este modelo usa la tarifa de su socio.");
-      }
-
-      const data = {};
-      if ("priceOverride" in body) {
-        const err = validatePriceOverride(
-          { ...modelo, laundryCost: modelo.materialRef.laundryCents / 100 },
-          body.priceOverride,
-        );
-        if (err) throw httpError(400, err);
-        data.priceOverride = body.priceOverride;
-      }
-      if ("depositOverride" in body) {
-        const d = body.depositOverride;
-        if (d !== null && !(Number.isInteger(d) && d > 0)) {
-          throw httpError(400, "La garantía fija va en dólares enteros y positivos.");
-        }
-        data.depositOverride = d;
-      }
-      if (Object.keys(data).length === 0) throw httpError(400, "No hay nada que ajustar.");
-
-      const actualizado = await prisma.product.update({ where: { id }, data });
-      return { id, priceOverride: actualizado.priceOverride, depositOverride: actualizado.depositOverride };
     },
   );
 }

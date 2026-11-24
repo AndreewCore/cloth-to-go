@@ -153,9 +153,16 @@ El cliente ve **modelos** (`products`); el mostrador maneja **ejemplares**
 - `POST /api/products/:id/items` — **Inventario**. Alta de un ejemplar con código
   `CAT-AA-NNNN` (prefijo de la categoría, año, correlativo que nunca se reutiliza).
   Los 16 ejemplares de demostración no llevan código.
+- `GET /api/products/:id/pricing` — **Inventario**. De dónde sale el precio:
+  fórmula del primer día, ajuste, coste por ciclo, suelo, escalera de 14 días,
+  garantía (fórmula y fija) y el historial de cambios. Con
+  `?priceOverride=…&depositOverride=…` es una **vista previa** que no guarda: usa
+  las mismas funciones que cobran (`src/pricingAdmin.js`).
 - `PATCH /api/products/:id/pricing` — **Administración**. Ajuste manual del precio
-  del primer día (`priceOverride`, nunca por debajo de `cycleCost()`) y garantía
-  fija opcional (`depositOverride`).
+  del primer día (`priceOverride`, nunca por debajo de `cycleCost()`; `null`
+  vuelve a la fórmula), garantía fija opcional (`depositOverride`) y un `note`
+  con el motivo. Cada cambio queda en `finance_logs` como `PRECIO`, con quién,
+  el antes y el después; también los cambios de valor o estrellas.
 - `GET /api/items/:id` — **Mostrador** o **Inventario**. Ficha interna con su bitácora.
 - `POST /api/items/:id/status` — **Mostrador**. Cambio manual de estado. Reservada
   la ponen y la quitan los pedidos; En Lavado exige `laundry: {kind, place}`;
@@ -298,7 +305,9 @@ ejemplares. Un modelo sin ejemplares no sale en la app y el panel lo avisa; la
 lista se filtra por categoría, estado de los ejemplares, pendientes (sin
 ejemplares o fotos), talla, color, material, ocasión, temporada y público.
 **Taxonomía** (Inventario): añadir, renombrar, reordenar y borrar lo que nada
-usa en cada lista.
+usa en cada lista. La ficha de un modelo enseña su **precio** (de dónde sale el
+primer día —fórmula, ajuste o suelo—, coste, escalera, garantía e historial) y
+Administración lo ajusta con vista previa.
 
 **Entregar** y **registrar la devolución** piden al menos una foto de cada
 prenda: la de salida es la referencia y la de llegada se compara con ella. Se

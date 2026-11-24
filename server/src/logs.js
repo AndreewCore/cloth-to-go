@@ -14,6 +14,7 @@ export const FINANCE_EVENT = Object.freeze({
   ANULACION: "ANULACION",
   CAPACIDADES: "CAPACIDADES",
   DIAS_EXTRA: "DIAS_EXTRA",
+  PRECIO: "PRECIO",
 });
 
 /**
@@ -54,9 +55,10 @@ export function logItem(tx, { itemId, from, to, actorId = null, note = null, ord
  * @param {number|null} [entry.actorId] Quién; null = consola o sistema.
  * @param {number|null} [entry.orderId] Pedido afectado.
  * @param {number|null} [entry.subjectUserId] Persona afectada (altas de personal).
+ * @param {number|null} [entry.productId] Modelo afectado (cambios de precio).
  * @param {number|null} [entry.amountCents] Importe implicado, si lo hay.
  * @returns {Promise<object>} Fila creada.
  */
-export function logFinance(tx, { kind, note, actorId = null, orderId = null, subjectUserId = null, amountCents = null }) {
-  return tx.financeLog.create({ data: { kind, note, actorId, orderId, subjectUserId, amountCents } });
+export function logFinance(tx, { kind, note, actorId = null, orderId = null, subjectUserId = null, productId = null, amountCents = null }) {
+  return tx.financeLog.create({ data: { kind, note, actorId, orderId, subjectUserId, productId, amountCents } });
 }
