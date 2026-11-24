@@ -97,7 +97,8 @@ function tabs() {
     { id: "stragglers", label: "Rezagadas", show: can("MOSTRADOR") },
     { id: "catalog", label: "Catálogo", show: can("INVENTARIO") },
     { id: "taxonomy", label: "Taxonomía", show: can("INVENTARIO") },
-    { id: "activity", label: "Bitácora", show: can("ADMINISTRACION") },
+    // Al extremo derecho: no es una tarea del día, es para revisar.
+    { id: "activity", label: "Bitácora", show: can("ADMINISTRACION"), end: true },
   ].filter((t) => t.show);
 }
 
@@ -116,7 +117,7 @@ function renderTabs() {
     ? state.stragglers.notReceived.length + state.stragglers.receivedNotWashed.length + state.stragglers.inLaundry.length
     : 0;
   nav.replaceChildren(...tabs().map((t) => h(
-    "button",
+    t.end ? "button.tab-end" : "button",
     { type: "button", role: "tab", "aria-selected": String(state.tab === t.id), dataset: { action: "tab", tab: t.id } },
     t.label,
     t.id === "stragglers" && rezagadas > 0 ? h("span.count", {}, rezagadas) : null,

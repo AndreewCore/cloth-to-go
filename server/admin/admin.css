@@ -254,3 +254,6 @@ input[type="color"] { padding: 2px; width: 64px; height: 36px; }
   .filters .grow-2 { grid-column: 1 / -1; }
   .activity { grid-template-columns: 52px 1fr; }
 }
+
+/* La Bitácora va sola al extremo derecho de la barra de pestañas. */
+.tabs .tab-end { margin-left: auto; }
