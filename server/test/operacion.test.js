@@ -148,6 +148,14 @@ test("/admin/ sirve el panel con CSP estricta y sin caché", async () => {
   assert.equal((await app.inject({ method: "GET", url: "/admin/admin.js" })).statusCode, 200);
 });
 
+test("/admin/fotos/ sirve las fotos del catálogo en el mismo origen, y nada más", async () => {
+  const foto = await app.inject({ method: "GET", url: "/admin/fotos/1.webp" });
+  assert.equal(foto.statusCode, 200);
+  assert.equal(foto.headers["content-security-policy"], ADMIN_CSP);
+  const fuera = await app.inject({ method: "GET", url: "/admin/fotos/../../src/db.js" });
+  assert.notEqual(fuera.statusCode, 200, "no se sale de la carpeta de fotos");
+});
+
 test("/api/me dice las capacidades de la sesión", async () => {
   assert.equal((await app.inject({ method: "GET", url: "/api/me" })).statusCode, 401);
   const me = (await como(MOSTRADOR, { method: "GET", url: "/api/me" })).json();
@@ -165,6 +173,7 @@ test("un cliente no ve los pedidos del local; el mostrador sí, con quién y qu�
   assert.equal(visto.customer.email, `${CLIENTE}@test`);
   assert.equal(visto.lines[0].code, item.code);
   assert.equal(visto.lines[0].status, "RESERVADA");
+  assert.ok(visto.lines[0].imgs.length > 0, "trae las fotos para saber qué prenda es");
 });
 
 test("la lista de ejemplares dice a qué estados se puede mover cada uno", async () => {
@@ -173,6 +182,7 @@ test("la lista de ejemplares dice a qué estados se puede mover cada uno", async
   const visto = lista.find((i) => i.id === item.id);
   assert.equal(visto.status, "DISPONIBLE");
   assert.deepEqual(visto.next, ["EN_LAVADO", "NO_ALQUILABLE", "PERDIDA"]);
+  assert.ok(Array.isArray(visto.imgs));
   assert.equal((await como(CAJA, { method: "GET", url: "/api/admin/items" })).statusCode, 403);
 });
 

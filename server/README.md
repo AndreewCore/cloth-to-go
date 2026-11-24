@@ -250,6 +250,15 @@ devolución**, confirmar el cobro y liberar la garantía (Caja), anular
 (Administración). **Ejemplares**: cambio manual de estado y bitácora.
 **Rezagadas**: los umbrales del §3.
 
+Cada pedido enseña una **tira de días** (alquiler, margen sin costo, días extra,
+días cerrados rayados, hoy remarcado), y al registrar la devolución la tira se
+rehace con el día elegido para anticipar los días extra (el importe lo decide
+siempre el servidor). Cada prenda tiene **«Ver foto»**: las fotos del modelo
+(`products.imgs`) se sirven en `/admin/fotos/` desde `../img/products/`, en el
+mismo origen para no abrir la CSP. Si esa carpeta no está (un despliegue que
+solo trae `server/`), el panel arranca igual y la galería dice que no pudo
+cargar la foto.
+
 Recibir anota el **día real** en que volvió la prenda (puede ser anterior al
 registro, §6.3) y quién lo registró. Pasada la fecha límite se cobran los días
 **hábiles** extra continuando la escalera del pedido —`precio(días + extra) −

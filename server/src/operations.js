@@ -93,6 +93,7 @@ function orderForPanel(order) {
       itemId: oi.itemId,
       code: oi.item.code,
       productName: oi.item.product.name,
+      imgs: oi.item.product.imgs,
       size: oi.item.size,
       color: oi.item.color,
       status: oi.item.status,
@@ -102,12 +103,18 @@ function orderForPanel(order) {
   };
 }
 
+/**
+ * Lo que el panel necesita del modelo: nombre y fotos. Las fotos son lo que
+ * permite al mostrador saber qué prenda tiene delante sin fiarse del código.
+ */
+const FICHA_PRODUCTO = { name: true, imgs: true };
+
 /** Relaciones que necesita `orderForPanel`. */
 const PARA_PANEL = {
   ...CON_LINEAS,
   user: { select: { name: true, email: true } },
   items: {
-    include: { item: { include: { product: { select: { name: true } } } } },
+    include: { item: { include: { product: { select: FICHA_PRODUCTO } } } },
     orderBy: { id: "asc" },
   },
 };
@@ -180,7 +187,7 @@ export function registerOperationRoutes(app, { requireUser, requireCapability })
     { preHandler: requireCapability(CAPABILITY.MOSTRADOR, CAPABILITY.INVENTARIO) },
     async () => {
       const items = await prisma.item.findMany({
-        include: { product: { select: { name: true } } },
+        include: { product: { select: FICHA_PRODUCTO } },
         orderBy: { id: "asc" },
       });
       return items.map((it) => ({
@@ -188,6 +195,7 @@ export function registerOperationRoutes(app, { requireUser, requireCapability })
         code: it.code,
         productId: it.productId,
         productName: it.product.name,
+        imgs: it.product.imgs,
         size: it.size,
         color: it.color,
         status: it.status,
@@ -206,7 +214,7 @@ export function registerOperationRoutes(app, { requireUser, requireCapability })
     const hoy = todayISO();
     const vivas = await prisma.orderItem.findMany({
       where: { releasedAt: null, order: { cancelledAt: null } },
-      include: { item: { include: { product: { select: { name: true } } } }, order: { select: { id: true, user: { select: { name: true } } } } },
+      include: { item: { include: { product: { select: FICHA_PRODUCTO } } }, order: { select: { id: true, user: { select: { name: true } } } } },
     });
     const ficha = (oi, extra) => ({
       orderId: oi.orderId,
@@ -214,6 +222,7 @@ export function registerOperationRoutes(app, { requireUser, requireCapability })
       itemId: oi.itemId,
       code: oi.item.code,
       productName: oi.item.product.name,
+      imgs: oi.item.product.imgs,
       status: oi.item.status,
       ...extra,
     });
@@ -231,13 +240,14 @@ export function registerOperationRoutes(app, { requireUser, requireCapability })
 
     const lavado = await prisma.item.findMany({
       where: { status: S.EN_LAVADO, statusSince: { lte: new Date(Date.now() - STRAGGLER_DAYS.IN_LAUNDRY * DIA_MS) } },
-      include: { product: { select: { name: true } } },
+      include: { product: { select: FICHA_PRODUCTO } },
       orderBy: { statusSince: "asc" },
     });
     const enLavado = lavado.map((it) => ({
       itemId: it.id,
       code: it.code,
       productName: it.product.name,
+      imgs: it.product.imgs,
       since: it.statusSince,
       laundryKind: it.laundryKind,
       laundryPlace: it.laundryPlace,

@@ -104,3 +104,59 @@ dialog .actions { justify-content: flex-end; }
   .cards { grid-template-columns: 1fr; }
   .who span { display: none; }
 }
+
+/* ---------- tira de días ---------- */
+:root { --alquiler: #4f9a49; --margen: #b9dcae; --extra: #c2552f; --cerrado: #9aa592; }
+@media (prefers-color-scheme: dark) {
+  :root { --alquiler: #5fae58; --margen: #3c5a34; --extra: #d76a43; --cerrado: #59634f; }
+}
+.timeline { margin: 10px 0 4px; }
+.strip {
+  list-style: none; margin: 0; padding: 0 0 2px; display: flex; gap: 3px;
+  overflow-x: auto;
+}
+.strip li {
+  flex: 1 0 34px; max-width: 48px; display: grid; justify-items: center;
+  padding: 3px 0 2px; border-radius: 6px; background: var(--line); color: var(--muted);
+  font-variant-numeric: tabular-nums; position: relative;
+}
+.strip .wd { font-size: 10px; text-transform: uppercase; letter-spacing: .03em; }
+.strip .num { font-size: 15px; font-weight: 700; line-height: 1.1; }
+.strip .tag { font-size: 9px; font-weight: 700; min-height: 11px; white-space: nowrap; }
+.strip .alquiler { background: var(--alquiler); color: #fff; }
+.strip .margen { background: var(--margen); color: var(--ink); }
+.strip .extra { background: var(--extra); color: #fff; }
+/* Rayado encima del color de la fase: un día cerrado no cuenta como extra. */
+.strip .cerrado {
+  background-image: repeating-linear-gradient(135deg, transparent 0 4px, rgba(0,0,0,.18) 4px 7px);
+  opacity: .75;
+}
+.strip .hoy { outline: 2px solid var(--ink); outline-offset: 1px; }
+.strip .gap { flex: 0 0 18px; background: none; align-content: center; }
+.when { margin: 4px 0 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+.when.warn { color: var(--warn); }
+.when.bad { color: var(--danger); }
+.when.ok { color: var(--accent); }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.sw { display: inline-block; width: 14px; height: 14px; border-radius: 4px; background: var(--line); }
+.sw.alquiler { background: var(--alquiler); }
+.sw.margen { background: var(--margen); }
+.sw.extra { background: var(--extra); }
+.sw.cerrado { background-color: var(--cerrado); background-image: repeating-linear-gradient(135deg, transparent 0 3px, rgba(0,0,0,.25) 3px 5px); }
+.sw.hoy { background: none; outline: 2px solid var(--ink); outline-offset: -2px; }
+
+/* ---------- fotos ---------- */
+.btn.small { font-size: 12px; padding: 3px 8px; }
+.line-actions { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.thumb { width: 40px; height: 52px; object-fit: cover; border-radius: 6px; background: var(--line); display: inline-block; vertical-align: middle; }
+.thumb-cell { width: 52px; }
+.row-actions { white-space: nowrap; }
+dialog.wide { width: min(620px, calc(100vw - 32px)); }
+.gallery { display: grid; place-items: center; background: var(--bg); border-radius: 8px; min-height: 200px; }
+.photo { max-width: 100%; max-height: 60vh; object-fit: contain; border-radius: 8px; }
+.thumbs { display: flex; gap: 6px; flex-wrap: wrap; }
+.thumb-btn { padding: 0; border: 2px solid transparent; border-radius: 8px; background: none; cursor: pointer; }
+.thumb-btn img { width: 56px; height: 72px; object-fit: cover; border-radius: 6px; display: block; }
+.thumb-btn[aria-current="true"] { border-color: var(--accent); }
+dialog label.check { display: flex; align-items: center; gap: 8px; }
