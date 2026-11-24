@@ -159,7 +159,7 @@ function localCardHTML(){
   return `<div class="pickup-detail">
         ${icon("store", { size: 15 })} <b>${LOCAL.nombre}</b><br>
         ${LOCAL.direccion}<br>
-        <span style="color:var(--muted)">${LOCAL.horario}</span>
+        <span style="color:var(--muted)">${escapeHTML(LOCAL.horario)}</span>
       </div>`;
 }
 

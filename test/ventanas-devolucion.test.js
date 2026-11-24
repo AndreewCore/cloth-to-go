@@ -98,3 +98,12 @@ test("el calendario del checkout no ofrece fines de semana ni feriados", () => {
   app.pickCalendarDay(cerrados[0].dataset.iso);
   assert.equal(app.calPendingStart, null);
 });
+
+test("el horario que se enseña es el que manda la API (lo edita el panel)", () => {
+  const app = loadApp();
+  assert.match(app.LOCAL.horario, /sin retiros ni devoluciones/, "sin API: el sábado se atiende pero no se retira");
+  app.setBusinessCalendar({ hoursText: "Lun–Vie 09:00–18:00" });
+  assert.equal(app.LOCAL.horario, "Lun–Vie 09:00–18:00");
+  app.setBusinessCalendar({ hoursText: "   " });
+  assert.equal(app.LOCAL.horario, "Lun–Vie 09:00–18:00", "un texto vacío no borra el horario");
+});

@@ -190,7 +190,7 @@ export function buildApp(opts = {}) {
   registerImpactRoutes(app);
 
   // Calendario del negocio (fines de semana y feriados cerrados). Pública.
-  registerCalendarRoutes(app);
+  registerCalendarRoutes(app, guards);
 
   // Asistente informativo de la web. Sin GEMINI_API_KEY o sin documentos queda
   // apagado y la web no muestra la burbuja.

@@ -66,7 +66,11 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | GET | `/media/…` | Solo con el conductor de **disco**: sirve `catalogo/` y, con firma, `ejemplares/`. |
 | GET | `/admin/` | El **panel del local** (estáticos de `admin/`, con CSP estricta). |
 | GET | `/api/impact/water` | **Pública**: litros de agua ahorrados entre todos (contador de la web). |
-| GET | `/api/config` | **Pública**: días cerrados y feriados, más el envío y el tope por volumen para los textos. |
+| GET | `/api/config` | **Pública**: días cerrados y feriados, el horario de atención (`hours` y el texto ya redactado `hoursText`), más el envío y el tope por volumen para los textos. |
+| GET | `/api/admin/calendar` | **Administración**: horario y cierres (del último mes en adelante), con los pedidos que retiran o vencen cada día cerrado. |
+| PUT | `/api/admin/hours` | **Administración**: horario de los siete días (`{weekday, open, close}`, `HH:MM`; los dos null = cerrado). |
+| POST | `/api/admin/holidays` | **Administración**: cierra un día (`{date, name}`) y devuelve los pedidos que caían en él, para avisarles. |
+| PATCH/DELETE | `/api/admin/holidays/:date` | **Administración**: cambia el motivo o quita un cierre. Solo hoy o después: un cierre pasado ya decidió cobros y fechas límite. |
 | POST | `/api/quote` | **Pública** (con sesión valora el premio): cotiza el carrito con la misma función que cobra. |
 | GET | `/api/chat/status` | **Pública**: si el asistente está encendido y de qué fundación habla. |
 | POST | `/api/chat` | **Pública, con límite**: pregunta al asistente sobre la huella hídrica. |
@@ -312,7 +316,11 @@ ejemplares. Un modelo sin ejemplares no sale en la app y el panel lo avisa; la
 lista se filtra por categoría, estado de los ejemplares, pendientes (sin
 ejemplares o fotos), talla, color, material, ocasión, temporada y público.
 **Taxonomía** (Inventario): añadir, renombrar, reordenar y borrar lo que nada
-usa en cada lista. **Bitácora** (Administración): todo lo que hizo el personal,
+usa en cada lista. **Calendario** (Administración): el horario de atención
+(`business_hours`), que la app y la web enseñan en lugar de un texto fijo, y los
+feriados y cierres puntuales. Los **días de retiro y devolución** (lunes a
+viernes, `CLOSED_WEEKDAYS`) no se editan: fijan las ventanas de devolución. Un
+día puede abrir sin retiros: el sábado. **Bitácora** (Administración): todo lo que hizo el personal,
 agrupado por día, con filtros por categoría, acción, persona, fechas y texto (que
 busca también en el nombre de la prenda), y las fotos de cada acción. La ficha de un modelo enseña su **precio** (de dónde sale el
 primer día —fórmula, ajuste o suelo—, coste, escalera, garantía e historial) y

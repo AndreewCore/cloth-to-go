@@ -651,6 +651,19 @@ model Holiday {
   @@map("holidays")
 }
 
+/// Horario de atención del local, un día de la semana por fila (0 = domingo).
+/// Es lo que el cliente lee para saber cuándo ir. NO decide los días de retiro
+/// y devolución: esos son `CLOSED_WEEKDAYS` de dates.js, porque fijan las
+/// ventanas de devolución (§6.0). Un día puede abrir sin retiros (el sábado).
+model BusinessHours {
+  weekday Int     @id
+  /// `HH:MM`; null los dos = cerrado ese día.
+  open    String?
+  close   String?
+
+  @@map("business_hours")
+}
+
 /* ======================================================================
    Sesiones propias (fase 3). El ID token de Google caduca en una hora; un
    checkout no puede depender de eso. Al iniciar sesión el servidor entrega un
@@ -776,6 +789,10 @@ enum ActivityAction {
   TAXONOMIA_EDICION
   TAXONOMIA_ORDEN
   TAXONOMIA_BAJA
+  FERIADO_ALTA
+  FERIADO_EDICION
+  FERIADO_BAJA
+  HORARIO
 }
 
 /// Bitácora de acciones del panel. Como las otras, solo se añade: es lo que se

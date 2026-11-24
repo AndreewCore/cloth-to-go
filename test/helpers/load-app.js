@@ -22,7 +22,7 @@ globalThis.__APP__ = {
   // --- Precios: los pone el servidor (fase 3); aquí solo se leen ---
   catalogPrice, catalogNextDay, catalogDeposit, money, perDay, sumOrNull, sortPrice,
   // --- Constantes ---
-  SHIPPING_FEE,
+  SHIPPING_FEE, LOCAL,
   // --- Helpers puros (data.js) ---
   escapeHTML, fmtDate, daysBetween, starStr, conditionLabel, materialLabel,
   qualityLevel, qualityMeter, qualityMeterText,
