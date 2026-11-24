@@ -56,6 +56,11 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | PATCH | `/api/items/:id` | **Inventario**: corrige condición o medidas de un ejemplar. |
 | POST | `/api/items/:id/photos` | **Mostrador o Inventario**: fotos de estado (`kind` SALIDA/LLEGADA con `orderId`, o ESTADO). |
 | GET | `/api/items/:id/photos` | **Mostrador o Inventario**: fotos de estado con enlaces firmados (10 min). |
+| GET | `/api/admin/taxonomy` | **Inventario**: todas las listas con el coste de lavado y cuántos modelos o ejemplares usan cada entrada. |
+| POST | `/api/taxonomy/:list` | **Inventario**: alta en `categories`, `colors`, `sizes`, `materials` (coste de lavado: **Administración**), `occasions`, `seasons` o `audiences`. |
+| PATCH | `/api/taxonomy/:list/:key` | **Inventario**: nombre, hex o coste de lavado (**Administración**). Clave, prefijo y talla no cambian. |
+| PUT | `/api/taxonomy/:list/order` | **Inventario**: orden nuevo de una lista entera (`{keys}`; tallas, por escala con `ESCALA\|talla`). |
+| DELETE | `/api/taxonomy/:list/:key` | **Inventario**: borra si nada la usa (si no, 409 con cuántos). |
 | GET | `/media/…` | Solo con el conductor de **disco**: sirve `catalogo/` y, con firma, `ejemplares/`. |
 | GET | `/admin/` | El **panel del local** (estáticos de `admin/`, con CSP estricta). |
 | GET | `/api/impact/water` | **Pública**: litros de agua ahorrados entre todos (contador de la web). |
@@ -139,7 +144,12 @@ El cliente ve **modelos** (`products`); el mostrador maneja **ejemplares**
   código: el cliente solo distingue Disponible de No Disponible.
 - `GET /api/taxonomy` — público. Categorías (con su prefijo), colores, materiales,
   tallas por escala, ocasiones, temporadas, públicos y condiciones. Son tablas:
-  las siembra la migración y las editará el panel.
+  las siembra la migración y se editan desde la pestaña **Taxonomía** del panel
+  (`src/taxonomyAdmin.js`). La clave sale del nombre al crear (`Día de playa` →
+  `dia_de_playa`) y **no cambia nunca**, igual que el prefijo de una categoría
+  (va dentro de los códigos de inventario). Lo usado se renombra, no se borra.
+  Un material nuevo cuenta como algodón en el contador de agua (`water.js` tiene
+  su tabla fija por clave).
 - `POST /api/products/:id/items` — **Inventario**. Alta de un ejemplar con código
   `CAT-AA-NNNN` (prefijo de la categoría, año, correlativo que nunca se reutiliza).
   Los 16 ejemplares de demostración no llevan código.
@@ -284,7 +294,11 @@ devolución**, confirmar el cobro y liberar la garantía (Caja), anular
 (Administración). **Ejemplares**: cambio manual de estado y bitácora.
 **Rezagadas**: los umbrales del §3. **Catálogo** (Inventario): alta y edición de
 modelos, sus fotos (subir, ordenar, quitar; la primera es la portada) y alta de
-ejemplares. Un modelo sin ejemplares no sale en la app y el panel lo avisa.
+ejemplares. Un modelo sin ejemplares no sale en la app y el panel lo avisa; la
+lista se filtra por categoría, estado de los ejemplares, pendientes (sin
+ejemplares o fotos), talla, color, material, ocasión, temporada y público.
+**Taxonomía** (Inventario): añadir, renombrar, reordenar y borrar lo que nada
+usa en cada lista.
 
 **Entregar** y **registrar la devolución** piden al menos una foto de cada
 prenda: la de salida es la referencia y la de llegada se compara con ella. Se
