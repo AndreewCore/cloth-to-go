@@ -16,6 +16,7 @@ import { photoButton, photoPicker, showPhotos, thumb } from "./photos.js";
 import { catalogClick, loadCatalog, renderCatalog } from "./catalog.js";
 import { loadTaxonomyAdmin, renderTaxonomy, taxonomyClick } from "./taxonomy.js";
 import { activityClick, loadActivity, renderActivity, setActivityFilter } from "./activity.js";
+import { calendarClick, calendarSubmit, loadCalendar, renderCalendar } from "./calendar.js";
 
 /** Mismo cliente OAuth que la app y la web (js/auth.js): es público. */
 const GOOGLE_CLIENT_ID = "115840486389-f3vitcouhua5eckn3grn1gk9kqb7ccjs.apps.googleusercontent.com";
@@ -97,6 +98,7 @@ function tabs() {
     { id: "stragglers", label: "Rezagadas", show: can("MOSTRADOR") },
     { id: "catalog", label: "Catálogo", show: can("INVENTARIO") },
     { id: "taxonomy", label: "Taxonomía", show: can("INVENTARIO") },
+    { id: "calendar", label: "Calendario", show: can("ADMINISTRACION") },
     // Al extremo derecho: no es una tarea del día, es para revisar.
     { id: "activity", label: "Bitácora", show: can("ADMINISTRACION"), end: true },
   ].filter((t) => t.show);
@@ -144,6 +146,7 @@ async function loadTab() {
     if (state.tab === "catalog") await loadCatalog();
     if (state.tab === "taxonomy") await loadTaxonomyAdmin();
     if (state.tab === "activity") await loadActivity();
+    if (state.tab === "calendar") await loadCalendar();
     // Las rezagadas se piden siempre que se pueda: alimentan el número de la pestaña.
     if (can("MOSTRADOR")) state.stragglers = await api("/api/admin/stragglers");
   } catch (err) {
@@ -163,6 +166,7 @@ function render() {
     catalog: () => renderCatalog(searchBar, matches),
     taxonomy: renderTaxonomy,
     activity: renderActivity,
+    calendar: renderCalendar,
   }[state.tab];
   $("view").replaceChildren(...(view ? view() : []));
 }
@@ -573,7 +577,7 @@ document.addEventListener("click", async (e) => {
     case "photos":
       return showPhotos(item);
     default:
-      if (!catalogClick(el) && !taxonomyClick(el)) activityClick(el, render);
+      if (!catalogClick(el) && !taxonomyClick(el) && !calendarClick(el)) activityClick(el, render);
   }
 });
 
@@ -594,6 +598,9 @@ document.addEventListener("change", (e) => {
   render();
   document.querySelector(`[data-action="catalog-filter"][data-key="${el.dataset.key}"]`)?.focus();
 });
+
+// Formularios que viven en la pestaña (no en un diálogo): el horario.
+document.addEventListener("submit", (e) => calendarSubmit(e));
 
 // Texto de la bitácora: espera a que se deje de escribir, para no pedir una
 // página por cada tecla.

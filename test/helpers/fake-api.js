@@ -160,7 +160,7 @@ function installFakeApi(win) {
       const libre = !reserved().has(ITEM_BASE + p.id);
       return { ...p, price: priceSummary(p), disponibles: libre ? 1 : 0, items: [{ id: ITEM_BASE + p.id, available: libre }] };
     }))],
-    ["GET", /^\/api\/config$/, () => respond(200, { today: today(), closedWeekdays: [0, 6], holidays: [], shippingFee: 4.5, volumeDiscountMax: 0.2 })],
+    ["GET", /^\/api\/config$/, () => respond(200, { today: today(), closedWeekdays: [0, 6], holidays: [], hoursText: "Lun–Vie 10:00–20:00 · Sáb 10:00–20:00 (sin retiros ni devoluciones)", shippingFee: 4.5, volumeDiscountMax: 0.2 })],
     ["POST", /^\/api\/quote$/, (m, body) => respond(200, quoteOf(body).quote)],
     // Sin `state.taxonomy` responde 404, como un servidor viejo: la app se
     // queda con las listas de respaldo.

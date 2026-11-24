@@ -257,3 +257,12 @@ input[type="color"] { padding: 2px; width: 64px; height: 36px; }
 
 /* La Bitácora va sola al extremo derecho de la barra de pestañas. */
 .tabs .tab-end { margin-left: auto; }
+
+/* ---------- calendario ---------- */
+.hours-form input[type="time"] { width: 110px; }
+.hours-form input[type="checkbox"] { width: 18px; height: 18px; }
+.holidays { list-style: none; margin: 0 0 12px; padding: 0; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+.holiday { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.holiday:last-child { border-bottom: 0; }
+.holiday.past { opacity: .6; }
+.cal-warn { margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 13px; }

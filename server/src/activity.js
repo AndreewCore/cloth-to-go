@@ -24,6 +24,7 @@ export const CATEGORIES = Object.freeze({
   precio: "Precio",
   personal: "Personal",
   taxonomia: "Taxonomía",
+  calendario: "Calendario",
 });
 
 /**
@@ -59,6 +60,10 @@ const ACTIONS = {
   TAXONOMIA_EDICION: { label: "Edición de la taxonomía", category: "taxonomia", source: "activity" },
   TAXONOMIA_ORDEN: { label: "Orden de la taxonomía", category: "taxonomia", source: "activity" },
   TAXONOMIA_BAJA: { label: "Baja en la taxonomía", category: "taxonomia", source: "activity" },
+  FERIADO_ALTA: { label: "Cierre añadido", category: "calendario", source: "activity" },
+  FERIADO_EDICION: { label: "Cierre editado", category: "calendario", source: "activity" },
+  FERIADO_BAJA: { label: "Cierre quitado", category: "calendario", source: "activity" },
+  HORARIO: { label: "Horario de atención", category: "calendario", source: "activity" },
 };
 
 const STATUS_LABEL = {

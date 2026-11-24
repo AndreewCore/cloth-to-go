@@ -9,7 +9,9 @@
 const LOCAL = {
   nombre: "Local CLOTH TO GO · Centro",
   direccion: "Av. 9 de Octubre 1234, Guayaquil",
-  horario: "Lun–Sáb · 10:00–20:00"
+  // Respaldo sin API. Con API lo reemplaza `hoursText` de /api/config, que el
+  // panel edita. El sábado se atiende, pero no hay retiros ni devoluciones.
+  horario: "Lun–Vie 10:00–20:00 · Sáb 10:00–20:00 (sin retiros ni devoluciones)"
 };
 const SHIPPING_FEE = 4.50;
 
@@ -69,6 +71,7 @@ function setBusinessCalendar(cfg){
   if(Array.isArray(cfg.holidays)) businessCalendar.holidays = new Set(cfg.holidays.map(h => h.date));
   if(typeof cfg.shippingFee === "number") pricingTexts.shippingFee = cfg.shippingFee;
   if(typeof cfg.volumeDiscountMax === "number") pricingTexts.volumeDiscountMax = cfg.volumeDiscountMax;
+  if(typeof cfg.hoursText === "string" && cfg.hoursText.trim()) LOCAL.horario = cfg.hoursText.trim();
 }
 /** Día de la semana de una fecha `YYYY-MM-DD` (0 = domingo), sin zona horaria. */
 function weekdayISO(iso){
