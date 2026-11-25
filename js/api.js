@@ -1,10 +1,9 @@
 /* ============================================================
    CLOTH TO GO · api.js
-   Puente OPCIONAL con el backend. Si el servidor está disponible,
-   reemplaza el catálogo embebido por el de la base; si no (por
-   ejemplo abriendo por file://), la app sigue funcionando con los
-   datos locales de data.js. Se carga antes de main.js, que decide
-   cuándo hidratar.
+   Puente con el backend. El catálogo vive solo en la base: si el
+   servidor no responde (o se abre por file:// sin API), la app y la
+   web lo dicen en vez de enseñar prendas. Se carga antes de main.js,
+   que decide cuándo hidratar.
    ============================================================ */
 
 // URL https del backend desplegado (Render), sin barra final. Si vuelve a
@@ -126,7 +125,7 @@ function resolveApiBase() {
 const backend = resolveApiBase();
 
 /**
- * Reemplaza in situ el catálogo embebido (PRODUCTS y su índice PRODUCT_BY_ID)
+ * Vuelca en su sitio el catálogo de la API (PRODUCTS y su índice PRODUCT_BY_ID),
  * conservando las mismas referencias globales que usa el resto de la app, para
  * no romper el modelo de ámbito global compartido.
  * @param {Array<object>} items Prendas provenientes de la API.
@@ -138,13 +137,34 @@ function replaceCatalog(items) {
   for (const p of PRODUCTS) PRODUCT_BY_ID.set(p.id, p);
   // Tallas y materiales presentes salen del catálogo que se acaba de cargar.
   refreshCatalogLists();
+  // Una prenda del carrito guardado que ya no está a la venta sale de él: no
+  // tiene ejemplar que reservar y bloquearía el pedido entero.
+  cart = cart.filter(c => PRODUCT_BY_ID.has(c.id));
   // Desde aquí el catálogo trae ejemplares (`items`) con su id: es lo único
-  // que un pedido puede reservar. Con el embebido no se puede alquilar.
+  // que un pedido puede reservar.
   catalogFromApi = true;
+  catalogState = "api";
 }
 
 /** true cuando PRODUCTS vino de la API (trae ids de ejemplar); ver replaceCatalog. */
 let catalogFromApi = false;
+
+/**
+ * En qué punto está el catálogo: `loading` mientras se pide, `api` cuando
+ * llegó y `off` si no hay servidor. Solo decide qué se dice con la rejilla vacía.
+ */
+let catalogState = backend.enabled ? "loading" : "off";
+
+/**
+ * Qué decir cuando la rejilla queda vacía. Distingue «no hay servidor» de «tu
+ * búsqueda no encontró nada»: lo primero no se arregla quitando filtros.
+ * @returns {string}
+ */
+function catalogEmptyText() {
+  if (catalogState === "off") return "El catálogo se ve con conexión al servidor. Vuelve a intentarlo en un momento.";
+  if (catalogState === "loading") return "Cargando el catálogo…";
+  return "No encontramos prendas para tu búsqueda.";
+}
 
 /**
  * Intenta traer el catálogo del backend y, si lo logra, refresca la vista.
@@ -153,7 +173,8 @@ let catalogFromApi = false;
  */
 async function hydrateCatalog() {
   if (!backend.enabled) {
-    console.info(`${API_OFF_REASONS[backend.reason]} Se usa el catálogo local.`);
+    console.info(`${API_OFF_REASONS[backend.reason]} Sin servidor no hay catálogo.`);
+    catalogState = "off";
     return false;
   }
   try {
@@ -174,8 +195,11 @@ async function hydrateCatalog() {
       return true;
     }
   } catch (err) {
-    console.info("Backend no disponible; se usa el catálogo local.", err.message);
+    console.info("Backend no disponible; sin servidor no hay catálogo.", err.message);
   }
+  // Sin catálogo: la rejilla pasa de «Cargando…» a decir que falta el servidor.
+  catalogState = "off";
+  renderGrid();
   return false;
 }
 

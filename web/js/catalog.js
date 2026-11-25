@@ -222,7 +222,10 @@ function renderGrid(){
   if(!grid) return;
   const lista = webFilteredProducts();
   grid.innerHTML = lista.map(cardHTML).join("");
-  if(vacio) vacio.hidden = lista.length > 0;
+  if(vacio){
+    vacio.hidden = lista.length > 0;
+    if(!lista.length) vacio.textContent = catalogEmptyText();
+  }
   if(contador){
     contador.textContent = lista.length === 1 ? "1 prenda" : `${lista.length} prendas`;
   }

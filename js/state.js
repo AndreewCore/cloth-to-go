@@ -292,7 +292,7 @@ function couponIssue(){
 // Litros de agua ahorrados por una lista de prendas (ids) al reutilizarlas en
 // lugar de fabricarlas nuevas. Suma garmentWater() de cada prenda.
 function waterSavedForItems(ids){
-  return ids.reduce((s, id) => s + garmentWater(productById(id)), 0);
+  return ids.reduce((s, id) => s + garmentWater(productOrStub(id)), 0);
 }
 // Litros de agua ahorrados con el carrito actual (para la confirmación del pedido).
 function cartWaterSaved(){ return waterSavedForItems(cart.map(c => c.id)); }

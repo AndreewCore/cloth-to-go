@@ -14,6 +14,7 @@
  */
 const vm = require("node:vm");
 const { installFakeApi, ITEM_BASE, priceSummary } = require("./fake-api.js");
+const { CATALOG_FIXTURE_JS } = require("./catalog-fixture.js");
 const fs = require("node:fs");
 const path = require("node:path");
 const { JSDOM } = require("jsdom");
@@ -220,6 +221,9 @@ const DEPLOYED_API_DECL = /^const DEPLOYED_API = .*;$/m;
  */
 function leerScript(archivo, opts) {
   const src = fs.readFileSync(path.join(JS_DIR, archivo), "utf8");
+  // data.js ya no trae catálogo: va el de la semilla, salvo que la prueba
+  // quiera ver la app sin él (`catalog: false`).
+  if (archivo === "data.js") return opts.catalog === false ? src : src + CATALOG_FIXTURE_JS;
   if (archivo !== "api.js" || !("deployedApi" in opts)) return src;
   if (!DEPLOYED_API_DECL.test(src)) {
     throw new Error("load-dom: no se encontró la declaración de DEPLOYED_API en api.js");
@@ -238,6 +242,8 @@ function leerScript(archivo, opts) {
  *   - `deployedApi`: sustituye el valor de `DEPLOYED_API` (p. ej. `null`). Los
  *     casos "producción sin backend" (#17) deben seguir probándose ahora que el
  *     código trae la URL real de Render.
+ *   - `catalog` (por defecto true): llena PRODUCTS con la semilla del
+ *     servidor; `false` deja el catálogo vacío, como una app sin API.
  *   - `account` (por defecto true): instala la API falsa (fake-api.js), deja
  *     una sesión iniciada (`currentUser` + token) y el catálogo con un ejemplar
  *     por modelo, que es lo que hace falta para alquilar desde la fase 3. Con

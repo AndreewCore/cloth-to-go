@@ -31,7 +31,7 @@ const APP_GLOBALS = {
     "returnWindowCloseISO", "returnByISO",
     "pricingTexts", "reviewReasons", "reviewReasonLabel", "catalogPrice", "catalogNextDay", "catalogDeposit", "money", "perDay",
     "sumOrNull", "sortPrice",
-    "CATS", "PRODUCTS", "PRODUCT_BY_ID", "productById", "SIZE_SCALES", "SIZE_ORDER", "SIZES",
+    "CATS", "PRODUCTS", "PRODUCT_BY_ID", "productById", "productOrStub", "SIZE_SCALES", "SIZE_ORDER", "SIZES",
     "sizeScale", "sizesInScale",
     "REWARDS", "REWARD_BY_ID", "rewardById",
     "escapeHTML", "conditionLabel", "starStr", "fmtDate", "daysBetween", "imgPlaceholder",
@@ -119,7 +119,7 @@ const APP_GLOBALS = {
     "readApiOverride", "backendForHost", "isMixedContent",
     "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog", "hydrateCalendar", "verifyGoogleCredential",
     "fetchWaterImpact", "fetchChatStatus", "askChatbot",
-    "catalogFromApi", "loadNotices", "markNoticesRead", "SESSION_KEY", "readSessionToken", "storeSessionToken", "clearSessionToken",
+    "catalogFromApi", "catalogState", "catalogEmptyText", "loadNotices", "markNoticesRead", "SESSION_KEY", "readSessionToken", "storeSessionToken", "clearSessionToken",
     "canRentOnline", "apiFetch", "apiUpload", "loadMyReviews", "loadProductReviews", "apiErrorText", "logoutSession", "localDayOf", "orderFromApi",
     "couponFromApi", "refreshAccount", "quoteInFlight", "quotePromise", "requestQuote"
   ],

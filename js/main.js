@@ -333,7 +333,7 @@ renderGrid();
 updateBadge();
 // Pinta el botón de Google (o lo oculta por file://) una vez cargado el SDK.
 initGoogleAuth();
-// Si el backend está levantado, refresca el catálogo desde la base;
-// si no, la app se queda con los datos embebidos (funciona en file://).
-hydrateCatalog();
+// El catálogo llega de la base; sin backend la rejilla lo dice.
+// Si el panel estaba abierto (perfil, carrito) se repinta con las prendas reales.
+hydrateCatalog().then(ok => { if(ok && sheet.classList.contains("show")) renderSheet(); });
 hydrateCalendar();

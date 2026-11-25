@@ -99,6 +99,7 @@ test("el marcado estático de index.html está limpio", () => {
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { CATALOG_FIXTURE_JS } = require("./helpers/catalog-fixture.js");
 const { JSDOM } = require("jsdom");
 
 /**
@@ -123,7 +124,7 @@ function loadWeb() {
       // Un pedido vigente con la prenda la marca como alquilada (isRented).
       rent(id){ orders = id == null ? [] : [{ id: 1, items: [id], start: isoOffset(-1), end: isoOffset(5), status: "pending" }]; },
     };`;
-  dom.window.eval(archivos.map(f => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n") + trailer);
+  dom.window.eval(archivos.map(f => fs.readFileSync(path.join(ROOT, f), "utf8") + (f === "js/data.js" ? CATALOG_FIXTURE_JS : "")).join("\n;\n") + trailer);
   return dom.window;
 }
 
