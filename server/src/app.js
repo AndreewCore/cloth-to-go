@@ -22,6 +22,7 @@ import { registerTaxonomyAdminRoutes } from "./taxonomyAdmin.js";
 import { registerPricingAdminRoutes } from "./pricingAdmin.js";
 import { registerActivityRoutes } from "./activity.js";
 import { registerReviewRoutes } from "./reviews.js";
+import { registerModerationRoutes } from "./moderation.js";
 import { MULTIPART_LIMITS, createUploadLimiter } from "./photos.js";
 import { storageFromEnv } from "./storage.js";
 import { registerImpactRoutes } from "./impact.js";
@@ -174,6 +175,7 @@ export function buildApp(opts = {}) {
   const uploads = allowUpload ?? createUploadLimiter({ perMinute: Number(process.env.UPLOADS_PER_MINUTE) || 30 });
   registerCatalogAdminRoutes(app, guards, { storage, allowUpload: uploads });
   registerReviewRoutes(app, guards, { storage, allowUpload: uploads });
+  registerModerationRoutes(app, guards, { storage });
   registerItemRoutes(app, guards);
   registerOrderRoutes(app, guards);
   registerPointsRoutes(app, guards);

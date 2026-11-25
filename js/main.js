@@ -152,6 +152,7 @@ function onSheetClick(e){
     case "addDetail":      addToCart(detailId, el.closest(".sheet")?.querySelector(".gallery"));
                            renderDetail(); break;
     case "openReview":     openReview(+el.dataset.order); break;
+    case "reportReview":   openReportReview(+el.dataset.id); break;
     case "pickReviewItem": reviewProductId = +el.dataset.id; renderSheet(); break;
     // Segundo toque sobre la misma estrella = quitarla, como el premio aplicado:
     // equivocarse al puntuar no debe obligar a salir y volver a entrar.

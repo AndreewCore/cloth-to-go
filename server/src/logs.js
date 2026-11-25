@@ -61,10 +61,15 @@ export const ACTIVITY = Object.freeze({
   FERIADO_EDICION: "FERIADO_EDICION",
   FERIADO_BAJA: "FERIADO_BAJA",
   HORARIO: "HORARIO",
+  RESENA_APROBADA: "RESENA_APROBADA",
+  RESENA_RECHAZADA: "RESENA_RECHAZADA",
+  RESENA_OCULTA: "RESENA_OCULTA",
+  RESENA_MOSTRADA: "RESENA_MOSTRADA",
+  RESENA_AUTO_OCULTA: "RESENA_AUTO_OCULTA",
 });
 
 /**
- * Anota una acción del panel (catálogo, fotos, taxonomía).
+ * Anota una acción del panel (catálogo, fotos, taxonomía, calendario, reseñas).
  * @param {object} tx Cliente Prisma o transacción.
  * @param {object} entry Entrada.
  * @param {string} entry.action Uno de ACTIVITY.

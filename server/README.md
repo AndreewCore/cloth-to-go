@@ -65,6 +65,9 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | GET | `/api/me/reviews` | Las reseñas del cliente, en cualquier estado. |
 | POST | `/api/reviews` | Reseña nueva (multipart: `orderId`, `productId`, `rating`, `text` y una foto opcional). Solo de un pedido propio ya cumplido; nace **pendiente** de moderación. |
 | DELETE | `/api/reviews/:id` | El autor retira su reseña, con su foto. |
+| POST | `/api/reviews/:id/report` | Un cliente reporta una reseña **publicada** ajena con un motivo de la lista (`reason`). Uno por cuenta; con 3 abiertos vuelve a la cola. |
+| GET | `/api/admin/reviews?status=` | MODERACION: la cola (`PENDIENTE` por defecto, del más viejo al más nuevo) o lo decidido, con foto firmada, reportes abiertos y cuántas hay por estado. |
+| POST | `/api/reviews/:id/moderate` | MODERACION: `{action: approve\|reject\|hide\|show, reason?}`. `reject` exige motivo. Queda en `activity_logs`. |
 | GET | `/api/admin/activity` | **Administración**: bitácora general (catálogo, fotos, prendas, dinero, precio, personal, taxonomía) con filtros `category`, `action`, `actor` (id o `system`), `from`/`to`, `q`, `product` y paginación (`limit`, `before`+`beforeKey`). |
 | GET | `/api/admin/activity/meta` | **Administración**: categorías, acciones y personas para pintar los filtros. |
 | GET | `/media/…` | Solo con el conductor de **disco**: sirve `catalogo/` y, con firma, `ejemplares/`. |
@@ -204,7 +207,17 @@ garantías que el navegador no podía dar:
   pedido.
 - **Moderación**: toda reseña nace `PENDIENTE`; el público solo ve las
   `APROBADA`, y la media se calcula sobre ellas. El autor ve las suyas con su
-  estado («En revisión»). La cola para aprobar es la rama de Moderación.
+  estado («En revisión»; si se rechazó, con el motivo).
+
+**Moderación** (`src/moderation.js`, pestaña «Reseñas» del panel): aprobar,
+rechazar con un motivo de la lista cerrada (`ReviewReason`: ofensivo, spam,
+datos personales, fuera de tema), ocultar lo publicado y volver a mostrarlo. El
+cambio es condicional al estado de partida, así dos moderadores no se pisan
+(409). Los clientes reportan lo publicado, una vez por cuenta
+(`review_reports`); con **3 reportes abiertos** la reseña vuelve sola a
+`PENDIENTE` (`RESENA_AUTO_OCULTA`, sin actor). Aprobarla otra vez da esos
+reportes por resueltos. Los motivos se sirven en `/api/config`
+(`reviewReasons`), así la app no guarda su propia lista.
 
 La foto pasa por la tubería de siempre y va al cubo **privado**
 (`resenas/<uuid>.webp`), servida con enlace firmado. Se firma como «Nombre I.»:

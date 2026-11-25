@@ -62,7 +62,7 @@ function installFakeApi(win) {
   const fake = {
     calls: [],
     failNext: null,
-    state: { orders: [], balance: 0, coupons: [], reached: [], reviews: [], nextOrderId: 2001, nextCouponId: 1, nextReviewId: 1 },
+    state: { orders: [], balance: 0, coupons: [], reached: [], reviews: [], reports: [], nextOrderId: 2001, nextCouponId: 1, nextReviewId: 1 },
   };
   const st = fake.state;
 
@@ -160,7 +160,11 @@ function installFakeApi(win) {
       const libre = !reserved().has(ITEM_BASE + p.id);
       return { ...p, price: priceSummary(p), disponibles: libre ? 1 : 0, items: [{ id: ITEM_BASE + p.id, available: libre }] };
     }))],
-    ["GET", /^\/api\/config$/, () => respond(200, { today: today(), closedWeekdays: [0, 6], holidays: [], hoursText: "Lun–Vie 10:00–20:00 · Sáb 10:00–20:00 (sin retiros ni devoluciones)", shippingFee: 4.5, volumeDiscountMax: 0.2 })],
+    ["GET", /^\/api\/config$/, () => respond(200, { today: today(), closedWeekdays: [0, 6], holidays: [], hoursText: "Lun–Vie 10:00–20:00 · Sáb 10:00–20:00 (sin retiros ni devoluciones)", shippingFee: 4.5, volumeDiscountMax: 0.2,
+      reviewReasons: [
+        { key: "OFENSIVO", label: "Ofensivo o discriminatorio" }, { key: "SPAM", label: "Spam o publicidad" },
+        { key: "DATOS_PERSONALES", label: "Datos personales" }, { key: "FUERA_DE_TEMA", label: "Fuera de tema o foto inapropiada" },
+      ] })],
     ["POST", /^\/api\/quote$/, (m, body) => respond(200, quoteOf(body).quote)],
     // Sin `state.taxonomy` responde 404, como un servidor viejo: la app se
     // queda con las listas de respaldo.
@@ -207,7 +211,10 @@ function installFakeApi(win) {
     ["GET", /^\/api\/me\/reviews$/, () => respond(200, st.reviews.slice().reverse())],
     ["GET", /^\/api\/products\/(\d+)\/reviews$/, (m) => {
       const id = Number(m[1]);
-      const publicadas = st.reviews.filter((r) => r.productId === id && r.status === "APROBADA").reverse();
+      // Como el servidor: el estado solo viaja en las propias (`own`), y
+      // `reported` dice si esta cuenta ya la reportó.
+      const publicadas = st.reviews.filter((r) => r.productId === id && r.status === "APROBADA").reverse()
+        .map((r) => (r.own ? r : { ...r, status: undefined, reported: st.reports.some((x) => x.reviewId === r.id) || undefined }));
       const media = publicadas.length ? Math.round(publicadas.reduce((s, r) => s + r.rating, 0) / publicadas.length * 10) / 10 : 0;
       return respond(200, {
         average: media,
@@ -227,12 +234,20 @@ function installFakeApi(win) {
       const id = st.nextReviewId++;
       const r = {
         id, orderId, productId, rating, text: String(body.text || "").trim(), author: "Ana",
-        date: today(), status: "PENDIENTE",
+        date: today(), status: "PENDIENTE", own: true,
         photo: body.photo ? `https://api.test/media/resenas/${id}.webp?exp=1&sig=x` : null,
       };
       st.reviews.push(r);
       fake.lastUpload = body;
       return respond(201, r);
+    }],
+    ["POST", /^\/api\/reviews\/(\d+)\/report$/, (m, body) => {
+      const r = st.reviews.find((x) => x.id === Number(m[1]) && x.status === "APROBADA");
+      if (!r) return respond(404, { error: "Reseña no encontrada." });
+      if (r.own) return respond(409, { error: "No puedes reportar tu propia reseña." });
+      if (st.reports.some((x) => x.reviewId === r.id)) return respond(409, { error: "Ya reportaste esta reseña." });
+      st.reports.push({ reviewId: r.id, reason: body.reason });
+      return respond(201, { hidden: false });
     }],
     ["DELETE", /^\/api\/reviews\/(\d+)$/, (m) => {
       const i = st.reviews.findIndex((r) => r.id === Number(m[1]));

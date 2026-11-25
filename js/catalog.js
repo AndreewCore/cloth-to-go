@@ -344,6 +344,47 @@ function openDetail(id){
 }
 
 /**
+ * Botón para reportar una reseña publicada ajena, o la constancia de que ya
+ * se reportó. Las propias (traen `status`) no se reportan, y sin sesión ni
+ * motivos del servidor no hay a quién enviar el reporte.
+ * @param {object} r Reseña.
+ * @returns {string} HTML.
+ */
+function reviewActionHTML(r){
+  if(r.status || !readSessionToken() || !reviewReasons.length) return "";
+  if(r.reported) return `<p class="rev-reported">Reportada. Moderación la revisará.</p>`;
+  return `<button type="button" class="rev-report" data-action="reportReview" data-id="${r.id}">${icon("alert", { size: 12 })} Reportar</button>`;
+}
+
+/**
+ * Abre el diálogo para reportar una reseña, con los motivos de la lista
+ * cerrada que manda el servidor.
+ * @param {number} reviewId Reseña.
+ */
+function openReportReview(reviewId){
+  const opciones = reviewReasons.map((r, i) => `
+    <label class="report-opt"><input type="radio" name="reportReason" value="${escapeHTML(r.key)}"${i ? "" : " checked"}>
+      ${escapeHTML(r.label)}</label>`).join("");
+  confirmDialog("¿Por qué no debería verse esta reseña?", () => {
+    const elegido = document.querySelector('input[name="reportReason"]:checked');
+    if(elegido) sendReviewReport(reviewId, elegido.value);
+  }, "alert", { title: "Reportar reseña", detailHTML: `<div class="report-opts">${opciones}</div>`, okLabel: "Reportar" });
+}
+
+/**
+ * Envía el reporte y repinta la prenda: si con él se juntaron los suficientes,
+ * la reseña deja de verse.
+ * @param {number} reviewId Reseña.
+ * @param {string} reason Clave del motivo.
+ */
+async function sendReviewReport(reviewId, reason){
+  const r = await apiFetch(`/api/reviews/${reviewId}/report`, { method: "POST", body: { reason } });
+  if(!r.ok){ toast(apiErrorText(r)); return; }
+  toast("Gracias. Moderación la revisará.");
+  if(detailId !== null) refreshProductReviews(detailId);
+}
+
+/**
  * Pide las reseñas de la prenda y, si su detalle sigue abierto, lo repinta.
  * Se piden cada vez que se abre: una reseña recién aprobada debe verse sin
  * recargar la app.
@@ -468,6 +509,9 @@ function reviewsHTML(p){
       <div class="rev-stars">${starStr(r.rating)}</div>
       ${r.text ? `<p class="rev-text">${escapeHTML(r.text)}</p>` : ""}
       ${r.photo ? `<img class="rev-photo" src="${escapeHTML(r.photo)}" alt="Foto de la reseña" loading="lazy">` : ""}
+      ${r.status === "RECHAZADA" && r.rejectReason
+        ? `<p class="rev-reason">Motivo: ${escapeHTML(reviewReasonLabel(r.rejectReason))}</p>` : ""}
+      ${reviewActionHTML(r)}
     </div>`;
   return `
     <div class="reviews">

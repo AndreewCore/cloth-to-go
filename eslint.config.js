@@ -29,7 +29,7 @@ const APP_GLOBALS = {
     "DELIVERY", "RETURN_TO", "ORDER_STATUS", "PAY_METHOD",
     "businessCalendar", "setBusinessCalendar", "weekdayISO", "isBusinessDayISO", "nextBusinessDayISO",
     "returnWindowCloseISO", "returnByISO",
-    "pricingTexts", "catalogPrice", "catalogNextDay", "catalogDeposit", "money", "perDay",
+    "pricingTexts", "reviewReasons", "reviewReasonLabel", "catalogPrice", "catalogNextDay", "catalogDeposit", "money", "perDay",
     "sumOrNull", "sortPrice",
     "CATS", "PRODUCTS", "PRODUCT_BY_ID", "productById", "SIZE_SCALES", "SIZE_ORDER", "SIZES",
     "sizeScale", "sizesInScale",
@@ -89,6 +89,7 @@ const APP_GLOBALS = {
     "activeFilterCount", "updateFilterBar", "renderFilterSheet",
     "filterGroupValue", "filterGroupHTML", "filterOptHTML", "toggleFilterGroup", "setFilterValue",
     "renderGrid", "addToCart", "openDetail", "refreshProductReviews", "renderDetail", "reviewsHTML",
+    "reviewActionHTML", "openReportReview", "sendReviewReport",
     "galleryIndex", "galleryHTML", "moveGallery", "showGalleryImage"
   ],
   checkout: [

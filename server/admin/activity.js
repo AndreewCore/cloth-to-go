@@ -11,7 +11,7 @@ import { api, formDialog, h, localISO, relDays, toast, when } from "./core.js";
 export const ACTIVITY_FILTERS_DEFAULT = Object.freeze({ category: "", action: "", actor: "", from: "", to: "", q: "" });
 
 /** Color del chip de cada categoría (clases de admin.css). */
-const TONE = { catalogo: "", fotos: "info", prendas: "muted", dinero: "warn", precio: "warn", personal: "bad", taxonomia: "" };
+const TONE = { catalogo: "", fotos: "info", prendas: "muted", dinero: "warn", precio: "warn", personal: "bad", taxonomia: "", resenas: "info" };
 
 /** Estado propio de la pestaña. */
 const bit = { meta: null, entries: [], next: null, filters: { ...ACTIVITY_FILTERS_DEFAULT }, loading: false };
