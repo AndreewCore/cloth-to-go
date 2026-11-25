@@ -164,6 +164,15 @@ function localCardHTML(){
 }
 
 /* ---------------- Badge del carrito ---------------- */
+/** Enciende el punto del botón de perfil mientras haya avisos sin leer. */
+function updateNoticeDot(){
+  const dot = document.getElementById("noticeDot");
+  if(!dot) return;
+  dot.hidden = !unreadNotices;
+  document.getElementById("openProfile").setAttribute("aria-label",
+    unreadNotices ? `Mi perfil (${unreadNotices} aviso${unreadNotices === 1 ? "" : "s"} sin leer)` : "Mi perfil");
+}
+
 function updateBadge(){
   const badge = document.getElementById("badge");
   const n = cartCount();

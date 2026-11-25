@@ -403,6 +403,7 @@ model User {
   reviews      Review[]     @relation("ReviewAuthor")
   moderated    Review[]     @relation("ReviewModerator")
   reports      ReviewReport[]
+  notices      Notice[]
   activity     ActivityLog[]
   points       PointsEntry[]
   coupons      Coupon[]
@@ -870,6 +871,7 @@ model Review {
   moderatedBy   User?         @relation("ReviewModerator", fields: [moderatedById], references: [id], onDelete: Restrict)
   moderatedAt   DateTime?
   reports       ReviewReport[]
+  notices       Notice[]
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
@@ -893,4 +895,31 @@ model ReviewReport {
 
   @@unique([reviewId, userId])
   @@map("review_reports")
+}
+
+/// De qué trata un aviso. La fase 6 sumará los de solicitudes de socios.
+enum NoticeKind {
+  RESENA_RECHAZADA
+}
+
+/// Aviso para un cliente (decisiones transversales, «Avisos»): se ve en la app
+/// y la web y, si el correo está configurado, también le llega por Resend.
+/// El título y el cuerpo los redacta el servidor; nunca llevan HTML.
+model Notice {
+  id        Int        @id @default(autoincrement())
+  userId    Int
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind      NoticeKind
+  title     String
+  body      String
+  /// Reseña de la que trata, si es de una. Se suelta si el autor la retira.
+  reviewId  Int?
+  review    Review?    @relation(fields: [reviewId], references: [id], onDelete: SetNull)
+  readAt    DateTime?
+  /// Cuándo salió el correo; null = sin correo (apagado o falló).
+  emailedAt DateTime?
+  createdAt DateTime   @default(now())
+
+  @@index([userId, readAt])
+  @@map("notices")
 }

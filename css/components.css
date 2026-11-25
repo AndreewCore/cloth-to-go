@@ -2090,3 +2090,17 @@ main::-webkit-scrollbar { display: none; }
 .rev-reported { color: var(--muted); font-size: 11px; margin: 6px 0 0; }
 .report-opts { display: grid; gap: 8px; text-align: left; margin-top: 4px; }
 .report-opt { display: flex; gap: 8px; align-items: center; font-size: 14px; cursor: pointer; }
+
+/* Avisos del local en el perfil, y el punto del botón de perfil si hay sin leer. */
+#openProfile { position: relative; }
+.notice-dot {
+  position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%;
+  background: var(--danger, #b3261e); box-shadow: 0 0 0 2px var(--bg, #fff);
+}
+.notices-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.notices { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+.notice { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
+.notice.unread { border-color: var(--danger, #b3261e); }
+.notice-title { font-weight: 700; font-size: 14px; }
+.notice-body { margin: 4px 0; font-size: 13px; color: var(--muted); }
+.notice-date { font-size: 11px; color: var(--muted); }

@@ -72,3 +72,20 @@ test("la web sin sesión de la API no crea pedidos", async () => {
   assert.equal(web.fake.calls.filter(c => c.path === "/api/orders").length, 0);
   assert.match(web.win.__lastToast, /conexión/);
 });
+
+test("un aviso del local se ve en el menú de la cuenta de la web y se marca leído", async () => {
+  const web = cargarWeb();
+  web.fake.state.notices.push({ id: 1, kind: "RESENA_RECHAZADA", title: "Tu reseña de «Blazer» no se publicó",
+    body: "Motivo: Spam o publicidad.", createdAt: "2026-11-20T15:00:00.000Z", read: false });
+  assert.equal(await web.win.loadNotices(), true);
+  const doc = web.win.document;
+  assert.ok(doc.querySelector("#sessionBox .notice-dot"), "punto sobre la foto");
+  assert.match(doc.querySelector(".avatar-btn").getAttribute("aria-label"), /1 aviso sin leer/);
+
+  web.win.toggleUserMenu();
+  assert.match(doc.querySelector(".u-notices").textContent, /Motivo: Spam o publicidad/);
+  assert.equal(await web.win.markNoticesRead(), true);
+  assert.equal(doc.querySelector("#sessionBox .notice-dot"), null);
+  assert.equal(doc.querySelector('[data-action="markNoticesRead"]'), null);
+  assert.equal(web.fake.state.notices[0].read, true);
+});

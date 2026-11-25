@@ -223,6 +223,25 @@ function orderCardHTML(o, i, archived){
  * contacto. Aquí solo se ensambla y se decide qué pedido va en qué lista; cada
  * pieza se pinta en su propia función.
  */
+/**
+ * Avisos del local, lo último primero. Solo aparece si hay alguno: un bloque
+ * vacío en lo alto del perfil sería ruido.
+ * @returns {string} HTML.
+ */
+function noticesHTML(){
+  if(!notices.length) return "";
+  const item = n => `
+    <li class="notice${n.read ? "" : " unread"}">
+      <div class="notice-title">${escapeHTML(n.title)}</div>
+      <p class="notice-body">${escapeHTML(n.body)}</p>
+      <div class="notice-date">${fmtDate(localDayOf(n.createdAt))}</div>
+    </li>`;
+  return `
+    <div class="section-label notices-head">Avisos
+      ${unreadNotices ? `<button class="link-btn" data-action="markNoticesRead">Marcar como leídos</button>` : ""}</div>
+    <ul class="notices">${notices.slice(0, 5).map(item).join("")}</ul>`;
+}
+
 function renderProfile(){
   sheetTitle.textContent = "Mi perfil";
 
@@ -232,6 +251,8 @@ function renderProfile(){
 
   sheetBody.innerHTML = `
     ${profileHeadHTML()}
+
+    ${noticesHTML()}
 
     <button class="points-card" data-action="openRewards" aria-label="Ver premios y canjear puntos">
       <div>

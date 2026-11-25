@@ -284,18 +284,48 @@ function renderSession(){
     : "";
   box.innerHTML = `
     <button class="avatar-btn" data-action="toggleUserMenu"
-            aria-label="Tu cuenta: ${escapeHTML(nombre)}" aria-expanded="${userMenuOpen}">
+            aria-label="Tu cuenta: ${escapeHTML(nombre)}${unreadNotices ? ` (${unreadNotices} aviso${unreadNotices === 1 ? "" : "s"} sin leer)` : ""}"
+            aria-expanded="${userMenuOpen}">
       ${inicial}${foto}
     </button>
+    ${unreadNotices ? `<span class="notice-dot" aria-hidden="true"></span>` : ""}
     ${userMenuOpen ? `
       <div class="user-menu">
         <div class="u-name">${escapeHTML(nombre)}</div>
         ${profile.email ? `<div class="u-mail">${escapeHTML(profile.email)}</div>` : ""}
         <hr>
+        ${webNoticesHTML()}
         <p class="note" style="margin:0 0 10px">Tus pedidos, puntos y reseñas están en la app.</p>
         <button class="ghost-btn" data-action="signOut">Cerrar sesión</button>
       </div>` : ""}`;
 }
+
+/**
+ * Avisos del local dentro del menú de la cuenta: los tres últimos, con el
+ * botón para darlos por leídos. Nada si no hay ninguno.
+ * @returns {string} HTML.
+ */
+function webNoticesHTML(){
+  if(!notices.length) return "";
+  const item = n => `
+    <li class="${n.read ? "" : "unread"}">
+      <strong>${escapeHTML(n.title)}</strong>
+      <span>${escapeHTML(n.body)}</span>
+    </li>`;
+  return `
+    <div class="u-notices">
+      <div class="u-notices-head">Avisos
+        ${unreadNotices ? `<button class="link-btn" data-action="markNoticesRead">Marcar como leídos</button>` : ""}</div>
+      <ul>${notices.slice(0, 3).map(item).join("")}</ul>
+    </div>
+    <hr>`;
+}
+
+/**
+ * Lo que api.js llama al cambiar los avisos (en la app es el punto del botón
+ * de perfil): aquí se repinta la caja de la sesión, que lleva punto y lista.
+ */
+function updateNoticeDot(){ renderSession(); }
 
 /** Abre o cierra el menú de la cuenta (el que cuelga de la foto de perfil). */
 function toggleUserMenu(){

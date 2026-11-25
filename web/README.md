@@ -108,7 +108,8 @@ Deliberado, para no duplicar media app:
   `shipCoords`/`retCoords` en `null`.
 - **Sin cupones ni canje de puntos**: el pedido gana sus puntos (los acredita
   el servidor), pero se gastan desde la app. La web no manda `couponId`.
-- **Sin perfil ni reseñas**: se ven en la app.
+- **Sin perfil ni reseñas**: se ven en la app. Los **avisos** del local (p. ej.
+  una reseña rechazada) sí se ven, en el menú de la cuenta.
 - `placeWebOrder()` manda a `POST /api/orders` el mismo cuerpo que `placeOrder()`
   de `js/checkout.js` (que no puede cargarse aquí: depende del DOM del teléfono).
   El dinero y los puntos los pone el servidor y los dos traducen la respuesta

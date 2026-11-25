@@ -153,6 +153,7 @@ function onSheetClick(e){
                            renderDetail(); break;
     case "openReview":     openReview(+el.dataset.order); break;
     case "reportReview":   openReportReview(+el.dataset.id); break;
+    case "markNoticesRead": markNoticesRead().then(ok => { if(!ok) toast("No se pudo marcar. Inténtalo de nuevo."); renderSheet(); }); break;
     case "pickReviewItem": reviewProductId = +el.dataset.id; renderSheet(); break;
     // Segundo toque sobre la misma estrella = quitarla, como el premio aplicado:
     // equivocarse al puntuar no debe obligar a salir y volver a entrar.

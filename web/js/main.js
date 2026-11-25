@@ -136,6 +136,7 @@ function dispatchAction(el){
     case "openLogin":   openLogin(); break;
     case "closeLogin":  closeLogin(); break;
     case "signOut":     signOutWeb(); break;
+    case "markNoticesRead": markNoticesRead().then(ok => { if(!ok) toast("No se pudo marcar. Inténtalo de nuevo."); }); break;
 
     /* Checkout */
     case "checkout":      startCheckout(); break;
