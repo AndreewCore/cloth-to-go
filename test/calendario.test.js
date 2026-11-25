@@ -312,38 +312,43 @@ test("selección de rango con dos clics", async (t) => {
     const p = v => String(v).padStart(2, "0");
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
   };
+  // Los clics caen en días de retiro (lun–vie): «hoy + 10» era sábado algunos
+  // días y el calendario, con razón, no lo dejaba elegir. Lunes y viernes de
+  // la semana que empieza entre 7 y 13 días después.
+  const off = (8 - hoy.getDay()) % 7 + 7;
+  const LUNES = off, VIERNES = off + 4;
 
   await t.test("el primer clic deja el inicio pendiente sin tocar las fechas", async () => {
     const { app } = await setup([1], { rentalStart: iso(0), rentalEnd: iso(3) });
-    app.pickCalendarDay(iso(10));
-    assert.equal(app.calPendingStart, iso(10));
+    app.pickCalendarDay(iso(LUNES));
+    assert.equal(app.calPendingStart, iso(LUNES));
     assert.equal(app.rentalStart, iso(0), "no debe mover el inicio todavía");
     assert.equal(app.rentalEnd, iso(3));
   });
 
   await t.test("el segundo clic cierra el rango", async () => {
     const { app } = await setup([1], { rentalStart: iso(0), rentalEnd: iso(3) });
-    app.pickCalendarDay(iso(10));
-    app.pickCalendarDay(iso(14));
-    assert.equal(app.rentalStart, iso(10));
-    assert.equal(app.rentalEnd, iso(14));
+    app.pickCalendarDay(iso(LUNES));
+    app.pickCalendarDay(iso(VIERNES));
+    assert.equal(app.rentalStart, iso(LUNES));
+    assert.equal(app.rentalEnd, iso(VIERNES));
     assert.equal(app.calPendingStart, null);
     assert.equal(app.rentalDays(), 4);
   });
 
   await t.test("un clic anterior al pendiente reinicia la selección", async () => {
     const { app } = await setup([1], { rentalStart: iso(0), rentalEnd: iso(3) });
-    app.pickCalendarDay(iso(14));
-    app.pickCalendarDay(iso(10));   // se equivocó: empieza de nuevo
-    assert.equal(app.calPendingStart, iso(10));
+    app.pickCalendarDay(iso(VIERNES));
+    app.pickCalendarDay(iso(LUNES));   // se equivocó: empieza de nuevo
+    assert.equal(app.calPendingStart, iso(LUNES));
     assert.equal(app.rentalStart, iso(0), "el rango viejo sigue intacto");
   });
 
   await t.test("clicar dos veces el mismo día no crea un rango de cero días", async () => {
     const { app } = await setup([1], { rentalStart: iso(0), rentalEnd: iso(3) });
-    app.pickCalendarDay(iso(10));
-    app.pickCalendarDay(iso(10));
-    assert.equal(app.calPendingStart, iso(10));
+    app.pickCalendarDay(iso(LUNES));
+    app.pickCalendarDay(iso(LUNES));
+    assert.equal(app.calPendingStart, iso(LUNES));
     assert.equal(app.rentalEnd, iso(3), "no debe cerrarse sobre sí mismo");
   });
 
