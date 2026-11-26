@@ -315,6 +315,10 @@ test("recibir lleva cada prenda a lavado (con quién y dónde) en una sola entra
   assert.equal(logs[0].laundryPlace, "Lavandería Sol");
   const reserva = await prisma.orderItem.findFirst({ where: { orderId: order.id } });
   assert.ok(reserva.releasedAt, "la reserva se libera: sus días ya no bloquean pedidos nuevos");
+
+  // Sale del lavado: Disponible, no «Reservada» por su propio pedido ya devuelto.
+  const sale = await como(MOSTRADOR, { method: "POST", url: `/api/items/${item.id}/status`, payload: { to: "DISPONIBLE" } });
+  assert.equal(sale.json().status, "DISPONIBLE");
 });
 
 test("recibir como desperfecto exige observación; lavado exige lugar; nunca directo a Disponible", async () => {
