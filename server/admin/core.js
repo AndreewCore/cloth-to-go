@@ -39,6 +39,10 @@ export const state = {
   me: null,
   tab: null,
   orders: [],
+  /** Pedidos terminados (`?scope=history`): `{days, orders, hasMore}`. */
+  history: null,
+  /** Días de historial pedidos; «Cargar más» suma otra tanda. */
+  historyDays: 30,
   items: [],
   stragglers: null,
   /** Días que el local no abre (`GET /api/config`); null hasta cargarlos. */
@@ -162,15 +166,33 @@ export function can(cap) {
   return caps.includes(cap) || caps.includes("ADMINISTRACION");
 }
 
-/** Muestra un aviso breve. */
-export function toast(text, error = false) {
+/**
+ * Muestra un aviso breve. Un texto suelto es el aviso de siempre; nodos (de
+ * `h()` y de los ayudantes de abajo) dan un aviso con detalle: qué prenda,
+ * cuánto dinero y a quién, con color en lo que importa. Ese dura más, porque
+ * se lee.
+ * @param {string|Node|Array<string|Node>} content Lo que dice.
+ * @param {boolean} [error] Aviso de error (rojo).
+ * @param {{tone?: "ok"|"warn"|"bad"}} [opts] Color del borde del aviso con detalle.
+ */
+export function toast(content, error = false, { tone = "ok" } = {}) {
   const t = $("toast");
-  t.textContent = text;
-  t.className = error ? "toast error" : "toast";
+  const rich = typeof content !== "string";
+  t.replaceChildren(...[content].flat().filter((c) => c != null && c !== false));
+  t.className = error ? "toast error" : rich ? `toast rich ${tone}` : "toast";
   t.hidden = false;
   clearTimeout(toast.timer);
-  toast.timer = setTimeout(() => { t.hidden = true; }, 4000);
+  toast.timer = setTimeout(() => { t.hidden = true; }, rich ? 7000 : 4000);
 }
+
+/** Importe destacado: verde si entra o se devuelve, rojo si se cobra de más o se revierte. */
+export const amt = (cents, tone = "ok") => h(`strong.amt.${tone}`, {}, money(cents));
+
+/** Nombre de una prenda en negrita, con su código si lo tiene. */
+export const garment = (name, code) => [h("strong", {}, name), code ? ` (${code})` : ""];
+
+/** Une piezas de un aviso con un separador. */
+export const joinParts = (parts, sep = " · ") => parts.flatMap((p, i) => (i ? [sep, p] : [p]));
 
 /** Chip con el estado interno de un ejemplar. */
 export const statusChip = (s) => h(`span.chip${STATUS_TONE[s] ? `.${STATUS_TONE[s]}` : ""}`, {}, STATUS_LABEL[s] ?? s);
@@ -231,12 +253,14 @@ export async function upload(path, files, fields = {}) {
 /**
  * Ejecuta una acción del panel, avisa del resultado y recarga la pestaña.
  * @param {() => Promise<any>} fn Acción.
- * @param {string} ok Mensaje de éxito.
+ * @param {string|((res: any) => Node[])} ok Mensaje de éxito, o función que lo
+ *   arma con la respuesta del servidor (para decir importes reales).
+ * @param {{tone?: string}|((res: any) => {tone?: string})} [opts] Color del aviso.
  */
-export async function act(fn, ok) {
+export async function act(fn, ok, opts = {}) {
   try {
-    await fn();
-    toast(ok);
+    const res = await fn();
+    toast(typeof ok === "function" ? ok(res) : ok, false, typeof opts === "function" ? opts(res) : opts);
     await hooks.reload();
   } catch (err) {
     toast(err.message, true);

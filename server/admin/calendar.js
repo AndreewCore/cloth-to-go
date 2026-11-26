@@ -106,7 +106,7 @@ async function addHoliday() {
     if (r.orders.length) {
       await formDialog("Cierre añadido", [h("p", {}, `El ${fmtDay(r.date)} queda cerrado.`), ordersNote(r.orders)], "Entendido", { cancel: false });
     } else {
-      toast("Cierre añadido.");
+      toast(["Cierre añadido: el ", h("strong", {}, fmtDay(r.date)), ` («${datos.get("name")}») no hay retiros ni devoluciones. Ningún pedido caía ese día.`], false, { tone: "warn" });
     }
   } catch (err) {
     toast(err.message, true);
@@ -122,7 +122,7 @@ async function editHoliday(date) {
   if (!datos || datos.get("name") === x.name) return;
   try {
     await api(`/api/admin/holidays/${date}`, { method: "PATCH", body: { name: datos.get("name") } });
-    toast("Cierre guardado.");
+    toast(["Cierre del ", h("strong", {}, fmtDay(date)), `: ahora el cliente ve «${datos.get("name")}».`]);
     await hooks.reload();
   } catch (err) {
     toast(err.message, true);
@@ -136,7 +136,7 @@ async function deleteHoliday(date) {
   if (!ok) return;
   try {
     await api(`/api/admin/holidays/${date}`, { method: "DELETE" });
-    toast("Cierre quitado.");
+    toast(["El ", h("strong", {}, fmtDay(date)), ` vuelve a ser hábil (se quitó «${x.name}»).`]);
     await hooks.reload();
   } catch (err) {
     toast(err.message, true);

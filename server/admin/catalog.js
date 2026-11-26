@@ -6,12 +6,17 @@
  * paso que más fácil se olvida al dar de alta una prenda.
  */
 import {
-  CATALOG_FILTERS_DEFAULT, STATUS_LABEL, api, can, formDialog, h, hooks, state, statusChip, toast, upload,
+  CATALOG_FILTERS_DEFAULT, STATUS_LABEL, amt, api, can, formDialog, h, hooks, state, statusChip, toast, upload,
 } from "./core.js";
 import { photoButton, photoPicker, thumb } from "./photos.js";
 
 const CONDITION_LABEL = { NUEVA: "Nueva", COMO_NUEVA: "Como nueva", BUENA: "Buena", USO_VISIBLE: "Uso visible" };
 const MAX_PHOTOS = 6;
+/** Nombre de cada campo del modelo en los avisos de «guardado». */
+const FIELD_LABEL = {
+  name: "nombre", desc: "descripción", categoryKey: "categoría", material: "material", value: "valor",
+  stars: "estrellas", brand: "marca", audienceKey: "público", seasonKey: "temporada", occasions: "ocasiones", weightKg: "peso",
+};
 
 /** Carga los modelos y, la primera vez, la taxonomía. */
 export async function loadCatalog() {
@@ -135,7 +140,18 @@ async function adjustPrice(p) {
   if (datos.get("note")) body.note = datos.get("note");
   try {
     await api(`/api/products/${p.id}/pricing`, { method: "PATCH", body });
-    toast("Precio guardado.");
+    const partes = [];
+    if ("priceOverride" in body) {
+      partes.push(body.priceOverride == null
+        ? "el día 1 vuelve a la fórmula"
+        : ["día 1 fijo en ", amt(Math.round(body.priceOverride * 100))]);
+    }
+    if ("depositOverride" in body) {
+      partes.push(body.depositOverride == null
+        ? "la garantía vuelve a la fórmula"
+        : ["garantía fija en ", amt(Math.round(body.depositOverride * 100))]);
+    }
+    toast(["Precio de ", h("strong", {}, p.name), ": ", partes.flatMap((x, i) => (i ? [" y ", x] : [x])), "."]);
     await hooks.reload();
   } catch (err) {
     toast(err.message, true);
@@ -374,11 +390,11 @@ async function modelDialog(p) {
         JSON.stringify(v) !== JSON.stringify(k === "brand" ? p.brand ?? null : p[k])));
       if (!Object.keys(cambios).length) return toast("No cambió nada.");
       await api(`/api/products/${p.id}`, { method: "PATCH", body: cambios });
-      toast("Modelo guardado.");
+      toast([h("strong", {}, cuerpo.name || p.name), " guardado: ", Object.keys(cambios).map((k) => FIELD_LABEL[k] ?? k).join(", "), "."]);
     } else {
       const nuevo = await api("/api/products", { method: "POST", body: cuerpo });
       state.openProduct = nuevo.id;
-      toast("Modelo creado. Ahora sube sus fotos y su primer ejemplar.");
+      toast([h("strong", {}, nuevo.name ?? cuerpo.name), " creado. Ahora sube sus fotos y su primer ejemplar."]);
     }
     await hooks.reload();
   } catch (err) {
@@ -395,8 +411,9 @@ async function addPhotos(p) {
   ], "Subir", { wide: true, validate: () => (picker.count() ? null : "Elige al menos una foto.") });
   try {
     if (datos) {
+      const n = picker.count();
       await upload(`/api/products/${p.id}/photos`, await picker.files());
-      toast("Fotos subidas.");
+      toast([`${n} foto${n === 1 ? "" : "s"} subida${n === 1 ? "" : "s"} a `, h("strong", {}, p.name), "."]);
       await hooks.reload();
     }
   } catch (err) {
@@ -450,7 +467,7 @@ async function newItem(p) {
       },
     });
     if (picker.count()) await upload(`/api/items/${item.id}/photos`, await picker.files(), { kind: "ESTADO" });
-    toast(`Ejemplar ${item.code} dado de alta.`);
+    toast(["Ejemplar ", h("strong", {}, item.code), ` de ${p.name} dado de alta (talla ${size}). Ya está Disponible.`]);
     await hooks.reload();
   } catch (err) {
     toast(err.message, true);
@@ -470,7 +487,8 @@ async function editItem(p, itemId) {
   if (!datos) return;
   try {
     await api(`/api/items/${itemId}`, { method: "PATCH", body: { condition: datos.get("condition") || null } });
-    toast("Condición guardada.");
+    const c = datos.get("condition");
+    toast([h("strong", {}, it.code ?? `#${it.id}`), ` de ${p.name}: condición ${c ? `«${CONDITION_LABEL[c] ?? c}»` : "sin indicar"}.`]);
     await hooks.reload();
   } catch (err) {
     toast(err.message, true);

@@ -19,10 +19,40 @@ import { FINANCE_EVENT, logFinance, logItem } from "./logs.js";
 import { CON_LINEAS, orderToApi } from "./orders.js";
 import { panelPhotoUrl } from "./catalogAdmin.js";
 import { requestOrigin } from "./storage.js";
+import { parseFilters, readActivity } from "./activity.js";
 
 const S = ITEM_STATUS;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const DIA_MS = 86_400_000;
+
+/** Días de pedidos terminados que trae cada tanda del historial. */
+export const HISTORY_DAYS = 30;
+/** Tope de días hacia atrás del historial: más viejo, en la Bitácora. */
+const HISTORY_MAX_DAYS = 365;
+
+/**
+ * Indica si un pedido del panel ya terminó: anulado, o con todo recibido, nada
+ * por cobrar y sin garantía retenida. Es lo contrario de «en curso».
+ * @param {object} o Pedido de `orderForPanel()`.
+ * @returns {boolean}
+ */
+export function isFinished(o) {
+  if (o.cancelledAt) return true;
+  return o.status !== "pending" && o.depositHeldCents === 0 && o.lines.every((l) => l.receivedAt);
+}
+
+/**
+ * Cuándo terminó un pedido: la anulación, o lo último que le pasó (la última
+ * prenda recibida o el último movimiento de dinero, que suele ser la garantía).
+ * @param {object} o Pedido de `orderForPanel()`.
+ * @returns {Date}
+ */
+export function finishedAt(o) {
+  if (o.cancelledAt) return new Date(o.cancelledAt);
+  const marcas = [o.createdAt, ...o.lines.map((l) => l.receivedAt), ...o.charges.map((c) => c.createdAt)]
+    .filter(Boolean).map((d) => new Date(d).getTime());
+  return new Date(Math.max(...marcas));
+}
 
 /** Umbrales de rezagadas del §3, en días. */
 export const STRAGGLER_DAYS = Object.freeze({ RECEIVED_NOT_WASHED: 1, IN_LAUNDRY: 2 });
@@ -183,8 +213,35 @@ export function registerOperationRoutes(app, { requireUser, requireCapability },
 
   // Pedidos en curso: no anulados y con algo pendiente (una prenda sin
   // recibir, dinero sin confirmar o garantía retenida). `?scope=all` trae
-  // también los cerrados, los más recientes primero.
+  // también los cerrados, los más recientes primero. `?scope=history&days=N`
+  // trae los TERMINADOS en los últimos N días, del último en terminar al
+  // primero, y dice si hay más atrás.
   app.get("/api/admin/orders", { preHandler: mostradorOCaja }, async (req) => {
+    if (req.query?.scope === "history") {
+      const dias = Math.min(Math.max(Number(req.query.days) || HISTORY_DAYS, 1), HISTORY_MAX_DAYS);
+      const corte = new Date(Date.now() - dias * DIA_MS);
+      // Candidatos: lo que se anuló, se recibió o se movió dentro de la
+      // ventana. Un alquiler largo que terminó ayer se creó hace semanas.
+      const pedidos = await prisma.order.findMany({
+        where: {
+          OR: [
+            { createdAt: { gte: corte } },
+            { cancelledAt: { gte: corte } },
+            { items: { some: { receivedAt: { gte: corte } } } },
+            { charges: { some: { createdAt: { gte: corte } } } },
+          ],
+        },
+        include: PARA_PANEL,
+      });
+      const terminados = pedidos.map((o) => orderForPanel(o, fotosPara(req)))
+        .filter(isFinished)
+        .map((o) => ({ ...o, finishedAt: finishedAt(o) }))
+        .filter((o) => o.finishedAt >= corte)
+        .sort((a, b) => b.finishedAt - a.finishedAt || b.id - a.id);
+      const masViejos = dias < HISTORY_MAX_DAYS
+        && (await prisma.order.count({ where: { createdAt: { lt: corte } } })) > 0;
+      return { days: dias, orders: terminados, hasMore: masViejos };
+    }
     const todos = req.query?.scope === "all";
     const pedidos = await prisma.order.findMany({
       where: todos ? {} : { cancelledAt: null },
@@ -274,6 +331,42 @@ export function registerOperationRoutes(app, { requireUser, requireCapability },
     return { notReceived: sinRecibir, receivedNotWashed: sinLavar, inLaundry: enLavado };
   });
 
+  // Recorrido de un pedido: lo que lleva su número (reserva, entrega con
+  // fotos, recepción, días extra, cobro, garantía, anulación) y lo que les pasó
+  // a sus prendas hasta que otro pedido las tomó (lavado, vuelta a Disponible).
+  app.get("/api/orders/:id/timeline", { preHandler: mostradorOCaja }, async (req) => {
+    const id = routeId(req.params.id, "Pedido");
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { user: { select: { name: true, email: true } }, items: { select: { itemId: true } } },
+    });
+    if (!order) throw httpError(404, "Pedido no encontrado.");
+    const itemIds = order.items.map((x) => x.itemId);
+    const siguientes = await prisma.orderItem.findMany({
+      where: { itemId: { in: itemIds }, orderId: { not: id }, order: { createdAt: { gt: order.createdAt } } },
+      select: { itemId: true, order: { select: { createdAt: true } } },
+    });
+    const hasta = new Map();
+    for (const x of siguientes) {
+      const prev = hasta.get(x.itemId);
+      if (!prev || x.order.createdAt < prev) hasta.set(x.itemId, x.order.createdAt);
+    }
+    const f = parseFilters({ limit: "200" });
+    f.order = { orderId: id, items: itemIds.map((itemId) => ({ itemId, from: order.createdAt, to: hasta.get(itemId) ?? null })) };
+    const origin = requestOrigin(req);
+    const { entries } = await readActivity(f, {
+      signed: (key) => storage.signedUrl(key, origin),
+      catalog: (img) => panelPhotoUrl(storage, img, origin),
+    });
+    const alta = {
+      key: `o:${id}`, at: order.createdAt, action: "PEDIDO", label: "Pedido creado", category: "dinero",
+      actor: { name: order.user.name || order.user.email },
+      note: `${itemIds.length} prenda${itemIds.length === 1 ? "" : "s"} · del ${order.start} al ${order.end}`,
+      product: null, item: null, orderId: id, photos: [],
+    };
+    return { orderId: id, entries: [alta, ...entries.reverse()] };
+  });
+
   // Recibir prendas devueltas: anota el día real, quién y cuándo lo registró,
   // cobra los días extra si se pasó de la fecha límite y lleva cada prenda a
   // lavado o a desperfecto. Todo en una transacción: una prenda recibida
@@ -317,10 +410,14 @@ export function registerOperationRoutes(app, { requireUser, requireCapability },
         if (plan.error) throw httpError(plan.status, `${oi.item.product.name}: ${plan.error}`);
 
         // Condición sobre `receivedAt`: dos mostradores que reciben a la vez no
-        // pueden cobrar dos veces los mismos días extra.
+        // pueden cobrar dos veces los mismos días extra. Y la reserva se libera
+        // (`releasedAt`): la prenda ya volvió, así que sus días hasta la fecha
+        // límite no deben frenar ni la vuelta a Disponible ni un pedido nuevo
+        // desde que sale del lavado.
+        const ahora = new Date();
         const { count } = await tx.orderItem.updateMany({
           where: { id: oi.id, receivedAt: null },
-          data: { returnedOn: new Date(`${datos.returnedOn}T00:00:00Z`), receivedAt: new Date(), receivedById: req.user.id },
+          data: { returnedOn: new Date(`${datos.returnedOn}T00:00:00Z`), receivedAt: ahora, receivedById: req.user.id, releasedAt: ahora },
         });
         if (count === 0) throw httpError(409, "Otra persona registró esta devolución mientras tanto; vuelve a cargar.");
         const movida = await tx.item.updateMany({ where: { id: oi.itemId, status: S.EN_ALQUILER }, data: plan.data });

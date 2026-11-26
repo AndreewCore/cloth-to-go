@@ -6,7 +6,7 @@
  * renombrar y reordenar, pero no borrar. La clave y el prefijo no aparecen
  * como editables porque el servidor no deja cambiarlos.
  */
-import { api, can, formDialog, h, hooks, state, toast } from "./core.js";
+import { amt, api, can, formDialog, h, hooks, state, toast } from "./core.js";
 
 /** Secciones en el orden del panel, con su título y qué cuentan los usos. */
 const SECTIONS = [
@@ -101,10 +101,13 @@ export function renderTaxonomy() {
   ];
 }
 
+/** Título de una lista («Colores»), para los avisos. */
+const titleOf = (list) => SECTIONS.find((x) => x.list === list)?.title ?? list;
+
 /** Recarga la pestaña y olvida la taxonomía del catálogo, que ya cambió. */
-async function refrescar(ok) {
+async function refrescar(ok, opts) {
   state.taxonomy = null;
-  toast(ok);
+  toast(ok, false, opts);
   await hooks.reload();
 }
 
@@ -136,7 +139,10 @@ async function addEntry(list, scale) {
   if (list === "materials") body.laundryCents = Math.round(Number(datos.get("laundry")) * 100);
   try {
     await api(`/api/taxonomy/${list}`, { method: "POST", body });
-    await refrescar("Creada.");
+    const nombre = body.name ?? body.label;
+    await refrescar([`Alta en ${sec.title}: `, h("strong", {}, nombre),
+      body.prefix ? ` con prefijo ${body.prefix.toUpperCase()}` : "",
+      body.laundryCents != null ? [" · lavado ", amt(body.laundryCents, "bad"), " por ciclo"] : "", "."]);
   } catch (err) {
     toast(err.message, true);
   }
@@ -168,7 +174,10 @@ async function editEntry(list, key) {
   if (!Object.keys(body).length) return toast("No cambió nada.");
   try {
     await api(`/api/taxonomy/${list}/${encodeURIComponent(key)}`, { method: "PATCH", body });
-    await refrescar("Guardado.");
+    await refrescar([`${titleOf(list)}: `, h("strong", {}, body.name ?? r.name),
+      body.name ? ` (antes «${r.name}»)` : " guardado",
+      body.laundryCents != null ? [": lavado de ", amt(r.laundryCents, "ok"), " a ", amt(body.laundryCents, "bad"), " por ciclo. Mueve el precio mínimo de sus prendas"] : "",
+      "."]);
   } catch (err) {
     toast(err.message, true);
   }
@@ -185,7 +194,7 @@ async function moveEntry(list, key, dir) {
   [keys[i], keys[j]] = [keys[j], keys[i]];
   try {
     await api(`/api/taxonomy/${list}/order`, { method: "PUT", body: { keys } });
-    await refrescar("Orden guardado.");
+    await refrescar([h("strong", {}, grupo[i].name ?? grupo[i].label), dir < 0 ? " sube" : " baja", " un puesto en la lista."]);
   } catch (err) {
     toast(err.message, true);
   }
@@ -198,7 +207,7 @@ async function deleteEntry(list, key) {
   if (!ok) return;
   try {
     await api(`/api/taxonomy/${list}/${encodeURIComponent(key)}`, { method: "DELETE" });
-    await refrescar("Borrada.");
+    await refrescar(["Se borró ", h("strong", {}, r.name ?? r.label), ` de ${titleOf(list)}.`], { tone: "bad" });
   } catch (err) {
     toast(err.message, true);
   }

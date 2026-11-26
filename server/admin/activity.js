@@ -5,13 +5,15 @@
  * Los filtros se aplican en el servidor (la bitácora crece sin tope) y la
  * lista se pagina con «Cargar más».
  */
-import { api, formDialog, h, localISO, relDays, toast, when } from "./core.js";
+import { api, fmtDay, formDialog, h, localISO, relDays, toast, when } from "./core.js";
 
 /** Filtros sin tocar. */
 export const ACTIVITY_FILTERS_DEFAULT = Object.freeze({ category: "", action: "", actor: "", from: "", to: "", q: "" });
 
 /** Color del chip de cada categoría (clases de admin.css). */
 const TONE = { catalogo: "", fotos: "info", prendas: "muted", dinero: "warn", precio: "warn", personal: "bad", taxonomia: "", resenas: "info" };
+/** Acciones que merecen otro color que el de su categoría: lo que se cobra de más o se deshace. */
+const ACTION_TONE = { DIAS_EXTRA: "bad", ANULACION: "bad", PENALIZACION: "bad", GARANTIA_LIBERADA: "" };
 
 /** Estado propio de la pestaña. */
 const bit = { meta: null, entries: [], next: null, filters: { ...ACTIVITY_FILTERS_DEFAULT }, loading: false };
@@ -48,20 +50,25 @@ async function loadMore() {
 /** Indica si hay algún filtro puesto. */
 const anyFilter = () => Object.entries(ACTIVITY_FILTERS_DEFAULT).some(([k, v]) => bit.filters[k] !== v);
 
-/** Barra de filtros. Las acciones se acotan a la categoría elegida. */
+/**
+ * Barra de filtros. La acción se elige en dos pasos: primero la categoría y
+ * luego, entre las suyas (de una a cinco), la acción. Todas juntas eran más de
+ * treinta en un solo desplegable.
+ */
 function filterBar() {
   const f = bit.filters;
   const m = bit.meta;
-  const select = (key, label, items, todos) => h("label", {}, label,
-    h("select", { dataset: { action: "activity-filter", key } },
+  const select = (key, label, items, todos, disabled = false) => h("label", {}, label,
+    h("select", { dataset: { action: "activity-filter", key }, disabled: disabled || null },
       h("option", { value: "", selected: !f[key] || null }, todos),
       items.map(([v, t]) => h("option", { value: v, selected: String(f[key]) === String(v) || null }, t))));
   const fecha = (key, label) => h("label", {}, label,
     h("input", { type: "date", value: f[key], max: localISO(new Date()), dataset: { action: "activity-filter", key } }));
-  const acciones = m.actions.filter((a) => !f.category || a.category === f.category);
+  const acciones = m.actions.filter((a) => a.category === f.category);
   return h("div.filters", {},
     select("category", "Categoría", m.categories.map((c) => [c.key, c.label]), "Todas"),
-    select("action", "Acción", acciones.map((a) => [a.key, a.label]), "Todas"),
+    select("action", "Acción", f.category ? acciones.map((a) => [a.key, a.label]) : [],
+      f.category ? "Todas" : "Elige una categoría primero", !f.category),
     select("actor", "Persona", [...m.actors.map((a) => [a.id, a.name]), ["system", "Sistema (automático)"]], "Todas"),
     fecha("from", "Desde"),
     fecha("to", "Hasta"),
@@ -70,28 +77,45 @@ function filterBar() {
   );
 }
 
-/** Una entrada: cuándo, quién, qué, sobre qué, la nota y sus fotos. */
-function entryRow(e) {
+/**
+ * Una entrada: cuándo, quién, qué, sobre qué, la nota y sus fotos. La usa
+ * también el recorrido de un pedido (admin.js).
+ * @param {object} e Entrada de `readActivity()`.
+ * @param {{orderLink?: boolean, fullDate?: boolean}} [opts] Enlace al
+ *   recorrido del pedido (no dentro del propio recorrido) y fecha completa
+ *   (el recorrido no se agrupa por días).
+ */
+export function entryRow(e, { orderLink = true, fullDate = false } = {}) {
   const objetivo = [
     e.product ? e.product.name : null,
     e.item ? (e.item.code ?? `ejemplar #${e.item.id}`) : null,
-    e.orderId ? `pedido #${e.orderId}` : null,
+    e.orderId && !orderLink ? `pedido #${e.orderId}` : null,
   ].filter(Boolean).join(" · ");
   const dia = localISO(new Date(e.at));
   return h("li.activity", {},
     h("div.activity-when", { title: when(e.at) },
       h("strong", {}, new Date(e.at).toLocaleTimeString("es-EC", { hour: "2-digit", minute: "2-digit" })),
-      h("span.meta", {}, relDays(dia))),
+      h("span.meta", {}, fullDate ? fmtDay(dia) : relDays(dia))),
     h("div.activity-body", {},
       h("div", {},
-        h(`span.chip${TONE[e.category] ? `.${TONE[e.category]}` : ""}`, {}, e.label), " ",
+        chipFor(e), " ",
         h("strong", {}, e.actor?.name ?? "Sistema"),
-        objetivo ? h("span.meta", {}, ` · ${objetivo}`) : null),
+        objetivo ? h("span.meta", {}, ` · ${objetivo}`) : null,
+        // Desde la bitácora se salta al recorrido entero de ese pedido.
+        e.orderId && orderLink
+          ? [h("span.meta", {}, " · "), h("button.link", { type: "button", dataset: { action: "timeline", order: e.orderId } }, `pedido #${e.orderId}`)]
+          : null),
       e.note ? h("div.activity-note", {}, e.note) : null,
       e.photos.length ? h("div.activity-photos", {}, e.photos.map((src, i) =>
         h("button.thumb-btn", { type: "button", "aria-label": `Ver foto ${i + 1}`, dataset: { action: "activity-photo", src } },
           h("img", { src, alt: "", loading: "lazy" })))) : null),
   );
+}
+
+/** Chip de una entrada, con el color de su acción o, si no tiene, el de su categoría. */
+function chipFor(e) {
+  const tone = e.action in ACTION_TONE ? ACTION_TONE[e.action] : TONE[e.category];
+  return h(`span.chip${tone ? `.${tone}` : ""}`, {}, e.label);
 }
 
 /** Agrupa las entradas por día para leer la lista como un diario. */
@@ -116,7 +140,7 @@ export function renderActivity() {
     ...(bit.entries.length
       ? byDay(bit.entries).map((g) => h("section.activity-day", {},
         h("h3", {}, new Date(`${g.dia}T12:00:00`).toLocaleDateString("es-EC", { weekday: "long", day: "numeric", month: "long", year: "numeric" })),
-        h("ul.activity-list", {}, g.items.map(entryRow))))
+        h("ul.activity-list", {}, g.items.map((e) => entryRow(e)))))
       : [h("p.empty", {}, anyFilter() ? "Nada coincide con estos filtros." : "Todavía no hay nada registrado.")]),
     bit.next ? h("div.bar", {}, h("button.btn", { type: "button", dataset: { action: "activity-more" } }, "Cargar más")) : null,
   ];
@@ -133,7 +157,7 @@ export async function setActivityFilter(key, value, render) {
   bit.filters = { ...bit.filters, [key]: value };
   if (key === "category" && bit.filters.action) {
     const a = bit.meta.actions.find((x) => x.key === bit.filters.action);
-    if (a && value && a.category !== value) bit.filters.action = "";
+    if (!value || a?.category !== value) bit.filters.action = "";
   }
   try {
     await loadActivity();

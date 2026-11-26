@@ -56,6 +56,9 @@ h2 small { color: var(--muted); font-weight: 400; }
 .lines li { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
 .money { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; font-size: 14px; margin: 8px 0; }
 .money dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.money dd.bad { color: var(--danger); font-weight: 600; }
+.history-card { opacity: .92; }
+.timeline-list { max-height: 60vh; overflow: auto; }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 
 table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--radius); overflow: hidden; }
@@ -99,6 +102,19 @@ dialog .actions { justify-content: flex-end; }
   background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; max-width: 90vw;
 }
 .toast.error { background: var(--danger); color: #fff; }
+/* Aviso con detalle: sobre tarjeta, para que los importes en color se lean. */
+.toast.rich {
+  background: var(--card); color: var(--ink); border: 1px solid var(--line); border-left: 5px solid var(--cta);
+  box-shadow: 0 6px 24px rgb(0 0 0 / .18); line-height: 1.5;
+}
+.toast.rich.warn { border-left-color: var(--warn); }
+.toast.rich.bad { border-left-color: var(--danger); }
+.toast .chip { vertical-align: 1px; }
+.amt { font-variant-numeric: tabular-nums; }
+/* Botón que se lee como enlace: saltar a un pedido desde una entrada. */
+.link { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; cursor: pointer; }
+.amt.ok { color: var(--cta); }
+.amt.bad { color: var(--danger); }
 
 @media (max-width: 600px) {
   .cards { grid-template-columns: 1fr; }
@@ -259,9 +275,6 @@ input[type="color"] { padding: 2px; width: 64px; height: 36px; }
   .filters .grow-2 { grid-column: 1 / -1; }
   .activity { grid-template-columns: 52px 1fr; }
 }
-
-/* La Bitácora va sola al extremo derecho de la barra de pestañas. */
-.tabs .tab-end { margin-left: auto; }
 
 /* ---------- calendario ---------- */
 .hours-form input[type="time"] { width: 110px; }
