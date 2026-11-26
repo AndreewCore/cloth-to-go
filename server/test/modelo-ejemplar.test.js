@@ -298,9 +298,10 @@ test("una reserva que ya empezó también espera: la prenda devuelta tarde queda
   // la prenda. Sigue esperándola, así que no puede volver como Disponible.
   const item = (await altaEjemplar(prendas[0].productId)).json().id;
   await mover(MOSTRADOR, item, { to: "EN_LAVADO", laundry: { kind: "PROPIO", place: "Local CTG" } });
-  const pedido = await pedir({ items: [item], start: habil(0), end: habil(2) });
-  assert.equal(pedido.statusCode, 201);
-  // La API no acepta inicios en el pasado: se adelanta la reserva a mano.
+  // En lavado se retira desde unos días después: el pedido se hace para
+  // entonces y luego se adelanta a mano (la API no acepta inicios pasados).
+  const pedido = await pedir({ items: [item], start: habil(3), end: habil(5) });
+  assert.equal(pedido.statusCode, 201, pedido.body);
   await prisma.orderItem.updateMany({ where: { orderId: pedido.json().id }, data: { start: isoToDate(fecha(-1)) } });
   const res = await mover(MOSTRADOR, item, { to: "DISPONIBLE" });
   assert.equal(res.json().status, "RESERVADA");

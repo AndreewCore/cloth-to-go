@@ -10,9 +10,10 @@
 import prisma from "./db.js";
 import { CAPABILITY, httpError } from "./auth.js";
 import { logItem } from "./logs.js";
-import { todayISO } from "./dates.js";
+import { addDaysISO, nextBusinessDay, todayISO } from "./dates.js";
 import { depositFor, rentalPrice } from "./pricing.js";
 import { catalogPhotoUrl, requestOrigin } from "./storage.js";
+import { holidaySet } from "./calendar.js";
 
 /** Id del dueño Oficial (CTG), sembrado por la migración. */
 export const OFFICIAL_OWNER_ID = 1;
@@ -28,11 +29,66 @@ export const ITEM_STATUS = Object.freeze({
 });
 
 /**
- * Estados en los que un ejemplar no admite reservas nuevas. Reservada, En
- * Alquiler y En Lavado sí las admiten para OTRAS fechas: esos estados dicen
- * dónde está hoy la prenda, y el solape de días lo decide la base.
+ * Estados en los que un ejemplar no admite reservas nuevas. En Alquiler está
+ * aquí porque nadie sabe cuándo ni cómo volverá: la prenda se vuelve a ofrecer
+ * cuando el mostrador la recibe y la pasa a lavado (§3).
  */
-export const UNRENTABLE = Object.freeze([ITEM_STATUS.NO_ALQUILABLE, ITEM_STATUS.PERDIDA]);
+export const UNRENTABLE = Object.freeze([ITEM_STATUS.EN_ALQUILER, ITEM_STATUS.NO_ALQUILABLE, ITEM_STATUS.PERDIDA]);
+
+/**
+ * Días que se le dan al lavado antes de ofrecer la prenda para retirar. Un
+ * lavado externo no lo controla el local, y prometer la prenda antes sería
+ * prometer algo que depende de un tercero.
+ */
+export const LAUNDRY_READY_DAYS = 3;
+
+/**
+ * Desde qué día se puede retirar un ejemplar en un pedido nuevo.
+ *
+ * Disponible y Reservada: ya (el solape de fechas lo decide la base). En
+ * Lavado: `LAUNDRY_READY_DAYS` después de entrar, corrido al siguiente día
+ * hábil, así lo que entra el viernes se retira desde el lunes.
+ * @param {object} item Ejemplar (`status`, `statusSince`).
+ * @param {Set<string>} [holidays] Feriados.
+ * @param {string} [today] Hoy (`YYYY-MM-DD`), para las pruebas.
+ * @returns {{rentable: boolean, from: string|null}} `from` null = desde hoy.
+ */
+export function rentableFrom(item, holidays = new Set(), today = todayISO()) {
+  if (UNRENTABLE.includes(item.status)) return { rentable: false, from: null };
+  if (item.status !== ITEM_STATUS.EN_LAVADO) return { rentable: true, from: null };
+  const from = nextBusinessDay(addDaysISO(todayISO(item.statusSince), LAUNDRY_READY_DAYS), holidays);
+  return { rentable: true, from: from > today ? from : null };
+}
+
+/**
+ * Comprueba que los ejemplares de un pedido o cotización se pueden retirar el
+ * día `start`. La comparten `POST /api/quote` y `POST /api/orders`, para que el
+ * error salga antes de pagar y no después.
+ * @param {object[]} items Ejemplares con `product.name`.
+ * @param {string} start Día de retiro.
+ * @param {Set<string>} holidays Feriados.
+ * @throws {Error} 409 con el motivo.
+ */
+export function assertRentable(items, start, holidays) {
+  for (const it of items) {
+    const { rentable, from } = rentableFrom(it, holidays);
+    // Mismo mensaje para «no alquilable» que para «ocupada»: el cliente solo
+    // distingue Disponible de No Disponible (§3).
+    if (!rentable) throw httpError(409, "Alguna de las prendas no está disponible.");
+    if (from && start < from) {
+      throw httpError(409, `${it.product?.name ?? "Una prenda"} vuelve del lavado: se puede retirar desde el ${fmtDayEs(from)}.`);
+    }
+  }
+}
+
+const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/** «lun 30 nov» de un día `YYYY-MM-DD`, para los mensajes al cliente. */
+function fmtDayEs(iso) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return `${DIAS[d.getUTCDay()]} ${d.getUTCDate()} ${MESES[d.getUTCMonth()]}`;
+}
 
 /** Condiciones físicas válidas de un ejemplar. */
 const CONDITIONS = ["NUEVA", "COMO_NUEVA", "BUENA", "USO_VISIBLE"];
@@ -141,18 +197,24 @@ function isListed(item) {
  * @param {Set<number>} busy Ejemplares ocupados hoy.
  * @param {(img: string) => string} [photoUrl] Convierte una clave del
  *   almacenamiento en URL; las rutas antiguas pasan tal cual.
+ * @param {Set<string>} [holidays] Feriados, para saber cuándo sale del lavado.
  * @returns {object|null} Modelo para la API, o null si no tiene nada listado.
  */
-export function productToApi(p, busy, photoUrl = (img) => img) {
-  const listados = p.items.filter(isListed).map((i) => ({
-    id: i.id,
-    size: i.size,
-    sizeScale: i.sizeScale,
-    color: i.color,
-    condition: i.condition,
-    measurements: i.measurements,
-    available: !UNRENTABLE.includes(i.status) && !busy.has(i.id),
-  }));
+export function productToApi(p, busy, photoUrl = (img) => img, holidays = new Set()) {
+  const listados = p.items.filter(isListed).map((i) => {
+    const { rentable, from } = rentableFrom(i, holidays);
+    return {
+      id: i.id,
+      size: i.size,
+      sizeScale: i.sizeScale,
+      color: i.color,
+      condition: i.condition,
+      measurements: i.measurements,
+      available: rentable && !busy.has(i.id),
+      // Día desde el que se puede retirar (sale del lavado); null = hoy.
+      availableFrom: rentable ? from : null,
+    };
+  });
   if (listados.length === 0) return null;
   const portada = listados.find((i) => i.available) ?? listados[0];
   return {
@@ -266,12 +328,14 @@ export function registerCatalogRoutes(app, { requireCapability }, { storage }) {
   // Catálogo público: un modelo por entrada, ordenado por id. Las fotos subidas
   // desde el panel salen como URL absoluta: la app y la web viven en otro origen.
   app.get("/api/products", async (req) => {
-    const [modelos, busy] = await Promise.all([
+    const [modelos, busy, feriados] = await Promise.all([
       prisma.product.findMany({ include: MODELO_COMPLETO, orderBy: { id: "asc" } }),
       busyItemIds(prisma),
+      holidaySet(),
     ]);
     const origin = requestOrigin(req);
-    return modelos.map((p) => productToApi(p, busy, (img) => catalogPhotoUrl(storage, img, origin))).filter(Boolean);
+    const foto = (img) => catalogPhotoUrl(storage, img, origin);
+    return modelos.map((p) => productToApi(p, busy, foto, feriados)).filter(Boolean);
   });
 
   // Taxonomía pública: con ella se construyen los filtros (fase 3) y el

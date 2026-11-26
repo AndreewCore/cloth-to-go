@@ -146,8 +146,8 @@ function isLate(r){ return (r.returnBy || r.end) < isoOffset(0); }
  *   de un día).
  */
 function snapRentalDates(endAfterStart = true){
-  const hoy = isoOffset(0);
-  rentalStart = nextBusinessDayISO(rentalStart < hoy ? hoy : rentalStart);
+  const desde = earliestStartISO();
+  rentalStart = nextBusinessDayISO(rentalStart < desde ? desde : rentalStart);
   const minEnd = endAfterStart ? addDaysISO(rentalStart, 1) : rentalStart;
   rentalEnd = nextBusinessDayISO(rentalEnd < minEnd ? minEnd : rentalEnd);
 }
@@ -177,11 +177,34 @@ function cartCount(){ return cart.length; }
  */
 function cartItemIds(){
   const ids = cart.map(c => {
-    const p = productById(c.id);
-    const libre = p && Array.isArray(p.items) && p.items.find(i => i.available);
+    const libre = pickItem(productById(c.id));
     return libre ? libre.id : null;
   });
   return ids.every(id => id !== null) ? ids : null;
+}
+
+/**
+ * Ejemplar que se reservaría de un modelo: uno libre ya antes que uno que
+ * vuelve del lavado, para no retrasar el retiro sin necesidad.
+ * @param {object|undefined} p Modelo del catálogo.
+ * @returns {object|null} `{id, available, availableFrom}` o null.
+ */
+function pickItem(p){
+  if(!p || !Array.isArray(p.items)) return null;
+  return p.items.find(i => i.available && !i.availableFrom) || p.items.find(i => i.available) || null;
+}
+
+/**
+ * Primer día en que se puede retirar el carrito: hoy o, si alguna prenda
+ * vuelve del lavado, el día que el servidor dice (`availableFrom`). El
+ * calendario y el ajuste de fechas no bajan de aquí.
+ * @returns {string} `YYYY-MM-DD`.
+ */
+function earliestStartISO(){
+  return cart.reduce((min, c) => {
+    const desde = pickItem(productById(c.id))?.availableFrom;
+    return desde && desde > min ? desde : min;
+  }, isoOffset(0));
 }
 
 // Los montos se SUMAN en centavos (enteros) para evitar el arrastre de

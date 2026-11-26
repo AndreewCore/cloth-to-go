@@ -27,7 +27,7 @@ import {
 } from "./ledger.js";
 import { DELIVERY, RETURN_TO, rentalDays } from "./pricing.js";
 import { CAPABILITY, hasCapability, httpError, isStaff } from "./auth.js";
-import { UNRENTABLE, isoToDate, pricedItem } from "./catalog.js";
+import { assertRentable, isoToDate, pricedItem } from "./catalog.js";
 import { releaseForOrder, reserveForOrder } from "./items.js";
 import { FINANCE_EVENT, logFinance } from "./logs.js";
 import { isBusinessDay, returnByDate, todayISO } from "./dates.js";
@@ -282,11 +282,7 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
       if (items.length !== datos.items.length) {
         throw httpError(400, "Alguna de las prendas no existe en el catálogo.");
       }
-      // Mismo mensaje para «no alquilable» que para «ocupada»: el cliente solo
-      // distingue Disponible de No Disponible (§3).
-      if (items.some((i) => UNRENTABLE.includes(i.status))) {
-        throw httpError(409, "Alguna de las prendas no está disponible.");
-      }
+      assertRentable(items, datos.start, feriados);
       if (items.some((i) => i.product.pricing !== "CTG")) {
         // Las tarifas de socio llegan con la fase 6; hasta entonces el servidor
         // no sabe cotizarlas y no cobra algo que no sabe cotizar.

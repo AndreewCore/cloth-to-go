@@ -68,7 +68,8 @@ function calDayCost(iso){
 
 /** Cuadrícula del mes visible con el rango marcado y la tarifa de cada día. */
 function calGridHTML(){
-  const hoy = isoOffset(0);
+  // Antes de esto no se retira: hoy, o el día que una prenda sale del lavado.
+  const hoy = earliestStartISO();
   const ym = calVisibleMonth();
   const dows = ["L","M","X","J","V","S","D"];
   const cells = monthGrid(ym).map(c => {
@@ -134,7 +135,7 @@ function dateBoxHTML(){
       <div class="date-row">
         <div class="date-field">
           <label>Desde</label>
-          <input type="date" id="rentStart" value="${rentalStart}" min="${isoOffset(0)}" />
+          <input type="date" id="rentStart" value="${rentalStart}" min="${earliestStartISO()}" />
         </div>
         <div class="date-field">
           <label>Hasta</label>
@@ -154,7 +155,7 @@ function dateBoxHTML(){
  * @param {string} iso Día pulsado.
  */
 function pickCalendarDay(iso){
-  if(!iso || iso < isoOffset(0)) return;         // no se alquila hacia atrás
+  if(!iso || iso < earliestStartISO()) return;   // ni hacia atrás ni antes del lavado
   if(!isBusinessDayISO(iso)) return;             // ni en fin de semana o feriado
   if(calPendingStart === null){
     calPendingStart = iso;

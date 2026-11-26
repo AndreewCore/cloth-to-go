@@ -149,7 +149,7 @@ globalThis.__APP__ = {
   // Cuenta en el servidor (fase 3): espejo, sincronización y login para alquilar.
   applyAccount, refreshAccount, syncAccount, onSessionExpired, askLoginToRent,
   resumePendingRental, canRentOnline, readSessionToken, storeSessionToken, orderFromApi,
-  hydrateCatalog, cartItemIds, applyTaxonomy, renderFilters, renderFilterSheet,
+  hydrateCatalog, cartItemIds, pickItem, earliestStartISO, applyTaxonomy, renderFilters, renderFilterSheet,
   MATERIALS, MATERIAL_LABELS, CATS_LIST: CATS,
   // Cotización del servidor (fase 3).
   requestQuote, quoteReady, catalogPrice, catalogDeposit, catalogNextDay, money,
