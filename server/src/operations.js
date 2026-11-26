@@ -317,10 +317,14 @@ export function registerOperationRoutes(app, { requireUser, requireCapability },
         if (plan.error) throw httpError(plan.status, `${oi.item.product.name}: ${plan.error}`);
 
         // Condición sobre `receivedAt`: dos mostradores que reciben a la vez no
-        // pueden cobrar dos veces los mismos días extra.
+        // pueden cobrar dos veces los mismos días extra. Y la reserva se libera
+        // (`releasedAt`): la prenda ya volvió, así que sus días hasta la fecha
+        // límite no deben frenar ni la vuelta a Disponible ni un pedido nuevo
+        // desde que sale del lavado.
+        const ahora = new Date();
         const { count } = await tx.orderItem.updateMany({
           where: { id: oi.id, receivedAt: null },
-          data: { returnedOn: new Date(`${datos.returnedOn}T00:00:00Z`), receivedAt: new Date(), receivedById: req.user.id },
+          data: { returnedOn: new Date(`${datos.returnedOn}T00:00:00Z`), receivedAt: ahora, receivedById: req.user.id, releasedAt: ahora },
         });
         if (count === 0) throw httpError(409, "Otra persona registró esta devolución mientras tanto; vuelve a cargar.");
         const movida = await tx.item.updateMany({ where: { id: oi.itemId, status: S.EN_ALQUILER }, data: plan.data });

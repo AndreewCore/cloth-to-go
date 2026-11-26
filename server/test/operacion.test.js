@@ -284,10 +284,11 @@ test("rezagadas: vencida sin recibir, y recibida que nadie llevó a lavado", asy
   assert.ok(!r.notReceived.some((x) => x.orderId === order.id));
   assert.ok(!r.receivedNotWashed.some((x) => x.orderId === order.id), "recién recibida todavía no es rezagada");
 
-  // Hoy recibir ya la lleva a lavado; esta rezagada queda para lo recibido
-  // antes de ese cambio, que se simula devolviéndola a En Alquiler.
+  // Hoy recibir ya la lleva a lavado y libera la reserva; esta rezagada queda
+  // para lo recibido antes de ese cambio, que se simula como entonces: En
+  // Alquiler y con la reserva sin liberar.
   await prisma.item.update({ where: { id: item.id }, data: { status: "EN_ALQUILER", laundryKind: null, laundryPlace: null } });
-  await prisma.orderItem.updateMany({ where: { orderId: order.id }, data: { receivedAt: new Date(Date.now() - 2 * 86_400_000) } });
+  await prisma.orderItem.updateMany({ where: { orderId: order.id }, data: { receivedAt: new Date(Date.now() - 2 * 86_400_000), releasedAt: null } });
   r = (await como(MOSTRADOR, { method: "GET", url: "/api/admin/stragglers" })).json();
   assert.ok(r.receivedNotWashed.some((x) => x.orderId === order.id), "más de un día recibida y sin lavar");
   assert.equal((await como(CAJA, { method: "GET", url: "/api/admin/stragglers" })).statusCode, 403);
@@ -312,6 +313,12 @@ test("recibir lleva cada prenda a lavado (con quién y dónde) en una sola entra
   assert.equal(logs[0].from, "EN_ALQUILER");
   assert.equal(logs[0].to, "EN_LAVADO");
   assert.equal(logs[0].laundryPlace, "Lavandería Sol");
+  const reserva = await prisma.orderItem.findFirst({ where: { orderId: order.id } });
+  assert.ok(reserva.releasedAt, "la reserva se libera: sus días ya no bloquean pedidos nuevos");
+
+  // Sale del lavado: Disponible, no «Reservada» por su propio pedido ya devuelto.
+  const sale = await como(MOSTRADOR, { method: "POST", url: `/api/items/${item.id}/status`, payload: { to: "DISPONIBLE" } });
+  assert.equal(sale.json().status, "DISPONIBLE");
 });
 
 test("recibir como desperfecto exige observación; lavado exige lugar; nunca directo a Disponible", async () => {
