@@ -26,6 +26,7 @@ export const CATEGORIES = Object.freeze({
   taxonomia: "Taxonomía",
   calendario: "Calendario",
   resenas: "Reseñas",
+  pedidos: "Pedidos",
 });
 
 /**
@@ -77,6 +78,7 @@ const ACTIONS = {
   RESENA_OCULTA: { label: "Reseña ocultada", category: "resenas", source: "activity" },
   RESENA_MOSTRADA: { label: "Reseña mostrada de nuevo", category: "resenas", source: "activity" },
   RESENA_AUTO_OCULTA: { label: "Reseña devuelta a la cola por reportes", category: "resenas", source: "activity" },
+  RETIRO_MOVIDO: { label: "Retiro movido", category: "pedidos", source: "activity" },
 };
 
 const STATUS_LABEL = {
@@ -178,17 +180,19 @@ export async function readActivity(f, { signed, catalog }) {
     : {});
   const consultas = [];
 
-  // El catálogo y la taxonomía no son de ningún pedido.
-  const wActivity = f.order ? null : actionWhere("activity", f.actions, "action");
+  // De la bitácora general, al recorrido de un pedido solo llega lo que lleva
+  // su número (un retiro movido); el catálogo y la taxonomía no son de nadie.
+  const wActivity = actionWhere("activity", f.actions, "action");
   if (wActivity) {
     consultas.push(prisma.activityLog.findMany({
-      where: and(wActivity, comun, actor("actorId"), texto([{ product: { name: ci(f.text) } }]), porModelo((id) => ({ productId: id }))),
+      where: and(wActivity, comun, actor("actorId"), texto([{ product: { name: ci(f.text) } }]), porModelo((id) => ({ productId: id })),
+        f.order ? { orderId: f.order.orderId } : {}),
       orderBy: { createdAt: "desc" },
       take,
       include: { actor: { select: { id: true, name: true } }, product: { select: { id: true, name: true } }, item: { select: { id: true, code: true } } },
     }).then((rows) => rows.map((r) => ({
       key: `a:${r.id}`, at: r.createdAt, action: r.action, actor: r.actor, note: r.note,
-      product: r.product, item: r.item, orderId: null,
+      product: r.product, item: r.item, orderId: r.orderId,
       photos: (r.detail?.keys ?? (r.action === "FOTOS_CATALOGO_ORDEN" ? r.detail?.after : null) ?? []).map(catalog),
     }))));
   }

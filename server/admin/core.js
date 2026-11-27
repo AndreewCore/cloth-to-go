@@ -44,7 +44,8 @@ export const state = {
   /** Días de historial pedidos; «Cargar más» suma otra tanda. */
   historyDays: 30,
   items: [],
-  stragglers: null,
+  /** Pestaña «Hoy» (`GET /api/admin/today`): lo que hay que hacer o registrar. */
+  today: null,
   /** Días que el local no abre (`GET /api/config`); null hasta cargarlos. */
   calendar: null,
   /** Modelos del catálogo (`GET /api/admin/products`). */

@@ -9,18 +9,18 @@
  */
 import prisma from "./db.js";
 import { CAPABILITY, hasCapability, httpError } from "./auth.js";
-import { ITEM_STATUS, pricedItem, routeId } from "./catalog.js";
+import { ITEM_STATUS, assertRentable, pricedItem, rentableFrom, routeId } from "./catalog.js";
 import { CHARGE_TYPE, settlementFor } from "./ledger.js";
 import { cents, rentalDays, rentalPrice } from "./pricing.js";
-import { addDaysISO, fmtDayEs, isBusinessDay, todayISO } from "./dates.js";
+import { addDaysISO, fmtDayEs, isBusinessDay, nextBusinessDay, returnByDate, todayISO } from "./dates.js";
 import { holidaySet } from "./calendar.js";
 import { manualTargets, planTransition } from "./items.js";
-import { FINANCE_EVENT, logFinance, logItem } from "./logs.js";
-import { CON_LINEAS, orderToApi, settlePending } from "./orders.js";
+import { ACTIVITY, FINANCE_EVENT, logActivity, logFinance, logItem } from "./logs.js";
+import { CON_LINEAS, isOverlapViolation, orderToApi, settlePending } from "./orders.js";
 import { panelPhotoUrl } from "./catalogAdmin.js";
 import { requestOrigin } from "./storage.js";
 import { parseFilters, readActivity } from "./activity.js";
-import { createNotice, deliverNotice, deliveredText, returnedText } from "./notices.js";
+import { createNotice, deliverNotice, deliveredText, rescheduledText, returnedText } from "./notices.js";
 import { disabledMailer } from "./mail.js";
 
 const S = ITEM_STATUS;
@@ -56,8 +56,8 @@ export function finishedAt(o) {
   return new Date(Math.max(...marcas));
 }
 
-/** Umbrales de rezagadas del §3, en días. */
-export const STRAGGLER_DAYS = Object.freeze({ RECEIVED_NOT_WASHED: 1, IN_LAUNDRY: 2 });
+/** Umbral de «Recibidas sin lavar» (§3), en días. Lo que lleva tiempo en lavado lo dice `rentableFrom()`: lista para salir. */
+export const STRAGGLER_DAYS = Object.freeze({ RECEIVED_NOT_WASHED: 1 });
 
 /**
  * Días extra de una devolución tardía: los días HÁBILES después de la fecha
@@ -108,9 +108,6 @@ export function lateCharge(p, { days, extra, itemCount, pay, returnBy }) {
 
 /** Día `YYYY-MM-DD` de una columna `@db.Date`. */
 const isoDe = (d) => (d ? d.toISOString().slice(0, 10) : null);
-
-/** Días enteros transcurridos desde un instante hasta ahora. */
-const diasDesde = (fecha, now = Date.now()) => Math.floor((now - new Date(fecha).getTime()) / DIA_MS);
 
 /**
  * Pedido para el panel: lo que ve el cliente más quién es y, por prenda, su
@@ -312,53 +309,134 @@ export function registerOperationRoutes(app, { requireUser, requireCapability },
     },
   );
 
-  // Rezagadas (§3): lo que el sistema esperaba ver moverse y nadie movió. Son
-  // alertas para el local, nunca cargos para el cliente (§6.3).
-  app.get("/api/admin/stragglers", { preHandler: mostrador }, async (req) => {
+  // «Hoy» (pestaña del panel): todo lo que el local tiene que hacer o
+  // registrar, por urgencia. Absorbe las rezagadas del §3: lo vencido sin
+  // registrar va primero. Son alertas para el local, nunca cargos para el
+  // cliente (§6.3).
+  app.get("/api/admin/today", { preHandler: mostradorOCaja }, async (req) => {
     const hoy = todayISO();
     const foto = fotosPara(req);
-    const vivas = await prisma.orderItem.findMany({
-      where: { releasedAt: null, order: { cancelledAt: null } },
-      include: { item: { include: { product: { select: FICHA_PRODUCTO } } }, order: { select: { id: true, user: { select: { name: true } } } } },
-    });
-    const ficha = (oi, extra) => ({
-      orderId: oi.orderId,
-      customer: oi.order.user.name,
-      itemId: oi.itemId,
-      code: oi.item.code,
-      productName: oi.item.product.name,
-      imgs: oi.item.product.imgs.map(foto),
-      status: oi.item.status,
-      ...extra,
-    });
-
-    // Vencido y sin recepción: al instante, en cuanto pasa la fecha límite.
-    const sinRecibir = vivas
-      .filter((oi) => !oi.receivedAt && isoDe(oi.end) < hoy && [S.RESERVADA, S.EN_ALQUILER].includes(oi.item.status))
-      .map((oi) => ficha(oi, { returnBy: isoDe(oi.end), daysLate: rentalDays(isoDe(oi.end), hoy) }));
-
-    // Recibida y sigue En Alquiler: nadie la llevó a lavado.
-    const sinLavar = vivas
-      .filter((oi) => oi.receivedAt && oi.item.status === S.EN_ALQUILER
-        && diasDesde(oi.receivedAt) >= STRAGGLER_DAYS.RECEIVED_NOT_WASHED)
-      .map((oi) => ficha(oi, { receivedAt: oi.receivedAt }));
+    const feriados = await holidaySet();
+    const pedidos = await prisma.order.findMany({ where: { cancelledAt: null }, include: PARA_PANEL, orderBy: { id: "asc" } });
+    const vivos = pedidos.map((o) => orderForPanel(o, foto))
+      .filter((o) => o.status === "pending" || o.depositHeldCents > 0 || o.lines.some((l) => !l.receivedAt));
+    const porEntregar = (o) => o.lines.some((l) => !l.deliveredAt);
+    const fuera = (o) => o.lines.some((l) => l.deliveredAt && !l.receivedAt);
 
     const lavado = await prisma.item.findMany({
-      where: { status: S.EN_LAVADO, statusSince: { lte: new Date(Date.now() - STRAGGLER_DAYS.IN_LAUNDRY * DIA_MS) } },
+      where: { status: S.EN_LAVADO },
       include: { product: { select: FICHA_PRODUCTO } },
       orderBy: { statusSince: "asc" },
     });
-    const enLavado = lavado.map((it) => ({
-      itemId: it.id,
-      code: it.code,
-      productName: it.product.name,
-      imgs: it.product.imgs.map(foto),
-      since: it.statusSince,
-      laundryKind: it.laundryKind,
-      laundryPlace: it.laundryPlace,
-    }));
+    const listas = lavado
+      .filter((it) => !rentableFrom(it, feriados).from)
+      .map((it) => ({
+        itemId: it.id,
+        code: it.code,
+        productName: it.product.name,
+        imgs: it.product.imgs.map(foto),
+        since: it.statusSince,
+        laundryKind: it.laundryKind,
+        laundryPlace: it.laundryPlace,
+      }));
 
-    return { notReceived: sinRecibir, receivedNotWashed: sinLavar, inLaundry: enLavado };
+    // Recibidas antes de que recibir llevara a lavado, y que nadie llevó.
+    const sinLavar = await prisma.orderItem.findMany({
+      where: {
+        releasedAt: null,
+        receivedAt: { lte: new Date(Date.now() - STRAGGLER_DAYS.RECEIVED_NOT_WASHED * DIA_MS) },
+        item: { status: S.EN_ALQUILER },
+        order: { cancelledAt: null },
+      },
+      include: { item: { include: { product: { select: FICHA_PRODUCTO } } } },
+    });
+
+    const secciones = {
+      pickupsOverdue: vivos.filter((o) => o.start < hoy && porEntregar(o)),
+      returnsOverdue: vivos.filter((o) => o.returnBy < hoy && fuera(o)),
+      pickupsToday: vivos.filter((o) => o.start === hoy && porEntregar(o)),
+      returnsToday: vivos.filter((o) => (o.returnBy === hoy || o.end === hoy) && fuera(o)),
+      toClose: vivos.filter((o) => o.lines.every((l) => l.receivedAt) && (o.status === "pending" || o.depositHeldCents > 0)),
+      laundryReady: listas,
+      receivedNotWashed: sinLavar.map((oi) => ({
+        orderId: oi.orderId, itemId: oi.itemId, code: oi.item.code, productName: oi.item.product.name,
+        imgs: oi.item.product.imgs.map(foto), receivedAt: oi.receivedAt,
+      })),
+    };
+    return {
+      today: hoy,
+      ...secciones,
+      // Lo vencido sin registrar: el número rojo de la pestaña.
+      urgent: secciones.pickupsOverdue.length + secciones.returnsOverdue.length + secciones.receivedNotWashed.length,
+    };
+  });
+
+  // Mover el retiro de un cliente que no vino: se corre todo el alquiler los
+  // mismos días, así que el precio no cambia (no se toca ninguna línea). Si la
+  // devolución nueva cae en un día cerrado se pasa al siguiente hábil, a
+  // favor del cliente.
+  app.post("/api/orders/:id/reschedule", { preHandler: mostrador }, async (req) => {
+    const id = routeId(req.params.id, "Pedido");
+    const start = req.body?.start;
+    if (typeof start !== "string" || !ISO_DATE.test(start) || Number.isNaN(Date.parse(start))) {
+      throw httpError(400, "Indica el día nuevo de retiro (AAAA-MM-DD).");
+    }
+    if (start < todayISO()) throw httpError(400, "El retiro nuevo no puede ser en el pasado.");
+    const feriados = await holidaySet();
+    if (!isBusinessDay(start, feriados)) throw httpError(400, "Ese día el local no entrega: elige un día hábil.");
+
+    let movido;
+    try {
+      movido = await prisma.$transaction(async (tx) => {
+        const order = await tx.order.findUnique({
+          where: { id },
+          include: { items: { include: { item: { include: { product: { select: { name: true } } } } } } },
+        });
+        if (!order) throw httpError(404, "Pedido no encontrado.");
+        if (order.cancelledAt) throw httpError(409, "El pedido está anulado.");
+        if (order.items.some((oi) => oi.deliveredAt)) throw httpError(409, "Ya se entregó: el retiro no se mueve.");
+        if (start === order.start) throw httpError(400, "Es el mismo día de retiro.");
+
+        const largo = Math.round((Date.parse(order.end) - Date.parse(order.start)) / DIA_MS);
+        const end = nextBusinessDay(addDaysISO(start, largo), feriados);
+        const returnBy = returnByDate(start, end, feriados);
+        assertRentable(order.items.map((oi) => oi.item), start, feriados);
+        const choca = await tx.orderItem.count({
+          where: {
+            itemId: { in: order.items.map((oi) => oi.itemId) },
+            orderId: { not: id },
+            releasedAt: null,
+            start: { lte: new Date(`${returnBy}T00:00:00Z`) },
+            end: { gte: new Date(`${start}T00:00:00Z`) },
+          },
+        });
+        if (choca) throw httpError(409, "Alguna prenda ya está reservada por otro pedido en esas fechas.");
+
+        await tx.order.update({ where: { id }, data: { start, end } });
+        await tx.orderItem.updateMany({
+          where: { orderId: id },
+          data: { start: new Date(`${start}T00:00:00Z`), end: new Date(`${returnBy}T00:00:00Z`) },
+        });
+        await logActivity(tx, {
+          action: ACTIVITY.RETIRO_MOVIDO,
+          actorId: req.user.id,
+          orderId: id,
+          note: `Pedido #${id}: retiro del ${order.start} al ${start}; devuelve hasta el ${returnBy}`,
+          detail: { from: { start: order.start, end: order.end }, to: { start, end, returnBy } },
+        });
+        const notice = await createNotice(tx, {
+          userId: order.userId, kind: "RETIRO_MOVIDO", orderId: id, ...rescheduledText(id, fmtDayEs(start), fmtDayEs(returnBy)),
+        });
+        return { notice, reschedule: { from: order.start, start, end, returnBy } };
+      });
+    } catch (err) {
+      // La base es la última palabra sobre el solape, por si dos lo mueven a la vez.
+      if (isOverlapViolation(err)) throw httpError(409, "Alguna prenda ya está reservada por otro pedido en esas fechas.");
+      throw err;
+    }
+    await deliverNotice(movido.notice, mailer, req.log);
+    const actualizado = await prisma.order.findUnique({ where: { id }, include: PARA_PANEL });
+    return { ...orderForPanel(actualizado, fotosPara(req)), reschedule: movido.reschedule };
   });
 
   // Entregar: el mostrador registra que las prendas salieron, con el día real

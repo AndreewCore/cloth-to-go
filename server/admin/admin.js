@@ -94,9 +94,10 @@ function initGoogle(tries = 0) {
 /** Pestañas visibles según las capacidades de la sesión. */
 function tabs() {
   return [
+    // Lo primero al entrar: lo que hay que hacer hoy y lo vencido sin registrar.
+    { id: "today", label: "Hoy", show: can("MOSTRADOR") || can("CAJA") },
     { id: "orders", label: "Pedidos", show: can("MOSTRADOR") || can("CAJA") },
     { id: "items", label: "Ejemplares", show: can("MOSTRADOR") || can("INVENTARIO") },
-    { id: "stragglers", label: "Rezagadas", show: can("MOSTRADOR") },
     { id: "catalog", label: "Catálogo", show: can("INVENTARIO") },
     { id: "taxonomy", label: "Taxonomía", show: can("INVENTARIO") },
     { id: "calendar", label: "Calendario", show: can("ADMINISTRACION") },
@@ -113,17 +114,15 @@ function renderWho() {
   );
 }
 
-/** Pinta la barra de pestañas, con el número de rezagadas si ya se conoce. */
+/** Pinta la barra de pestañas, con lo urgente de «Hoy» si ya se conoce. */
 function renderTabs() {
   const nav = $("tabs");
-  const rezagadas = state.stragglers
-    ? state.stragglers.notReceived.length + state.stragglers.receivedNotWashed.length + state.stragglers.inLaundry.length
-    : 0;
+  const urgentes = state.today?.urgent ?? 0;
   nav.replaceChildren(...tabs().map((t) => h(
     "button",
     { type: "button", role: "tab", "aria-selected": String(state.tab === t.id), dataset: { action: "tab", tab: t.id } },
     t.label,
-    t.id === "stragglers" && rezagadas > 0 ? h("span.count", {}, rezagadas) : null,
+    t.id === "today" && urgentes > 0 ? h("span.count", { title: "Vencido sin registrar" }, urgentes) : null,
     t.id === "reviews" && pendingReviews() > 0 ? h("span.count", {}, pendingReviews()) : null,
   )));
   nav.hidden = false;
@@ -155,8 +154,8 @@ async function loadTab() {
     if (state.tab === "activity") await loadActivity();
     if (state.tab === "calendar") await loadCalendar();
     if (state.tab === "reviews") await loadModeration();
-    // Las rezagadas se piden siempre que se pueda: alimentan el número de la pestaña.
-    if (can("MOSTRADOR")) state.stragglers = await api("/api/admin/stragglers");
+    // «Hoy» se pide siempre que se pueda: alimenta el número rojo de la pestaña.
+    if (can("MOSTRADOR") || can("CAJA")) state.today = await api("/api/admin/today");
   } catch (err) {
     toast(err.message, true);
     return;
@@ -170,7 +169,7 @@ function render() {
   const view = {
     orders: renderOrders,
     items: renderItems,
-    stragglers: renderStragglers,
+    today: renderToday,
     catalog: () => renderCatalog(searchBar, matches),
     taxonomy: renderTaxonomy,
     activity: renderActivity,
@@ -422,7 +421,7 @@ function orderCard(o) {
 
 /** Diálogo de recepción: qué prendas, qué día volvieron de verdad y observación. */
 async function receiveOrder(id) {
-  const o = state.orders.find((x) => x.id === id);
+  const o = findOrder(id);
   const recibibles = o.lines.filter((l) => !l.receivedAt && l.deliveredAt && l.status === "EN_ALQUILER");
   const fecha = h("input", { type: "date", name: "returnedOn", required: true, value: todayISO(), max: todayISO(), min: o.start });
   const vista = h("div", {}, dayStrip(o, fecha.value));
@@ -554,7 +553,7 @@ function destinationFields(itemId) {
  * @param {number} orderId Pedido.
  */
 async function deliverOrder(orderId) {
-  const o = state.orders.find((x) => x.id === orderId);
+  const o = findOrder(orderId);
   const listas = o.lines.filter((l) => !l.deliveredAt && l.status === "RESERVADA");
   const hoy = todayISO();
   const fichas = listas.map((l) => ({ l, picker: photoPicker({ label: "Fotos de cómo sale" }) }));
@@ -622,17 +621,18 @@ function renderItems() {
   return [
     h("h2", {}, "Ejemplares ", h("small", {}, `${state.items.length} en total`)),
     searchBar("Buscar por código, prenda, estado, talla o color"),
-    h("div.table-wrap", {}, h("table", {},
+    // `table.stack`: en el teléfono cada fila se vuelve una tarjeta (admin.css).
+    h("div.table-wrap", {}, h("table.stack", {},
       h("thead", {}, h("tr", {}, ["", "Código", "Prenda", "Talla · color", "Estado", "Desde", ""].map((t) => h("th", {}, t)))),
       h("tbody", {}, lista.map((i) => h("tr", {},
         h("td.thumb-cell", {}, thumb(i.imgs)),
-        h("td", {}, i.code ?? h("span.meta", {}, `demo #${i.id}`)),
-        h("td", {}, i.productName),
-        h("td", {}, `${i.size} · ${i.color}`),
-        h("td", {}, statusChip(i.status),
+        h("td", { "data-label": "Código" }, i.code ?? h("span.meta", {}, `demo #${i.id}`)),
+        h("td", { "data-label": "Prenda" }, i.productName),
+        h("td", { "data-label": "Talla · color" }, `${i.size} · ${i.color}`),
+        h("td", { "data-label": "Estado" }, statusChip(i.status),
           i.laundryPlace ? h("div.meta", {}, `${i.laundryKind === "EXTERNO" ? "Externo" : "Propio"}: ${i.laundryPlace}`) : null,
           i.unrentableReason ? h("div.meta", {}, i.unrentableReason === "RETIRADA" ? "Retirada" : "Desperfecto") : null),
-        h("td", {}, since(i.statusSince)),
+        h("td", { "data-label": "Desde" }, since(i.statusSince)),
         h("td.row-actions", {},
           photoButton(i.id), " ",
           h("button.btn", { type: "button", dataset: { action: "log", item: i.id } }, "Bitácora"), " ",
@@ -708,30 +708,135 @@ async function showLog(id) {
   ], "Cerrar", { cancel: false });
 }
 
-/* ---------- Rezagadas ---------- */
+/* ---------- Hoy ---------- */
 
-/** Pestaña de rezagadas: lo que debió moverse y nadie movió (§3). */
-function renderStragglers() {
-  const s = state.stragglers ?? { notReceived: [], receivedNotWashed: [], inLaundry: [] };
-  const tabla = (cols, filas) => filas.length
-    ? h("div.table-wrap", {}, h("table", {},
-      h("thead", {}, h("tr", {}, cols.map((c) => h("th", {}, c)))),
-      h("tbody", {}, filas.map((f) => h("tr", {}, f.map((c) => h("td", {}, c))))),
-    ))
-    : h("p.empty", {}, "Nada pendiente aquí.");
-  const prenda = (r) => h("span.line-actions", {}, `${r.productName} (${r.code ?? `#${r.itemId}`}) `, photoButton(r.itemId));
+/**
+ * Busca un pedido en todo lo cargado (en curso, Hoy e historial): las acciones
+ * se lanzan desde cualquiera de esas listas.
+ * @param {number} id Pedido.
+ * @returns {object|undefined}
+ */
+function findOrder(id) {
+  const t = state.today ?? {};
   return [
-    h("h2", {}, "Vencidas sin recibir ", h("small", {}, "pasó la fecha límite y nadie registró la devolución")),
-    // Días hábiles, como los cobra la recepción: los naturales asustarían de más.
-    tabla(["Pedido", "Cliente", "Prenda", "Límite", "Días hábiles extra", "Estado"],
-      s.notReceived.map((r) => [`#${r.orderId}`, r.customer, prenda(r), fmtDay(r.returnBy), lateDays(r.returnBy, todayISO()), statusChip(r.status)])),
-    h("h2", {}, "Recibidas sin lavar ", h("small", {}, "más de 1 día recibidas y siguen En alquiler")),
-    tabla(["Pedido", "Prenda", "Recibida"],
-      s.receivedNotWashed.map((r) => [`#${r.orderId}`, prenda(r), since(r.receivedAt)])),
-    h("h2", {}, "En lavado ", h("small", {}, "más de 2 días sin salir")),
-    tabla(["Prenda", "Desde", "Dónde"],
-      s.inLaundry.map((r) => [prenda(r), since(r.since), `${r.laundryKind === "EXTERNO" ? "Externo" : "Propio"}: ${r.laundryPlace ?? "—"}`])),
+    ...state.orders,
+    ...["pickupsOverdue", "returnsOverdue", "pickupsToday", "returnsToday", "toClose"].flatMap((k) => t[k] ?? []),
+    ...(state.history?.orders ?? []),
+  ].find((o) => o.id === id);
+}
+
+/**
+ * Fila de un pedido en «Hoy»: quién, qué prendas, la fecha que importa y los
+ * botones de lo que toca hacer. Cabe en un teléfono.
+ * @param {object} o Pedido del panel.
+ * @param {"pickupLate"|"pickup"|"returnLate"|"return"|"close"} kind Qué falta.
+ */
+function todayRow(o, kind) {
+  const hoy = todayISO();
+  const fecha = {
+    pickupLate: () => h("span.bad", {}, `Debía retirar el ${fmtDay(o.start)} (${relDays(o.start)})`),
+    pickup: () => h("span", {}, `Retira hoy${o.delivery === "ship" ? " (envío)" : ""}`),
+    returnLate: () => h("span.bad", {}, `Debía devolver el ${fmtDay(o.returnBy)} · ${lateDays(o.returnBy, hoy)} día(s) hábil(es) extra hasta hoy`),
+    return: () => h("span", {}, `Devuelve hoy${o.ret === "home" ? " (retiro a domicilio)" : ""}`),
+    close: () => h("span", {}, [
+      pendingCents(o) > 0 ? ["Por cobrar ", h("strong.amt.bad", {}, money(pendingCents(o)))] : null,
+      pendingCents(o) > 0 && o.depositHeldCents > 0 ? " · " : null,
+      o.depositHeldCents > 0 ? ["Garantía por decidir ", h("strong", {}, money(o.depositHeldCents))] : null,
+    ]),
+  }[kind]();
+  const b = (action, label, cls = "") => h(`button.btn${cls}`, { type: "button", dataset: { action, order: o.id } }, label);
+  const acciones = {
+    pickupLate: [can("MOSTRADOR") && b("deliver", "Se entregó", ".primary"), can("MOSTRADOR") && b("reschedule", "Mover retiro"),
+      can("MOSTRADOR") && b("noshow", "No vino: anular", ".danger")],
+    pickup: [can("MOSTRADOR") && b("deliver", "Registrar entrega", ".primary")],
+    returnLate: [can("MOSTRADOR") && b("receive", "Registrar devolución", ".primary")],
+    return: [can("MOSTRADOR") && b("receive", "Registrar devolución", ".primary")],
+    close: [pendingCents(o) > 0 && can("CAJA") && b("settle", `Cobrar ${money(pendingCents(o))}`),
+      o.depositHeldCents > 0 && o.status !== "pending" && can("CAJA") && b("release", "Devolver garantía", ".primary")],
+  }[kind];
+  return h(`article.today-row.${kind}`, {},
+    h("div.today-main", {},
+      h("strong", {}, `#${o.id} · ${customerName(o)}`),
+      h("div.meta", {}, o.lines.map((l) => `${l.productName} (${l.code ?? `#${l.itemId}`})`).join(", ")),
+      h("div.today-when", {}, fecha)),
+    h("div.actions", {}, acciones, timelineButton(o.id)),
+  );
+}
+
+/** Pestaña «Hoy»: lo vencido primero, después la agenda del día y lo que queda por cerrar. */
+function renderToday() {
+  const t = state.today;
+  if (!t) return [h("p.empty", {}, "Cargando…")];
+  const seccion = (titulo, nota, filas, tono = "") => (filas.length
+    ? h(`section.today-section${tono ? `.${tono}` : ""}`, {},
+      h("h2", {}, `${titulo} `, h("span.count-inline", {}, filas.length), nota ? h("small", {}, nota) : null),
+      h("div.today-list", {}, filas))
+    : null);
+  const prenda = (r, extra, accion) => h("article.today-row.laundry", {},
+    h("div.today-main", {}, h("strong", {}, `${r.productName} (${r.code ?? `#${r.itemId}`})`), h("div.today-when", {}, extra)),
+    h("div.actions", {}, photoButton(r.itemId), accion));
+  const nada = !t.urgent && !t.pickupsToday.length && !t.returnsToday.length && !t.toClose.length && !t.laundryReady.length;
+  return [
+    h("h2.today-title", {}, `Hoy, ${fmtDay(t.today)}`),
+    nada ? h("p.empty", {}, "Todo al día: nada vencido ni pendiente. ¡Buen trabajo!") : null,
+    seccion("Retiros vencidos", "pasó el día de retiro y nadie registró la entrega: ¿se entregó, se mueve o no vino?",
+      t.pickupsOverdue.map((o) => todayRow(o, "pickupLate")), "urgent"),
+    seccion("Devoluciones vencidas", "pasó la fecha límite y la prenda no consta como recibida",
+      t.returnsOverdue.map((o) => todayRow(o, "returnLate")), "urgent"),
+    seccion("Recibidas sin lavar", "registradas antes de que recibir llevara a lavado",
+      t.receivedNotWashed.map((r) => prenda(r, ["Recibida ", since(r.receivedAt)],
+        can("MOSTRADOR") ? h("button.btn", { type: "button", dataset: { action: "move", item: r.itemId } }, "Cambiar estado") : null)), "urgent"),
+    seccion("Retiros de hoy", null, t.pickupsToday.map((o) => todayRow(o, "pickup"))),
+    seccion("Devoluciones de hoy", null, t.returnsToday.map((o) => todayRow(o, "return"))),
+    seccion("Listas para salir del lavado", "ya pasaron los días de lavado: revísalas y márcalas Disponible",
+      t.laundryReady.map((r) => prenda(r,
+        [`${r.laundryKind === "EXTERNO" ? "Lavandería externa" : "Lavado propio"}: ${r.laundryPlace ?? "—"} · desde `, since(r.since)],
+        can("MOSTRADOR") ? h("button.btn.primary", { type: "button", dataset: { action: "laundry-out", item: r.itemId } }, "Salió del lavado") : null))),
+    seccion("Por cerrar", "todo recibido: falta el cobro o decidir la garantía", t.toClose.map((o) => todayRow(o, "close"))),
   ];
+}
+
+/**
+ * Mueve el retiro de un cliente que no vino. Se corre todo el alquiler los
+ * mismos días, al mismo precio; el servidor comprueba que la prenda siga libre.
+ * @param {number} id Pedido.
+ */
+async function rescheduleOrder(id) {
+  const o = findOrder(id);
+  const hoy = todayISO();
+  let sugerido = hoy;
+  for (let i = 0; i < 30 && !isOpen(sugerido); i++) sugerido = addDays(sugerido, 1);
+  const datos = await formDialog(`Mover el retiro del pedido #${id}`, [
+    h("p", {}, `${customerName(o)} debía retirar el ${fmtDay(o.start)}. Se corre todo el alquiler los mismos días y al mismo precio; el cliente recibe un aviso.`),
+    h("label", {}, "Retira desde", h("input", { type: "date", name: "start", required: true, min: hoy, value: sugerido })),
+  ], "Mover retiro", { validate: (form) => (isOpen(new FormData(form).get("start")) ? null : "Ese día el local no entrega: elige un día hábil.") });
+  if (!datos) return;
+  await act(() => api(`/api/orders/${id}/reschedule`, { method: "POST", body: { start: datos.get("start") } }), (res) => [
+    `Retiro del pedido #${id} movido: `, h("strong", {}, customerName(o)), " retira desde el ", h("strong", {}, fmtDay(res.reschedule.start)),
+    " y devuelve hasta el ", h("strong", {}, fmtDay(res.reschedule.returnBy)), ". Mismo precio; se le avisó.",
+  ], { tone: "warn" });
+}
+
+/** «No vino»: anula un retiro vencido sin entrega y libera las prendas. */
+async function noShowOrder(id) {
+  const o = findOrder(id);
+  const ok = await confirmWithNote("No vino a retirar",
+    `Se anula el pedido #${id} de ${customerName(o)} (debía retirar el ${fmtDay(o.start)}): se revierten sus cargos, las prendas vuelven al catálogo y se le avisa.`,
+    "Anular pedido");
+  if (!ok) return;
+  await act(() => api(`/api/orders/${id}/cancel`, { method: "POST", body: { ...ok, reason: "NO_SHOW" } }), () => [
+    `Pedido #${id} anulado porque no se retiró. Vuelven al catálogo: `,
+    ...joinParts(o.lines.map((l) => garment(l.productName, l.code)), ", "), ".",
+  ], { tone: "bad" });
+}
+
+/** Saca una prenda del lavado: vuelve a Disponible (o a Reservada, si ya la espera un pedido). */
+async function laundryOut(itemId) {
+  const r = state.today?.laundryReady.find((x) => x.itemId === itemId);
+  await act(() => api(`/api/items/${itemId}/status`, { method: "POST", body: { to: "DISPONIBLE", note: "Salió del lavado" } }), (res) => [
+    ...garment(r?.productName ?? "Prenda", r?.code), " salió del lavado → ", statusChip(res.status),
+    res.status === "RESERVADA" ? ". Ya la espera un pedido: apártala para entregarla." : ". Ya está en el catálogo.",
+  ]);
 }
 
 /* ---------- eventos (delegación) ---------- */
@@ -754,7 +859,7 @@ document.addEventListener("click", async (e) => {
     case "receive":
       return receiveOrder(order);
     case "settle": {
-      const o = state.orders.find((x) => x.id === order);
+      const o = findOrder(order);
       const cuanto = pendingCents(o);
       const ok = await confirmWithNote("Confirmar cobro",
         `¿Entraron ${money(cuanto)} de ${customerName(o)} por el pedido #${order}?`, "Confirmar");
@@ -763,7 +868,7 @@ document.addEventListener("click", async (e) => {
       ]);
     }
     case "release": {
-      const o = state.orders.find((x) => x.id === order);
+      const o = findOrder(order);
       const ok = await confirmWithNote("Devolver garantía",
         `Se devuelven ${money(o.depositHeldCents)} de garantía a ${customerName(o)} (pedido #${order}).`, "Devolver");
       return ok && act(() => api(`/api/orders/${order}/deposit-release`, { method: "POST", body: ok }), () => [
@@ -771,7 +876,7 @@ document.addEventListener("click", async (e) => {
       ]);
     }
     case "cancel": {
-      const o = state.orders.find((x) => x.id === order);
+      const o = findOrder(order);
       const prendas = o.lines.map((l) => l.productName).join(", ");
       const ok = await confirmWithNote("Anular pedido",
         `Se anula el pedido #${order} de ${customerName(o)}: se revierten sus cargos y se liberan ${prendas}.`, "Anular", true);
@@ -782,6 +887,12 @@ document.addEventListener("click", async (e) => {
     }
     case "timeline":
       return showTimeline(order);
+    case "reschedule":
+      return rescheduleOrder(order);
+    case "noshow":
+      return noShowOrder(order);
+    case "laundry-out":
+      return laundryOut(item);
     case "history-more":
       state.historyDays += HISTORY_STEP;
       return loadTab();

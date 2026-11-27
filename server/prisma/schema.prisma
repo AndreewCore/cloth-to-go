@@ -472,6 +472,7 @@ model Order {
   itemPhotos  ItemPhoto[]
   reviews     Review[]
   notices     Notice[]
+  activity    ActivityLog[]
 
   @@index([userId])
   @@map("orders")
@@ -814,6 +815,7 @@ enum ActivityAction {
   RESENA_MOSTRADA
   /// Tres reportes de cuentas distintas la devolvieron a la cola; sin actor.
   RESENA_AUTO_OCULTA
+  RETIRO_MOVIDO
 }
 
 /// Bitácora de acciones del panel. Como las otras, solo se añade: es lo que se
@@ -828,6 +830,9 @@ model ActivityLog {
   product   Product?       @relation(fields: [productId], references: [id], onDelete: Restrict)
   itemId    Int?
   item      Item?          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  /// Pedido afectado (p. ej. un retiro movido), para su recorrido.
+  orderId   Int?
+  order     Order?         @relation(fields: [orderId], references: [id], onDelete: Restrict)
   note      String
   /// Datos estructurados de la acción, p. ej. las claves de las fotos.
   detail    Json?
