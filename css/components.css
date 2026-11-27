@@ -1666,6 +1666,8 @@ main::-webkit-scrollbar { display: none; }
 /* ---- Prenda vencida (devolución pasada) ---- */
 .cart-item.late { border: 1.5px solid var(--danger); }
 .rent-tag.late { background: #f6e1d8; color: var(--danger); }
+/* Reservado: pagado, pero el local todavía no registró la entrega. */
+.rent-tag.reserved { background: var(--warn-bg); color: var(--warn-ink); text-transform: none; }
 .late-info-btn {
   background: none; border: none; color: var(--danger);
   font-size: 11px; font-weight: 700; cursor: pointer; padding: 5px 0 0;

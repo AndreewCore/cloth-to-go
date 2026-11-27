@@ -7,12 +7,11 @@
  * porque Render (plan gratuito) duerme el proceso sin tráfico, así que un
  * temporizador interno no es fiable; y mientras nadie mira, no hace falta.
  *
- * Un pedido está cumplido con la misma regla que `countsForRewards()` del
- * frontend: no anulado y con la fecha de inicio ya pasada (el cliente puede
- * anular hasta el mismo día de inicio; ver la ruta de anulación).
+ * Un pedido está cumplido con la misma regla que `countsForRewards()`: no
+ * anulado y con la entrega de alguna prenda registrada por el local (desde ahí
+ * el cliente ya no puede anular; ver la ruta de anulación).
  */
 import prisma from "./db.js";
-import { todayISO } from "./dates.js";
 import { garmentWater, communityGoal } from "./water.js";
 
 /** Id de la única fila del contador (la crea la migración). */
@@ -51,7 +50,7 @@ export async function runWaterCut(now = new Date()) {
     if (claim.count === 0) return null;
 
     const cumplidos = await tx.order.findMany({
-      where: { cancelledAt: null, waterLiters: null, start: { lt: todayISO(now) } },
+      where: { cancelledAt: null, waterLiters: null, items: { some: { deliveredAt: { not: null } } } },
       include: { items: { include: { item: { include: { product: true } } } } },
     });
     let delta = 0;

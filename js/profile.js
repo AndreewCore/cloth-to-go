@@ -146,6 +146,22 @@ function phoneVerifyHTML(){
  * @param {boolean} archived Si se pinta en "Alquileres anteriores".
  * @returns {string} HTML.
  */
+/**
+ * Texto de la etiqueta de un pedido vivo: lo que el local registró, no lo que
+ * dicen las fechas. Hasta la entrega es «Reservado», con el día de retiro.
+ * @param {object} o Pedido.
+ * @param {boolean} late Si ya pasó la fecha límite sin devolver.
+ * @returns {string} HTML.
+ */
+function rentTagText(o, late){
+  if(late) return `${icon("alert", { size: 13 })} Vencida`;
+  if(o.returned) return "Devuelto";
+  if(o.deliveredAt) return "En alquiler";
+  return o.delivery === "ship"
+    ? `Reservado · envío desde el ${fmtDate(o.start)}`
+    : `Reservado · retira desde el ${fmtDate(o.start)}`;
+}
+
 function orderCardHTML(o, i, archived){
     const days = daysBetween(o.start, o.end);
     const voided = isCancelledOrder(o);
@@ -164,7 +180,7 @@ function orderCardHTML(o, i, archived){
         </div>
         <div class="order-badges">
           <span class="pay-status ${stClass}">${paymentStatusLabel(o)}</span>
-          ${!archived ? `<span class="rent-tag${late ? " late" : ""}">${late ? `${icon("alert", { size: 13 })} Vencida` : "En alquiler"}</span>` : ""}
+          ${!archived && !voided ? `<span class="rent-tag${late ? " late" : ""}${o.deliveredAt ? "" : " reserved"}">${rentTagText(o, late)}</span>` : ""}
           ${voided ? `<span class="rent-tag void">Sin efecto</span>` : ""}
         </div>
       </div>

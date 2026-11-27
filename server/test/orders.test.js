@@ -13,7 +13,7 @@ import { test, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { buildApp } from "../src/app.js";
 import prisma from "../src/db.js";
-import { demoItems, grant, habil, loadHolidays, purge } from "./helpers/db.js";
+import { demoItems, grant, habil, loadHolidays, markDelivered, purge } from "./helpers/db.js";
 
 const CLIENTE = "test-sub-cliente";
 const OTRO = "test-sub-otro-cliente";
@@ -502,15 +502,23 @@ test("un pedido anulado no se anula, ni se cobra, ni se modifica otra vez", asyn
   assert.equal(cambio.statusCode, 409);
 });
 
-test("empezado el alquiler el cliente ya no anula solo, pero el local sí", async () => {
-  // Se crea con fecha válida y se retrasa el inicio en la base: la API impide a
-  // propósito crear un pedido que empiece ayer, y es justo el caso a probar.
+test("entregado, el cliente ya no anula solo, pero el local sí", async () => {
   const pedido = await crearPedido();
-  await prisma.order.update({ where: { id: pedido.id }, data: { start: fecha(-1) } });
+  await markDelivered(pedido.id);
 
   const cliente = await como(CLIENTE, { method: "POST", url: `/api/orders/${pedido.id}/cancel` });
   assert.equal(cliente.statusCode, 409);
+  assert.match(cliente.json().error, /Ya recibiste/);
 
   const local = await como(ADMIN, { method: "POST", url: `/api/orders/${pedido.id}/cancel` });
   assert.equal(local.statusCode, 200, "el local sí puede: puede comprobar dónde está la prenda");
+});
+
+test("pasado el día de retiro sin entrega registrada, el cliente todavía anula", async () => {
+  // Se crea con fecha válida y se retrasa el inicio en la base: la API impide a
+  // propósito crear un pedido que empiece ayer. Si no vino, no alquiló.
+  const pedido = await crearPedido();
+  await prisma.order.update({ where: { id: pedido.id }, data: { start: fecha(-1) } });
+  const cliente = await como(CLIENTE, { method: "POST", url: `/api/orders/${pedido.id}/cancel` });
+  assert.equal(cliente.statusCode, 200, cliente.body);
 });

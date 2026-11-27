@@ -38,15 +38,17 @@ test("fechas invertidas (fin < inicio) → 1 día, nunca negativo ni cero", () =
 test("estados del pedido: los 4 cruces de pagado/vencido", () => {
   const past = A.isoOffset(-2);
   const future = A.isoOffset(2);
+  // Todos entregados: «vencido» solo tiene sentido con la prenda fuera.
+  const isLate = (o) => A.isLate({ ...o, deliveredAt: A.isoOffset(-5) });
   // settled + vencido → archivado (y no se marca "vencido/late" en activos)
   assert.ok(A.isArchivedOrder({ status: "settled", end: past }));
   // settled + vigente → activo, no archivado, no vencido
   assert.ok(!A.isArchivedOrder({ status: "settled", end: future }));
-  assert.ok(!A.isLate({ end: future }));
+  assert.ok(!isLate({ end: future }));
   // pending + vencido → NO archivado (falta el pago) pero SÍ vencido
   assert.ok(!A.isArchivedOrder({ status: "pending", end: past }));
-  assert.ok(A.isLate({ end: past }));
+  assert.ok(isLate({ end: past }));
   // pending + vigente → activo normal
   assert.ok(!A.isArchivedOrder({ status: "pending", end: future }));
-  assert.ok(!A.isLate({ end: future }));
+  assert.ok(!isLate({ end: future }));
 });

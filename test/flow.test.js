@@ -85,7 +85,7 @@ test("los puntos y el saldo llegan del servidor, no se acreditan aquí", async (
   // El servidor decide cuándo un pedido ya ganó sus puntos; la app solo los
   // adopta al sincronizar la cuenta.
   fake.state.orders.push({ id: 1999, createdAt: new Date().toISOString(), items: [3], itemIds: [5003],
-    start: app.isoOffset(-2), end: app.isoOffset(1), returnBy: app.isoOffset(1), delivery: "pickup",
+    start: app.isoOffset(-2), end: app.isoOffset(1), returnBy: app.isoOffset(1), delivery: "pickup", deliveredAt: new Date().toISOString(),
     ret: "store", pay: "cash", status: "pending", cancelledAt: null, couponId: null, discountCents: 0,
     points: 42, totalCents: 1000, depositHeldCents: 500, charges: [] });
   assert.ok(await app.syncAccount());
@@ -380,7 +380,8 @@ test("sin confirmar el diálogo, el pedido sigue vigente", async () => {
 });
 
 test("la opción de anular desaparece si el alquiler ya está con el cliente", async () => {
-  await placedOrder(app.isoOffset(-1));     // empezó ayer → entregado
+  const i = await placedOrder();
+  app.orders[i].deliveredAt = app.isoOffset(0);   // el local registró la entrega
   win.renderProfile();
   assert.equal(doc.querySelectorAll('[data-action="cancelOrder"]').length, 0);
 });
@@ -390,7 +391,8 @@ test("la opción de anular desaparece cuando el pedido ya terminó", async () =>
   const o = app.orders[i];
   o.status = "settled";
   o.start = app.isoOffset(-5);
-  o.end = app.isoOffset(-1);          // pagado y vencido → archivado
+  o.end = o.returnBy = app.isoOffset(-1);   // pagado y vencido → archivado
+  o.deliveredAt = o.start;
   win.renderProfile();
   assert.equal(doc.querySelectorAll('[data-action="cancelOrder"]').length, 0);
 });
@@ -430,8 +432,9 @@ test("un pedido todavía anulable no suma litros de agua", async () => {
   assert.equal(win.totalWaterSaved(), 0);
 });
 
-test("un alquiler ya entregado y firme suma sus litros", async () => {
-  await placedOrder(app.isoOffset(-3));
+test("un alquiler ya entregado suma sus litros", async () => {
+  const i = await placedOrder();
+  app.orders[i].deliveredAt = app.isoOffset(0);   // el local registró la entrega
   assert.ok(win.totalWaterSaved() > 0, "un alquiler cumplido sí reutilizó ropa");
 });
 

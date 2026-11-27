@@ -20,12 +20,14 @@ const S = ITEM_STATUS;
 
 /**
  * Cambios manuales permitidos, desde cada estado. Reservada no es destino de
- * nadie: la pone un pedido. Perdida es final: una prenda que aparece después
- * es un caso para el admin, no un clic.
+ * nadie: la pone un pedido. En Alquiler tampoco: entregar es registrar la
+ * entrega del pedido (día real, fotos, quién), que es de lo que dependen los
+ * premios del cliente y si todavía puede anular. Perdida es final: una prenda
+ * que aparece después es un caso para el admin, no un clic.
  */
 const MANUAL = Object.freeze({
   [S.DISPONIBLE]: [S.EN_LAVADO, S.NO_ALQUILABLE, S.PERDIDA],
-  [S.RESERVADA]: [S.EN_ALQUILER, S.PERDIDA],
+  [S.RESERVADA]: [S.PERDIDA],
   [S.EN_ALQUILER]: [S.EN_LAVADO, S.NO_ALQUILABLE, S.PERDIDA],
   [S.EN_LAVADO]: [S.DISPONIBLE, S.NO_ALQUILABLE, S.PERDIDA],
   [S.NO_ALQUILABLE]: [S.EN_LAVADO, S.DISPONIBLE, S.PERDIDA],

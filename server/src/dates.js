@@ -108,3 +108,17 @@ export function returnByDate(start, end, holidays = new Set()) {
   const cierre = returnWindowClose(start, holidays);
   return end > cierre ? end : cierre;
 }
+
+const DIAS_CORTOS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
+/**
+ * «lun 30 nov» de un día `YYYY-MM-DD`: es como lo leen el cliente y el
+ * mostrador en los mensajes y avisos que escribe el servidor.
+ * @param {string} iso `YYYY-MM-DD`.
+ * @returns {string}
+ */
+export function fmtDayEs(iso) {
+  const d = new Date(`${iso}T00:00:00Z`);
+  return `${DIAS_CORTOS[d.getUTCDay()]} ${d.getUTCDate()} ${MESES_CORTOS[d.getUTCMonth()]}`;
+}

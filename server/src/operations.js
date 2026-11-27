@@ -8,18 +8,20 @@
  * el tiempo, por sí solo, nunca le cobra nada al cliente.
  */
 import prisma from "./db.js";
-import { CAPABILITY, httpError } from "./auth.js";
+import { CAPABILITY, hasCapability, httpError } from "./auth.js";
 import { ITEM_STATUS, pricedItem, routeId } from "./catalog.js";
 import { CHARGE_TYPE, settlementFor } from "./ledger.js";
 import { cents, rentalDays, rentalPrice } from "./pricing.js";
-import { addDaysISO, isBusinessDay, todayISO } from "./dates.js";
+import { addDaysISO, fmtDayEs, isBusinessDay, todayISO } from "./dates.js";
 import { holidaySet } from "./calendar.js";
 import { manualTargets, planTransition } from "./items.js";
 import { FINANCE_EVENT, logFinance, logItem } from "./logs.js";
-import { CON_LINEAS, orderToApi } from "./orders.js";
+import { CON_LINEAS, orderToApi, settlePending } from "./orders.js";
 import { panelPhotoUrl } from "./catalogAdmin.js";
 import { requestOrigin } from "./storage.js";
 import { parseFilters, readActivity } from "./activity.js";
+import { createNotice, deliverNotice, deliveredText, returnedText } from "./notices.js";
+import { disabledMailer } from "./mail.js";
 
 const S = ITEM_STATUS;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -132,6 +134,8 @@ function orderForPanel(order, photo) {
       status: oi.item.status,
       returnedOn: isoDe(oi.returnedOn),
       receivedAt: oi.receivedAt,
+      deliveredOn: isoDe(oi.deliveredOn),
+      deliveredAt: oi.deliveredAt,
     })),
   };
 }
@@ -151,6 +155,31 @@ const PARA_PANEL = {
     orderBy: { id: "asc" },
   },
 };
+
+/**
+ * Valida el cuerpo de una entrega.
+ * @param {object} body Cuerpo de la petición.
+ * @param {string} today Hoy (`YYYY-MM-DD`).
+ * @returns {{deliveredOn: string, itemIds: number[]|null, settle: boolean, note: string|null}}
+ */
+function parseDelivery(body, today) {
+  const b = body ?? {};
+  if (typeof b.deliveredOn !== "string" || !ISO_DATE.test(b.deliveredOn) || Number.isNaN(Date.parse(b.deliveredOn))) {
+    throw httpError(400, "Indica el día en que la prenda salió (AAAA-MM-DD).");
+  }
+  // Como al recibir: una fecha futura es un error de tecleo, no una entrega.
+  if (b.deliveredOn > today) throw httpError(400, "La fecha de entrega no puede ser futura.");
+  let itemIds = null;
+  if (b.items != null) {
+    if (!Array.isArray(b.items) || b.items.length === 0 || b.items.length > 50
+      || !b.items.every((n) => Number.isInteger(n) && n > 0)) {
+      throw httpError(400, "Lista de prendas no válida.");
+    }
+    itemIds = [...new Set(b.items)];
+  }
+  const note = typeof b.note === "string" && b.note.trim() ? b.note.trim().slice(0, 500) : null;
+  return { deliveredOn: b.deliveredOn, itemIds, settle: b.settle === true, note };
+}
 
 /** Adónde puede ir una prenda al recibirla: nunca directo al catálogo (§3). */
 export const RECEIVE_TARGETS = Object.freeze([S.EN_LAVADO, S.NO_ALQUILABLE]);
@@ -191,9 +220,10 @@ function parseReceipt(body, today) {
  * Registra las rutas de operación del panel.
  * @param {import("fastify").FastifyInstance} app Instancia Fastify.
  * @param {{requireUser: Function, requireCapability: Function}} guards preHandlers.
- * @param {{storage: object}} deps Almacenamiento, para las URLs de las fotos.
+ * @param {{storage: object, mailer?: object}} deps Almacenamiento (URLs de las
+ *   fotos) y correo de los avisos al cliente.
  */
-export function registerOperationRoutes(app, { requireUser, requireCapability }, { storage }) {
+export function registerOperationRoutes(app, { requireUser, requireCapability }, { storage, mailer = disabledMailer }) {
   /** URLs de fotos para el panel, vistas desde el origen de la petición. */
   const fotosPara = (req) => (img) => panelPhotoUrl(storage, img, requestOrigin(req));
 
@@ -331,6 +361,91 @@ export function registerOperationRoutes(app, { requireUser, requireCapability },
     return { notReceived: sinRecibir, receivedNotWashed: sinLavar, inLaundry: enLavado };
   });
 
+  // Entregar: el mostrador registra que las prendas salieron, con el día real
+  // (puede ser anterior al registro, como al recibir) y quién. Es lo que pasa
+  // la prenda a En Alquiler y lo que hace que el pedido cuente como entregado:
+  // desde aquí el cliente ya no anula y gana sus puntos y litros. Si quien
+  // entrega es también Caja, puede confirmar en el mismo acto el cobro en
+  // efectivo.
+  app.post("/api/orders/:id/deliver", { preHandler: mostrador }, async (req) => {
+    const id = routeId(req.params.id, "Pedido");
+    const datos = parseDelivery(req.body, todayISO());
+    if (datos.settle && !hasCapability(req.user, CAPABILITY.CAJA)) {
+      throw httpError(403, "Confirmar el cobro es de Caja.");
+    }
+    const feriados = await holidaySet();
+    if (!isBusinessDay(datos.deliveredOn, feriados)) {
+      throw httpError(400, "Ese día el local no entrega: elige el día hábil en que salió la prenda.");
+    }
+
+    const resultado = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id },
+        include: { charges: true, items: { include: { item: { include: { product: { select: { name: true } } } } } } },
+      });
+      if (!order) throw httpError(404, "Pedido no encontrado.");
+      if (order.cancelledAt) throw httpError(409, "El pedido está anulado.");
+      if (datos.deliveredOn < order.start) {
+        throw httpError(400, `El retiro es desde el ${fmtDayEs(order.start)}: la prenda no pudo salir antes.`);
+      }
+      const pendientes = order.items.filter((oi) => !oi.deliveredAt);
+      if (pendientes.length === 0) throw httpError(409, "Todas las prendas de este pedido ya se entregaron.");
+      const elegidas = datos.itemIds ? pendientes.filter((oi) => datos.itemIds.includes(oi.itemId)) : pendientes;
+      if (datos.itemIds && elegidas.length !== datos.itemIds.length) {
+        throw httpError(409, "Alguna de esas prendas no es de este pedido o ya se entregó.");
+      }
+      // Solo sale lo que está apartado para este pedido: una prenda En Lavado
+      // o todavía con el cliente anterior no puede estar en el mostrador.
+      const noLista = elegidas.find((oi) => oi.item.status !== S.RESERVADA);
+      if (noLista) {
+        throw httpError(409, `${noLista.item.product.name} (${noLista.item.code ?? `#${noLista.itemId}`}) no está Reservada; revisa su estado antes de entregarla.`);
+      }
+
+      const ahora = new Date();
+      for (const oi of elegidas) {
+        const { count } = await tx.orderItem.updateMany({
+          where: { id: oi.id, deliveredAt: null },
+          data: { deliveredOn: new Date(`${datos.deliveredOn}T00:00:00Z`), deliveredAt: ahora, deliveredById: req.user.id },
+        });
+        if (count === 0) throw httpError(409, "Otra persona registró esta entrega mientras tanto; vuelve a cargar.");
+        const movida = await tx.item.updateMany({
+          where: { id: oi.itemId, status: S.RESERVADA },
+          data: { status: S.EN_ALQUILER, statusSince: ahora },
+        });
+        if (movida.count === 0) throw httpError(409, "La prenda cambió de estado mientras tanto; vuelve a cargar.");
+        // La nota empieza por «Entregada»: así la bitácora general distingue la
+        // entrega de un cambio manual de estado.
+        await logItem(tx, {
+          itemId: oi.itemId,
+          from: S.RESERVADA,
+          to: S.EN_ALQUILER,
+          actorId: req.user.id,
+          orderId: id,
+          note: [`Entregada; salió el ${datos.deliveredOn}`, datos.note].filter(Boolean).join(" · "),
+        });
+      }
+      const settledCents = datos.settle ? await settlePending(tx, order, req.user.id) : 0;
+      const returnBy = isoDe(order.items[0].end);
+      const nombres = elegidas.map((oi) => oi.item.product.name);
+      const notice = await createNotice(tx, {
+        userId: order.userId, kind: "ENTREGA", orderId: id, ...deliveredText(id, nombres, fmtDayEs(returnBy)),
+      });
+      return {
+        notice,
+        delivery: {
+          deliveredOn: datos.deliveredOn,
+          returnBy,
+          settledCents,
+          items: elegidas.map((oi) => ({ itemId: oi.itemId, code: oi.item.code, productName: oi.item.product.name })),
+        },
+      };
+    });
+
+    await deliverNotice(resultado.notice, mailer, req.log);
+    const actualizado = await prisma.order.findUnique({ where: { id }, include: PARA_PANEL });
+    return { ...orderForPanel(actualizado, fotosPara(req)), delivery: resultado.delivery };
+  });
+
   // Recorrido de un pedido: lo que lleva su número (reserva, entrega con
   // fotos, recepción, días extra, cobro, garantía, anulación) y lo que les pasó
   // a sus prendas hasta que otro pedido las tomó (lavado, vuelta a Disponible).
@@ -393,11 +508,12 @@ export function registerOperationRoutes(app, { requireUser, requireCapability },
       if (datos.items.some((x) => !pendientes.has(x.itemId))) {
         throw httpError(409, "Alguna de esas prendas no es de este pedido o ya se recibió.");
       }
-      // Solo vuelve lo que se entregó: una prenda Reservada nunca salió del
-      // local, y recibirla escondería que nadie registró la entrega.
-      const noEntregada = datos.items.map((x) => pendientes.get(x.itemId)).find((oi) => oi.item.status !== S.EN_ALQUILER);
+      // Solo vuelve lo que se entregó: una prenda sin entrega registrada nunca
+      // salió del local, y recibirla escondería que nadie registró la entrega.
+      const noEntregada = datos.items.map((x) => pendientes.get(x.itemId))
+        .find((oi) => !oi.deliveredAt || oi.item.status !== S.EN_ALQUILER);
       if (noEntregada) {
-        throw httpError(409, `La prenda ${noEntregada.item.code ?? `#${noEntregada.itemId}`} no consta como entregada; márcala En Alquiler primero.`);
+        throw httpError(409, `La prenda ${noEntregada.item.code ?? `#${noEntregada.itemId}`} no consta como entregada; registra la entrega primero.`);
       }
 
       const dias = rentalDays(order.start, order.end);
@@ -460,8 +576,19 @@ export function registerOperationRoutes(app, { requireUser, requireCapability },
           extraDays: extra,
         });
       }
-      return resumen;
+      const notice = await createNotice(tx, {
+        userId: order.userId,
+        kind: "DEVOLUCION",
+        orderId: id,
+        ...returnedText(id, resumen.items.map((x) => x.productName), {
+          extraCents: resumen.extraCents, extraDays: Math.max(0, ...resumen.items.map((x) => x.extraDays)),
+        }),
+      });
+      return { ...resumen, notice };
     });
+    // Después del commit: el correo nunca deshace el registro.
+    await deliverNotice(receipt.notice, mailer, req.log);
+    delete receipt.notice;
 
     const actualizado = await prisma.order.findUnique({ where: { id }, include: PARA_PANEL });
     return { ...orderForPanel(actualizado, fotosPara(req)), receipt };

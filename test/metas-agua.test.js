@@ -2,21 +2,24 @@
  * Metas de ahorro de agua: cuándo cuentan los litros de un pedido y cómo se
  * anuncian en su tarjeta del perfil.
  *
- * La regla que sostiene todo: un pedido solo aporta litros cuando el alquiler
- * ya es firme (entregado y fuera de la ventana de anulación), el mismo umbral
- * que rige los puntos. Ver countsForRewards() en state.js.
+ * La regla que sostiene todo: un pedido solo aporta litros cuando el local
+ * registró su entrega (desde ahí ya no se puede anular), el mismo umbral que
+ * rige los puntos. Ver countsForRewards() en state.js.
  */
 const test = require("node:test");
 const assert = require("node:assert");
 const { loadDom } = require("./helpers/load-dom");
 
-/** Monta la app con un pedido cuyo inicio fija si el alquiler ya es firme. */
+/**
+ * Monta la app con un pedido. Lo que ya empezó se da por entregado, como lo
+ * habría registrado el local; lo de hoy o después, todavía no.
+ */
 function conPedido(env, { start, end, pointsCredited = false }) {
   const { app } = env;
   const p = app.products[0];
   app.orders = [{
     id: 1, date: app.isoOffset(-5), items: [p.id],
-    start, end,
+    start, end, deliveredAt: start < app.isoOffset(0) ? start : null,
     delivery: "pickup", ret: "store", pay: "cash",
     status: "settled", points: 40, pointsCredited, total: 20,
   }];
@@ -27,7 +30,7 @@ test("los litros solo cuentan con el alquiler cumplido", async (t) => {
   await t.test("un pedido que todavía se puede anular no aporta litros", () => {
     const env = loadDom();
     const { app } = env;
-    // Empieza hoy: entregado, pero aún anulable durante el día de inicio.
+    // Empieza hoy y el local todavía no registró la entrega: aún anulable.
     conPedido(env, { start: app.isoOffset(0), end: app.isoOffset(3) });
     assert.equal(app.countsForRewards(app.orders[0]), false);
     assert.equal(app.totalWaterSaved(), 0);

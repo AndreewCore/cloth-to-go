@@ -135,7 +135,9 @@ function rentalDays(){ return daysBetween(rentalStart, rentalEnd); }
 // Fecha límite de devolución ya pasada (ISO comparable). La límite es el cierre
 // de la ventana (`returnBy`), no el día elegido; un pedido guardado antes de las
 // ventanas no la trae y se mide por su `end`.
-function isLate(r){ return (r.returnBy || r.end) < isoOffset(0); }
+// Vencida: entregada, sin devolver y con la fecha límite ya pasada. Lo que
+// nunca se entregó no puede estar atrasado.
+function isLate(r){ return Boolean(r.deliveredAt) && !r.returned && (r.returnBy || r.end) < isoOffset(0); }
 /**
  * Lleva las fechas elegidas a días hábiles: el inicio al siguiente hábil (y
  * nunca al pasado), y la devolución al siguiente hábil posterior al inicio. Se
@@ -407,29 +409,24 @@ function paymentStatusLabel(o){
   return o.status === ORDER_STATUS.SETTLED ? "Cancelado" : "Pendiente";
 }
 /* ---- Estados de un pedido ----
-   No hay un campo `estado` con estos valores: cada uno se DERIVA de `status`
-   y de las fechas, y las seis funciones de abajo se llaman entre sí. La
-   máquina que forman, escrita de una vez para no tener que reconstruirla
-   leyendo:
+   No hay un campo `estado` con estos valores: cada uno se DERIVA de `status`,
+   de las fechas y de `deliveredAt` (cuándo el local REGISTRÓ la entrega, que
+   manda el servidor). La máquina que forman, escrita de una vez para no tener
+   que reconstruirla leyendo:
 
-     confirmado ──(llega o.start)──▶ entregado ──(pasa o.start)──▶ firme
-          │                                                          │
-          │ isDelivered=false                    countsForRewards=true
-          │ canCancelOrder=true                                      │
-          │                                          (pasa o.end, ya pagado)
-          └──(el cliente anula)──▶ ANULADO                           ▼
-                                   isCancelledOrder              ARCHIVADO
-                                        └──────── isPastOrder ────────┘
+     reservado ──(el local registra la entrega)──▶ entregado ──(devuelto y pagado)──▶ ARCHIVADO
+         │  isDelivered=false                       isDelivered=true
+         │  canCancelOrder=true                     countsForRewards=true
+         └──(el cliente o el local anulan)──▶ ANULADO (isCancelledOrder)
+                          └─────────── isPastOrder ───────────┘
 
-   Tres cosas que conviene tener presentes:
-   - `isDelivered` (start ≤ hoy) y `canCancelOrder` (hoy ≤ start) SE SOLAPAN el
-     día de inicio. Por eso "entregado" y "firme" son estados distintos y no
-     uno solo.
+   Dos cosas que conviene tener presentes:
+   - La fecha de retiro ya no entrega nada por sí sola: si el cliente no vino,
+     el pedido sigue «reservado» y todavía puede anularlo.
    - `countsForRewards` es la frontera de TODO lo que premia un alquiler
-     (puntos, litros para las metas, poder reseñar). La corrigió fix-metas-agua
-     (#50): premiar dentro de la ventana de anulación era explotable.
-   - `isPastOrder` agrupa los dos finales (archivado y anulado) y es el que
-     decide si la prenda vuelve al catálogo. */
+     (puntos, litros para las metas, poder reseñar). Coincide con la entrega
+     porque desde ahí ya no se puede anular: premiar dentro de la ventana de
+     anulación era explotable (#50). */
 
 // Un pedido pasa al historial ("Alquileres anteriores") cuando ya fue pagado
 // (Cancelado) Y su período terminó: pasó la fecha límite de devolución, que es
@@ -450,14 +447,13 @@ function isPastOrder(o){ return isArchivedOrder(o) || isCancelledOrder(o); }
  * diálogo de cancelOrder().
  * @param {object} o Pedido.
  */
-function canCancelOrder(o){ return !isPastOrder(o) && isoOffset(0) <= o.start; }
+function canCancelOrder(o){ return !isPastOrder(o) && !o.deliveredAt; }
 /**
- * ¿Las prendas del pedido ya llegaron al cliente?
- * Sin logística real, la entrega se da por hecha al empezar el período: ese es
- * el día en que se envía o se retira en el local.
+ * ¿Las prendas del pedido ya llegaron al cliente? Cuando el local registró la
+ * entrega (`deliveredAt`); la fecha de retiro, por sí sola, no entrega nada.
  * @param {object} o Pedido.
  */
-function isDelivered(o){ return !isCancelledOrder(o) && o.start <= isoOffset(0); }
+function isDelivered(o){ return !isCancelledOrder(o) && Boolean(o.deliveredAt); }
 /**
  * ¿El pedido ya ganó sus recompensas: entregado y fuera de la ventana de anulación?
  *
@@ -468,7 +464,7 @@ function isDelivered(o){ return !isCancelledOrder(o) && o.start <= isoOffset(0);
  * que es quien de verdad acredita; aquí solo decide qué se muestra como cumplido.
  * @param {object} o Pedido.
  */
-function countsForRewards(o){ return isDelivered(o) && !canCancelOrder(o); }
+function countsForRewards(o){ return isDelivered(o); }
 
 /* ---------------- Reseñas ----------------
    Viven en el servidor (fase 4) y todas pasan por moderación: el público solo

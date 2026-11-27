@@ -101,7 +101,7 @@ const APP_GLOBALS = {
     "resetCheckoutState", "finishOrder", "goToOrders"
   ],
   profile: [
-    "renderProfile", "noticesHTML", "PAY_LABELS", "profileHeadHTML", "contactInfoHTML", "orderCardHTML", "waterGoalHTML", "saveProfile", "editProfile", "cancelProfileEdit", "phoneVerifyHTML", "verifyPhone", "toggleLateInfo",
+    "renderProfile", "noticesHTML", "PAY_LABELS", "profileHeadHTML", "contactInfoHTML", "orderCardHTML", "rentTagText", "waterGoalHTML", "saveProfile", "editProfile", "cancelProfileEdit", "phoneVerifyHTML", "verifyPhone", "toggleLateInfo",
     "returnEditorHTML", "renderReturnEditor", "openReturnEditor", "closeReturnEditor", "saveReturn", "cancelOrder",
     "renderRewards", "couponListHTML", "redeem",
     "prefOptionsHTML", "prefToggleHTML", "renderSettings",

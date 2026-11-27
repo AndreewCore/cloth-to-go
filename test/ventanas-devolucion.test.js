@@ -74,9 +74,10 @@ test("un pedido vence por su fecha límite, no por el día elegido", () => {
   const front = loadApp();
   const ayer = front.isoOffset(-1);
   const manana = front.isoOffset(1);
-  assert.ok(!front.isLate({ end: ayer, returnBy: manana }), "la ventana todavía lo cubre");
-  assert.ok(front.isLate({ end: ayer, returnBy: ayer }));
-  assert.ok(front.isLate({ end: ayer }), "un pedido antiguo, sin returnBy, se mide por end");
+  const entregado = { deliveredAt: front.isoOffset(-5) };
+  assert.ok(!front.isLate({ ...entregado, end: ayer, returnBy: manana }), "la ventana todavía lo cubre");
+  assert.ok(front.isLate({ ...entregado, end: ayer, returnBy: ayer }));
+  assert.ok(front.isLate({ ...entregado, end: ayer }), "un pedido antiguo, sin returnBy, se mide por end");
   assert.ok(!front.isArchivedOrder({ status: "settled", end: ayer, returnBy: manana }),
     "sigue en curso hasta el cierre de la ventana");
 });

@@ -26,9 +26,40 @@ export function rejectedReviewText(productName, reasonLabel) {
 }
 
 /**
+ * Texto del aviso de una entrega registrada.
+ * @param {number} orderId Pedido.
+ * @param {string[]} names Prendas entregadas.
+ * @param {string} returnBy Fecha límite sin costo, ya en palabras.
+ * @returns {{title: string, body: string}}
+ */
+export function deliveredText(orderId, names, returnBy) {
+  return {
+    title: `Entregamos tu pedido #${orderId}`,
+    body: `${names.join(", ")}. Puedes devolver${names.length === 1 ? "la" : "las"} sin costo extra hasta el ${returnBy}. ¡Que lo disfrutes!`,
+  };
+}
+
+/**
+ * Texto del aviso de una devolución registrada.
+ * @param {number} orderId Pedido.
+ * @param {string[]} names Prendas recibidas.
+ * @param {{extraCents: number, extraDays: number}} late Días extra cobrados.
+ * @returns {{title: string, body: string}}
+ */
+export function returnedText(orderId, names, { extraCents, extraDays }) {
+  const extra = extraCents > 0
+    ? ` Volvió${names.length === 1 ? "" : "eron"} ${extraDays} día${extraDays === 1 ? "" : "s"} hábil${extraDays === 1 ? "" : "es"} después de la fecha límite: se cobraron $${(extraCents / 100).toFixed(2)} por esos días.`
+    : " A tiempo, sin cobros extra.";
+  return {
+    title: `Recibimos tu devolución del pedido #${orderId}`,
+    body: `${names.join(", ")}.${extra} La garantía se revisa y se devuelve en los próximos días.`,
+  };
+}
+
+/**
  * Guarda un aviso.
  * @param {object} tx Cliente Prisma o transacción.
- * @param {{userId: number, kind: string, title: string, body: string, reviewId?: number}} data
+ * @param {{userId: number, kind: string, title: string, body: string, reviewId?: number, orderId?: number}} data
  * @returns {Promise<object>} Fila creada.
  */
 export function createNotice(tx, data) {
@@ -60,7 +91,7 @@ export async function deliverNotice(notice, mailer, log) {
 
 /** Aviso con la forma que leen la app y la web. */
 const toApi = (n) => ({
-  id: n.id, kind: n.kind, title: n.title, body: n.body, reviewId: n.reviewId,
+  id: n.id, kind: n.kind, title: n.title, body: n.body, reviewId: n.reviewId, orderId: n.orderId,
   createdAt: n.createdAt, read: !!n.readAt,
 });
 

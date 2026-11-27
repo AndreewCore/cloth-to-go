@@ -333,11 +333,12 @@ test("un ejemplar no alquilable no se puede pedir, y uno retirado sale del catá
   assert.ok(!p.items.some((i) => i.id === item));
 });
 
-test("la tabla de transiciones: Reservada no se pone a mano", () => {
+test("la tabla de transiciones: ni Reservada ni En Alquiler se ponen a mano", () => {
   const admin = { capabilities: ["ADMINISTRACION"] };
   assert.equal(planTransition({ status: "DISPONIBLE" }, { to: "RESERVADA" }, admin).status, 409);
   assert.equal(planTransition({ status: "DISPONIBLE" }, { to: "INVENTADO" }, admin).status, 400);
-  assert.ok(planTransition({ status: "RESERVADA" }, { to: "EN_ALQUILER" }, admin).data);
+  // Entregar es registrar la entrega del pedido (POST /api/orders/:id/deliver).
+  assert.equal(planTransition({ status: "RESERVADA" }, { to: "EN_ALQUILER" }, admin).status, 409);
 });
 
 test("la base rechaza En Lavado sin lavado descrito aunque nadie pase por la API", async () => {
