@@ -42,7 +42,7 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | PATCH | `/api/orders/:id/return` | Cambia el modo de devolución → **genera un ajuste**. |
 | POST | `/api/orders/:id/cancel` | Anula el pedido y revierte sus cargos. |
 | POST | `/api/orders/:id/settle` | **Solo local**: confirma que el efectivo entró. |
-| POST | `/api/orders/:id/deposit-release` | **Solo local**: libera el depósito. |
+| POST | `/api/orders/:id/deposit-release` | **Caja**: devuelve la garantía. Entera, o reteniendo una parte con `cases` de la tabla del §6.2 (se suman con techo de 100 %, con `note` obligatoria y solo con el cobro ya confirmado); `percent` fuera de la tabla es solo de **Administración**. Lo retenido es una línea `RETENTION` (ingreso) y la garantía se libera entera. Avisa al cliente con el motivo. La tabla viaja en `/api/config` (`retentionCases`). |
 | GET | `/api/admin/orders?scope=history&days=30` | **Mostrador** o **Caja**: pedidos **terminados** (anulados, o con todo recibido, cobrado y la garantía devuelta) en los últimos N días, con `finishedAt` y `hasMore`. |
 | GET | `/api/orders/:id/timeline` | **Mostrador** o **Caja**: recorrido del pedido, de lo más viejo a lo más nuevo: lo que lleva su número (reserva, entrega, recepción, días extra, cobro, garantía) y lo que les pasó a sus prendas hasta que otro pedido las tomó (lavado, vuelta a Disponible). |
 | POST | `/api/orders/:id/deliver` | **Mostrador**: registra la entrega (día real, quién) y pasa las prendas a En Alquiler. Con `settle: true` (solo si además es **Caja**) confirma el efectivo pendiente. Avisa al cliente. Sin este registro el pedido no cuenta como entregado. |

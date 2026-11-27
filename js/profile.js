@@ -222,8 +222,9 @@ function orderCardHTML(o, i, archived){
           <button class="late-info-btn" data-action="toggleLateInfo" data-idx="${i}">ⓘ Devolución atrasada</button>
           <div class="late-info" id="lateInfo${i}">
             La fecha límite fue el ${fmtDate(o.returnBy || o.end)}. No hay multa: cada día
-            extra se cobra con la tarifa normal del alquiler. Si no avisas, se retiene
-            parte de tu depósito ($${orderDeposit(o).toFixed(2)}) por cada día de atraso.
+            hábil extra se cobra con la tarifa normal del alquiler al devolverla. Tu
+            garantía ($${orderDeposit(o).toFixed(2)}) no se toca por el atraso: solo se
+            retiene una parte si la prenda vuelve dañada o incompleta.
           </div>` : ""}
       ` : ""}
       ${/* Fuera del bloque !archived: un pedido TERMINADO es justo cuando se

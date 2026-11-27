@@ -85,6 +85,23 @@ export function noShowText(orderId, start, paid) {
 }
 
 /**
+ * Texto del aviso de la garantía devuelta, entera o con una parte retenida.
+ * @param {number} orderId Pedido.
+ * @param {{heldCents: number, retainedCents: number, reasons: string[], note: string|null}} g
+ * @returns {{title: string, body: string}}
+ */
+export function depositText(orderId, { heldCents, retainedCents, reasons, note }) {
+  const usd = (c) => `$${(c / 100).toFixed(2)}`;
+  if (!retainedCents) {
+    return { title: `Te devolvimos la garantía del pedido #${orderId}`, body: `${usd(heldCents)}, completa. ¡Gracias por cuidar la prenda!` };
+  }
+  return {
+    title: `Garantía del pedido #${orderId}: devolvimos ${usd(heldCents - retainedCents)}`,
+    body: `De los ${usd(heldCents)} de garantía retuvimos ${usd(retainedCents)} por: ${reasons.join("; ")}.${note ? ` ${note}` : ""} Si no estás de acuerdo, escríbenos y lo revisa la administración.`,
+  };
+}
+
+/**
  * Guarda un aviso.
  * @param {object} tx Cliente Prisma o transacción.
  * @param {{userId: number, kind: string, title: string, body: string, reviewId?: number, orderId?: number}} data

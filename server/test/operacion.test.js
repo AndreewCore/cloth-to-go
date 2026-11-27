@@ -433,8 +433,11 @@ test("el catálogo y el pedido respetan el lavado; lo que está fuera no se ofre
   await prisma.item.update({ where: { id: item.id }, data: { status: "EN_ALQUILER" } });
   assert.equal((await enCatalogo()).available, false, "en alquiler sin reserva viva tampoco se ofrece");
 
-  await prisma.item.update({ where: { id: item.id }, data: { status: "EN_LAVADO", statusSince: new Date(), laundryKind: "PROPIO", laundryPlace: "Local" } });
-  const desde = nextBusinessDay(addDaysISO(todayISO(), LAUNDRY_READY_DAYS), await holidaySet());
+  // Entra a lavado «mañana»: así el día listo cae siempre después de habil(0),
+  // también un viernes (si entrara hoy, viernes + 3 = lunes = habil(0)).
+  const manana = Date.now() + 86_400_000;
+  await prisma.item.update({ where: { id: item.id }, data: { status: "EN_LAVADO", statusSince: new Date(manana), laundryKind: "PROPIO", laundryPlace: "Local" } });
+  const desde = nextBusinessDay(addDaysISO(todayISO(manana), LAUNDRY_READY_DAYS), await holidaySet());
   const visto = await enCatalogo();
   assert.equal(visto.available, true);
   assert.equal(visto.availableFrom, desde);

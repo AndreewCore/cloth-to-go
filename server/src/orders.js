@@ -20,6 +20,7 @@ import {
   discountCents,
   discountCharge,
   heldDepositCents,
+  retentionCharges,
   revenueCents,
   totalCents,
   validateOrderVocabulary,
@@ -35,7 +36,8 @@ import { holidaySet } from "./calendar.js";
 import { rewardById, rewardDiscountCents } from "./rewards.js";
 import { priceOrder } from "./quote.js";
 import { countsForRewards, isDelivered, lockUser, revokeOrderRewards, settleRewards } from "./points.js";
-import { createNotice, deliverNotice, noShowText } from "./notices.js";
+import { createNotice, deliverNotice, depositText, noShowText } from "./notices.js";
+import { RETENTION_CASES, retainedCents, retentionPercent } from "./retention.js";
 import { disabledMailer } from "./mail.js";
 
 /** Formato de fecha que acepta la API: día de calendario, sin hora ni zona. */
@@ -463,25 +465,69 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }, { m
   });
 
   // Solo caja: liberar el depósito al recibir la prenda en buen estado.
+  // Devolver la garantía, entera o reteniendo una parte por la tabla del §6.2
+  // (`cases`, Caja) o por un porcentaje fuera de ella (`percent`, solo
+  // Administración). Toda retención exige una observación: es lo que se le
+  // enseña al cliente que reclama.
   app.post("/api/orders/:id/deposit-release", { preHandler: requireCaja }, async (req) => {
     const id = Number(req.params.id);
     const order = await findOrderFor(id, req.user, true);
     if (order.cancelledAt) throw httpError(409, "El pedido está anulado.");
+    const b = req.body ?? {};
+    const note = typeof b.note === "string" && b.note.trim() ? b.note.trim().slice(0, 500) : null;
 
-    const linea = depositReleaseCharge(order.charges, req.body?.note);
-    if (!linea) throw httpError(409, "El pedido no tiene depósito retenido.");
+    const cases = Array.isArray(b.cases) ? b.cases : [];
+    if (b.cases != null && !Array.isArray(b.cases)) throw httpError(400, "Los casos van como lista.");
+    if (cases.length && b.percent != null) throw httpError(400, "O casos de la tabla, o un porcentaje: no los dos.");
+    let percent = 0;
+    if (cases.length) {
+      try { percent = retentionPercent(cases); } catch (err) { throw httpError(400, err.message); }
+    } else if (b.percent != null) {
+      if (!hasCapability(req.user, CAPABILITY.ADMINISTRACION)) {
+        throw httpError(403, "Un porcentaje fuera de la tabla es solo de Administración.");
+      }
+      if (!Number.isInteger(b.percent) || b.percent < 0 || b.percent > 100) throw httpError(400, "El porcentaje va de 0 a 100.");
+      percent = b.percent;
+    }
+    if (percent > 0 && !note) throw httpError(400, "Explica qué le pasó a la prenda: es lo que verá el cliente.");
+    if (percent > 0 && order.charges.some((c) => c.status === CHARGE_STATUS.PENDING)) {
+      throw httpError(409, "Primero confirma el cobro: no se retiene una garantía que todavía no entró.");
+    }
 
-    await prisma.$transaction([
-      prisma.charge.create({ data: { ...linea, orderId: id } }),
-      logFinance(prisma, {
+    const held = heldDepositCents(order.charges);
+    if (held <= 0) throw httpError(409, "El pedido no tiene depósito retenido.");
+    const retenido = retainedCents(held, percent);
+    const motivos = cases.length ? cases.map((c) => RETENTION_CASES[c].label) : percent ? [`${percent} % fuera de la tabla`] : [];
+    const lineas = percent
+      ? retentionCharges(order.charges, { retainedCents: retenido, note: [motivos.join("; "), note].filter(Boolean).join(" · ") })
+      : [depositReleaseCharge(order.charges, note ?? undefined)];
+
+    const notice = await prisma.$transaction(async (tx) => {
+      await tx.charge.createMany({ data: lineas.map((l) => ({ ...l, orderId: id })) });
+      await logFinance(tx, {
         kind: FINANCE_EVENT.GARANTIA_LIBERADA,
         actorId: req.user.id,
         orderId: id,
-        amountCents: -linea.amountCents,
-        note: linea.note ?? "Garantía liberada",
-      }),
-    ]);
-    return orderToApi(await findOrderFor(id, req.user, true));
+        amountCents: held - retenido,
+        note: retenido ? `Devueltos ${held - retenido} de ${held} centavos` : note ?? "Garantía liberada",
+      });
+      if (retenido) {
+        await logFinance(tx, {
+          kind: FINANCE_EVENT.RETENCION,
+          actorId: req.user.id,
+          orderId: id,
+          amountCents: retenido,
+          note: `${percent} % de la garantía: ${[motivos.join("; "), note].filter(Boolean).join(" · ")}`,
+        });
+      }
+      return createNotice(tx, {
+        userId: order.userId, kind: "GARANTIA", orderId: id,
+        ...depositText(id, { heldCents: held, retainedCents: retenido, reasons: motivos, note }),
+      });
+    });
+    await deliverNotice(notice, mailer, req.log);
+    const pedido = orderToApi(await findOrderFor(id, req.user, true));
+    return { ...pedido, deposit: { heldCents: held, retainedCents: retenido, refundedCents: held - retenido, percent } };
   });
 
   // Anular: revierte los cargos con líneas espejo y marca la fecha.

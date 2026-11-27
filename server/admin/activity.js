@@ -13,7 +13,7 @@ export const ACTIVITY_FILTERS_DEFAULT = Object.freeze({ category: "", action: ""
 /** Color del chip de cada categoría (clases de admin.css). */
 const TONE = { catalogo: "", fotos: "info", prendas: "muted", dinero: "warn", precio: "warn", personal: "bad", taxonomia: "", resenas: "info", pedidos: "info" };
 /** Acciones que merecen otro color que el de su categoría: lo que se cobra de más o se deshace. */
-const ACTION_TONE = { DIAS_EXTRA: "bad", ANULACION: "bad", PENALIZACION: "bad", GARANTIA_LIBERADA: "" };
+const ACTION_TONE = { DIAS_EXTRA: "bad", ANULACION: "bad", PENALIZACION: "bad", RETENCION: "bad", GARANTIA_LIBERADA: "" };
 
 /** Estado propio de la pestaña. */
 const bit = { meta: null, entries: [], next: null, filters: { ...ACTIVITY_FILTERS_DEFAULT }, loading: false };

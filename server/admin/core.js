@@ -280,9 +280,11 @@ export async function act(fn, ok, opts = {}) {
  * @param {(form: HTMLFormElement) => string|null} [opts.validate] Lo que el
  *   navegador no comprueba solo (p. ej. «falta una foto»): si devuelve un
  *   mensaje, el diálogo no se cierra y lo enseña.
+ * @param {(form: HTMLFormElement) => void} [opts.onInput] Se llama al abrir y
+ *   con cada cambio, para vistas previas (p. ej. cuánto se retiene).
  * @returns {Promise<FormData|null>}
  */
-export function formDialog(title, fields, submit, { cancel = true, wide = false, validate = null } = {}) {
+export function formDialog(title, fields, submit, { cancel = true, wide = false, validate = null, onInput = null } = {}) {
   return new Promise((resolve) => {
     const aviso = h("p.msg", { role: "alert" });
     const form = h("form", { method: "dialog" },
@@ -307,6 +309,11 @@ export function formDialog(title, fields, submit, { cancel = true, wide = false,
       datos = new FormData(form);
       dlg.close();
     });
+    if (onInput) {
+      form.addEventListener("input", () => onInput(form));
+      form.addEventListener("change", () => onInput(form));
+      onInput(form);
+    }
     dlg.addEventListener("close", () => { dlg.remove(); resolve(datos); });
     document.body.append(dlg);
     dlg.showModal();

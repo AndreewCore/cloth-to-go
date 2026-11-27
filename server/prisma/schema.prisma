@@ -39,6 +39,9 @@ enum ChargeType {
   LATE_PENALTY
   DISCOUNT
   ADJUSTMENT
+  /// Parte de la garantía que el local se queda por un desperfecto (§6.2). Es
+  /// ingreso: la garantía se libera entera y esto es lo que no vuelve.
+  RETENTION
 }
 
 /// Estado de cobro de una línea. VOID = anulada, no cuenta para nada.
@@ -607,6 +610,8 @@ enum FinanceEvent {
   /// Cambio de lo que fija el precio de un modelo: ajuste manual del primer
   /// día, garantía fija, valor de reposición o estrellas.
   PRECIO
+  /// Garantía retenida por la tabla del §6.2 al devolverla.
+  RETENCION
 }
 
 /// Bitácora financiera: por qué se movió (o no) dinero de un pedido, y quién

@@ -20,6 +20,7 @@ import { CLOSED_WEEKDAYS, addDaysISO, todayISO, weekdayOf } from "./dates.js";
 import { ACTIVITY, logActivity } from "./logs.js";
 import { SHIPPING_FEE, VOLUME_DISCOUNT_MAX } from "./pricing.js";
 import { REVIEW_REASONS } from "./moderation.js";
+import { retentionCasesForApi } from "./retention.js";
 
 /** Cuánto calendario se sirve hacia delante: el checkout no reserva más lejos. */
 const HORIZONTE_DIAS = 400;
@@ -150,6 +151,8 @@ export function registerCalendarRoutes(app, { requireCapability } = {}) {
       // Motivos para reportar una reseña: la app los pinta de aquí y no
       // guarda su propia copia de la lista.
       reviewReasons: Object.entries(REVIEW_REASONS).map(([key, label]) => ({ key, label })),
+      // La tabla del §6.2, para el panel (y para explicarle al cliente su aviso).
+      retentionCases: retentionCasesForApi(),
     };
   });
 
