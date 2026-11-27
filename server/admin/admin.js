@@ -9,7 +9,7 @@
  */
 import {
   $, PAY_LABEL, STATUS_LABEL, WEEKDAY, act, addDays, amt, api, can, garment, joinParts, confirmWithNote, daysBetween, fmtDay,
-  formDialog, h, holidayName, hooks, isOpen, isoDate, lateDays, money, relDays, since, state, statusChip,
+  formDialog, h, holidayName, hooks, isOpen, isoDate, lateDays, localISO, money, relDays, since, state, statusChip,
   toast, todayISO, upload, when,
 } from "./core.js";
 import { photoButton, photoPicker, showPhotos, thumb } from "./photos.js";
@@ -229,7 +229,7 @@ function historyCard(o) {
   const anulado = Boolean(o.cancelledAt);
   return h("article.card.history-card", {},
     h("header", {},
-      h("h3", {}, `#${o.id} · ${customerName(o)}`),
+      h("h3", {}, `#${o.id} · `, customerLink(o)),
       h(`span.chip${anulado ? ".bad" : ""}`, {}, anulado ? "Anulado" : "Cerrado")),
     h("div.meta", {}, `Del ${fmtDay(o.start)} al ${fmtDay(o.returnBy)} · terminó `, since(o.finishedAt)),
     h("ul.lines", {}, o.lines.map((l) => h("li", {},
@@ -361,6 +361,9 @@ function stripLegend() {
 /** Nombre del cliente de un pedido, o su correo si no lo dio. */
 const customerName = (o) => o?.customer.name || o?.customer.email || "el cliente";
 
+/** Nombre del cliente como enlace a su ficha. */
+const customerLink = (o) => h("button.link", { type: "button", dataset: { action: "customer", customer: o.customer.id } }, customerName(o));
+
 /** Cobro pendiente de un pedido, en centavos. */
 const pendingCents = (o) => o.charges.filter((c) => c.status === "PENDING").reduce((s, c) => s + c.amountCents, 0);
 
@@ -375,7 +378,7 @@ function orderCard(o) {
 
   return h("article.card", {},
     h("header", {},
-      h("h3", {}, `#${o.id} · ${o.customer.name || o.customer.email}`),
+      h("h3", {}, `#${o.id} · `, customerLink(o)),
       vencido ? h("span.chip.bad", {}, "Vencido") : null,
     ),
     h("div.meta", {}, o.customer.email),
@@ -621,10 +624,12 @@ function renderItems() {
   return [
     h("h2", {}, "Ejemplares ", h("small", {}, `${state.items.length} en total`)),
     searchBar("Buscar por código, prenda, estado, talla o color"),
+    batchBar(state.items),
     // `table.stack`: en el teléfono cada fila se vuelve una tarjeta (admin.css).
     h("div.table-wrap", {}, h("table.stack", {},
-      h("thead", {}, h("tr", {}, ["", "Código", "Prenda", "Talla · color", "Estado", "Desde", ""].map((t) => h("th", {}, t)))),
+      h("thead", {}, h("tr", {}, ["", "", "Código", "Prenda", "Talla · color", "Estado", "Desde", ""].map((t) => h("th", {}, t)))),
       h("tbody", {}, lista.map((i) => h("tr", {},
+        h("td.select-cell", {}, can("MOSTRADOR") ? selectBox(i.id, `${i.productName} (${i.code ?? `#${i.id}`})`) : null),
         h("td.thumb-cell", {}, thumb(i.imgs)),
         h("td", { "data-label": "Código" }, i.code ?? h("span.meta", {}, `demo #${i.id}`)),
         h("td", { "data-label": "Prenda" }, i.productName),
@@ -706,6 +711,102 @@ async function showLog(id) {
       h("span.meta", {}, `${when(l.createdAt)} · ${l.actor?.name ?? "sistema"}`),
     ))) : h("p.empty", {}, "Sin entradas."),
   ], "Cerrar", { cancel: false });
+}
+
+/* ---------- Lote ---------- */
+
+/** Casilla para marcar un ejemplar para una acción en lote. */
+const selectBox = (id, label) => h("input.select", {
+  type: "checkbox", "aria-label": `Marcar ${label}`, checked: state.selected.has(id) || null, dataset: { action: "select", item: id },
+});
+
+/**
+ * Barra de acciones en lote sobre lo marcado de una lista. Solo ofrece lo que
+ * vale para TODAS las marcadas: el servidor lo hace todo o nada.
+ * @param {{id: number, status: string}[]} lista Ejemplares visibles.
+ * @returns {HTMLElement|null}
+ */
+function batchBar(lista) {
+  const marcadas = lista.filter((i) => state.selected.has(i.id));
+  if (!marcadas.length) return null;
+  const n = marcadas.length;
+  const todas = (st) => marcadas.every((i) => st.includes(i.status));
+  return h("div.batch-bar", { role: "region", "aria-label": "Acciones en lote" },
+    h("strong", {}, `${n} marcada${n === 1 ? "" : "s"}`),
+    todas(["EN_LAVADO"]) ? h("button.btn.primary", { type: "button", dataset: { action: "batch-out" } }, `Sacar del lavado (${n})`) : null,
+    todas(["DISPONIBLE", "EN_ALQUILER", "NO_ALQUILABLE"]) ? h("button.btn", { type: "button", dataset: { action: "batch-wash" } }, `Mandar a lavado (${n})`) : null,
+    !todas(["EN_LAVADO"]) && !todas(["DISPONIBLE", "EN_ALQUILER", "NO_ALQUILABLE"])
+      ? h("span.meta", {}, "Marca prendas en el mismo estado para moverlas juntas.") : null,
+    h("button.btn", { type: "button", dataset: { action: "batch-clear" } }, "Quitar marcas"));
+}
+
+/** Nombre y código de un ejemplar marcado, buscando en lo cargado. */
+function selectedName(id) {
+  const i = state.items.find((x) => x.id === id) ?? state.today?.laundryReady.find((x) => x.itemId === id);
+  return i ? garment(i.productName, i.code) : [`#${id}`];
+}
+
+/** Saca del lavado todo lo marcado, en una sola operación. */
+async function batchOut() {
+  const ids = [...state.selected];
+  await act(() => api("/api/items/status-batch", { method: "POST", body: { ids, to: "DISPONIBLE", note: "Salió del lavado" } }), (res) => {
+    const reservadas = res.items.filter((i) => i.status === "RESERVADA");
+    state.selected.clear();
+    return [`${ids.length} prenda${ids.length === 1 ? "" : "s"} salieron del lavado: `,
+      ...joinParts(ids.map(selectedName), ", "), ".",
+      reservadas.length === 1 ? [" A ", h("strong", {}, "1"), " ya la espera un pedido: queda Reservada, apártala."]
+        : reservadas.length ? [" A ", h("strong", {}, `${reservadas.length}`), " ya las esperan pedidos: quedan Reservadas, apártalas."]
+          : " Ya están en el catálogo."];
+  });
+}
+
+/** Manda a lavado todo lo marcado: pide una vez quién lava y dónde. */
+async function batchWash() {
+  const ids = [...state.selected];
+  const datos = await formDialog(`Mandar ${ids.length} a lavado`, [
+    h("p.meta", {}, joinParts(ids.map(selectedName), ", ")),
+    h("label", {}, "Quién lava", h("select", { name: "kind" },
+      h("option", { value: "PROPIO" }, "Propio"), h("option", { value: "EXTERNO" }, "Externo"))),
+    h("label", {}, "Dónde están", h("input", { name: "place", required: true, maxlength: 120, value: "Local", placeholder: "Local, o nombre de la lavandería" })),
+  ], "Mandar a lavado");
+  if (!datos) return;
+  const laundry = { kind: datos.get("kind"), place: datos.get("place") };
+  await act(() => api("/api/items/status-batch", { method: "POST", body: { ids, to: "EN_LAVADO", laundry } }), () => {
+    state.selected.clear();
+    return [`${ids.length} prenda${ids.length === 1 ? "" : "s"} a lavado en `, h("strong", {}, laundry.place), ": ",
+      ...joinParts(ids.map(selectedName), ", "), "."];
+  });
+}
+
+/* ---------- Ficha de cliente ---------- */
+
+/**
+ * Ficha de un cliente: lo que debe, la garantía que se le retiene, sus
+ * devoluciones tardías y lo retenido alguna vez, y la lista de sus pedidos.
+ * @param {number} id Usuario.
+ */
+async function showCustomer(id) {
+  let f;
+  try { f = await api(`/api/admin/customers/${id}`); } catch (err) { return toast(err.message, true); }
+  const s = f.summary;
+  const dato = (dt, dd) => [h("dt", {}, dt), h("dd", {}, dd)];
+  await formDialog(f.customer.name || f.customer.email, [
+    h("p.meta", {}, `${f.customer.email} · cliente desde ${fmtDay(localISO(new Date(f.customer.createdAt)))}`),
+    h("dl.money", {},
+      dato("Pedidos", `${s.orders}${s.cancelled ? ` (${s.cancelled} anulado${s.cancelled === 1 ? "" : "s"})` : ""}`),
+      dato("Debe ahora", s.owedCents ? amt(s.owedCents, "bad") : "Nada"),
+      dato("Garantía en custodia", money(s.depositHeldCents)),
+      dato("Devoluciones tardías", s.lateReturns ? [`${s.lateReturns} · `, amt(s.lateCents, "bad"), " en días extra"] : "Ninguna"),
+      dato("Garantía retenida alguna vez", s.retainedCents ? amt(s.retainedCents, "bad") : "Nunca")),
+    h("h4", {}, "Pedidos"),
+    h("ul.lines.customer-orders", {}, f.orders.map((o) => h("li", {},
+      h("span", {}, h("strong", {}, `#${o.id}`), ` · del ${fmtDay(o.start)} al ${fmtDay(o.returnBy)} · `,
+        h("span.meta", {}, o.lines.map((l) => l.productName).join(", "))),
+      h("span.line-actions", {},
+        o.cancelledAt ? h("span.chip.bad", {}, "Anulado") : h("span.chip", {}, o.status === "pending" ? "Por cobrar" : "Pagado"),
+        " ", money(o.totalCents), " ", timelineButton(o.id)),
+    ))),
+  ], "Cerrar", { cancel: false, wide: true });
 }
 
 /* ---------- Garantía ---------- */
@@ -819,7 +920,7 @@ function todayRow(o, kind) {
   }[kind];
   return h(`article.today-row.${kind}`, {},
     h("div.today-main", {},
-      h("strong", {}, `#${o.id} · ${customerName(o)}`),
+      h("strong", {}, `#${o.id} · `, customerLink(o)),
       h("div.meta", {}, o.lines.map((l) => `${l.productName} (${l.code ?? `#${l.itemId}`})`).join(", ")),
       h("div.today-when", {}, fecha)),
     h("div.actions", {}, acciones, timelineButton(o.id)),
@@ -836,6 +937,7 @@ function renderToday() {
       h("div.today-list", {}, filas))
     : null);
   const prenda = (r, extra, accion) => h("article.today-row.laundry", {},
+    can("MOSTRADOR") && r.laundryPlace !== undefined ? selectBox(r.itemId, `${r.productName} (${r.code ?? `#${r.itemId}`})`) : null,
     h("div.today-main", {}, h("strong", {}, `${r.productName} (${r.code ?? `#${r.itemId}`})`), h("div.today-when", {}, extra)),
     h("div.actions", {}, photoButton(r.itemId), accion));
   const nada = !t.urgent && !t.pickupsToday.length && !t.returnsToday.length && !t.toClose.length && !t.laundryReady.length;
@@ -851,7 +953,8 @@ function renderToday() {
         can("MOSTRADOR") ? h("button.btn", { type: "button", dataset: { action: "move", item: r.itemId } }, "Cambiar estado") : null)), "urgent"),
     seccion("Retiros de hoy", null, t.pickupsToday.map((o) => todayRow(o, "pickup"))),
     seccion("Devoluciones de hoy", null, t.returnsToday.map((o) => todayRow(o, "return"))),
-    seccion("Listas para salir del lavado", "ya pasaron los días de lavado: revísalas y márcalas Disponible",
+    t.laundryReady.length && can("MOSTRADOR") ? batchBar(t.laundryReady.map((r) => ({ ...r, id: r.itemId, status: "EN_LAVADO" }))) : null,
+    seccion("Listas para salir del lavado", "ya pasaron los días de lavado: márcalas y sácalas juntas, o una a una",
       t.laundryReady.map((r) => prenda(r,
         [`${r.laundryKind === "EXTERNO" ? "Lavandería externa" : "Lavado propio"}: ${r.laundryPlace ?? "—"} · desde `, since(r.since)],
         can("MOSTRADOR") ? h("button.btn.primary", { type: "button", dataset: { action: "laundry-out", item: r.itemId } }, "Salió del lavado") : null))),
@@ -912,7 +1015,17 @@ document.addEventListener("click", async (e) => {
   switch (el.dataset.action) {
     case "tab":
       state.filter = "";
+      state.selected.clear();
       return openTab(el.dataset.tab);
+    case "customer":
+      return showCustomer(Number(el.dataset.customer));
+    case "batch-out":
+      return batchOut();
+    case "batch-wash":
+      return batchWash();
+    case "batch-clear":
+      state.selected.clear();
+      return render();
     case "reload":
       return loadTab();
     case "sign-out":
@@ -974,6 +1087,14 @@ document.addEventListener("change", (e) => {
       render();
       document.querySelector(`[data-action="activity-filter"][data-key="${el.dataset.key}"]`)?.focus();
     });
+    return;
+  }
+  if (el.dataset?.action === "select") {
+    const id = Number(el.dataset.item);
+    if (el.checked) state.selected.add(id);
+    else state.selected.delete(id);
+    render();
+    document.querySelector(`[data-action="select"][data-item="${id}"]`)?.focus();
     return;
   }
   if (el.dataset?.action !== "catalog-filter") return;
