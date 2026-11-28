@@ -178,6 +178,47 @@ export async function releaseForOrder(tx, orderId) {
 }
 
 /**
+ * Aplica un cambio manual de estado dentro de una transacción: valida con
+ * `planTransition()`, convierte «Disponible» en «Reservada» si un pedido la
+ * espera y deja su entrada en la bitácora. Lo comparten el cambio suelto y el
+ * cambio en lote, para que no haya dos versiones de la regla.
+ * @param {object} tx Transacción Prisma.
+ * @param {number} id Ejemplar.
+ * @param {object} body `{to, note, reason, laundry}`.
+ * @param {object} user Quien lo pide.
+ * @returns {Promise<object>} Ejemplar actualizado.
+ * @throws {Error} 404/409/400/403 con el motivo.
+ */
+async function applyTransition(tx, id, body, user) {
+  const item = await tx.item.findUnique({ where: { id }, include: { product: { select: { name: true } } } });
+  if (!item) throw httpError(404, "Ejemplar no encontrado.");
+
+  const plan = planTransition(item, body ?? {}, user);
+  if (plan.error) throw httpError(plan.status, plan.error);
+
+  if (plan.data.status === S.DISPONIBLE && (await hasPendingReservation(tx, id))) {
+    plan.data.status = S.RESERVADA;
+  }
+  // Condición sobre el estado leído: si otro mostrador lo movió entre medias,
+  // este cambio se basaba en algo que ya no es cierto.
+  const { count } = await tx.item.updateMany({ where: { id, status: item.status }, data: plan.data });
+  if (count === 0) throw httpError(409, "El ejemplar cambió de estado mientras tanto; vuelve a cargarlo.");
+
+  await logItem(tx, {
+    itemId: id,
+    from: item.status,
+    to: plan.data.status,
+    actorId: user.id,
+    note: plan.note,
+    laundry: plan.laundry,
+  });
+  return tx.item.findUnique({ where: { id } });
+}
+
+/** Ejemplares que admite un cambio en lote: lo que cabe en una tanda de lavado. */
+const BATCH_MAX = 50;
+
+/**
  * Registra las rutas del mostrador sobre ejemplares.
  * @param {import("fastify").FastifyInstance} app Instancia Fastify.
  * @param {{requireCapability: Function}} guards preHandlers de autorización.
@@ -208,30 +249,34 @@ export function registerItemRoutes(app, { requireCapability }) {
     { preHandler: requireCapability(CAPABILITY.MOSTRADOR) },
     async (req) => {
       const id = routeId(req.params.id, "Ejemplar");
+      return prisma.$transaction((tx) => applyTransition(tx, id, req.body, req.user));
+    },
+  );
+
+  // Cambio en lote (sacar del lavado varias, mandar varias a lavado): todo o
+  // nada. Si una sola prenda no puede, no se mueve ninguna y se dice cuál, para
+  // que la bitácora nunca quede con media tanda.
+  app.post(
+    "/api/items/status-batch",
+    { preHandler: requireCapability(CAPABILITY.MOSTRADOR) },
+    async (req) => {
+      const { ids, ...cambio } = req.body ?? {};
+      if (!Array.isArray(ids) || ids.length === 0 || ids.length > BATCH_MAX
+        || !ids.every((n) => Number.isInteger(n) && n > 0) || new Set(ids).size !== ids.length) {
+        throw httpError(400, `Elige entre 1 y ${BATCH_MAX} prendas distintas.`);
+      }
       return prisma.$transaction(async (tx) => {
-        const item = await tx.item.findUnique({ where: { id } });
-        if (!item) throw httpError(404, "Ejemplar no encontrado.");
-
-        const plan = planTransition(item, req.body ?? {}, req.user);
-        if (plan.error) throw httpError(plan.status, plan.error);
-
-        if (plan.data.status === S.DISPONIBLE && (await hasPendingReservation(tx, id))) {
-          plan.data.status = S.RESERVADA;
+        const hechos = [];
+        for (const id of ids) {
+          try {
+            hechos.push(await applyTransition(tx, id, cambio, req.user));
+          } catch (err) {
+            const it = await tx.item.findUnique({ where: { id }, include: { product: { select: { name: true } } } });
+            const quien = it ? `${it.product.name} (${it.code ?? `#${id}`})` : `#${id}`;
+            throw httpError(err.statusCode ?? 409, `${quien}: ${err.message} No se movió ninguna.`);
+          }
         }
-        // Condición sobre el estado leído: si otro mostrador lo movió entre
-        // medias, este cambio se basaba en algo que ya no es cierto.
-        const { count } = await tx.item.updateMany({ where: { id, status: item.status }, data: plan.data });
-        if (count === 0) throw httpError(409, "El ejemplar cambió de estado mientras tanto; vuelve a cargarlo.");
-
-        await logItem(tx, {
-          itemId: id,
-          from: item.status,
-          to: plan.data.status,
-          actorId: req.user.id,
-          note: plan.note,
-          laundry: plan.laundry,
-        });
-        return tx.item.findUnique({ where: { id } });
+        return { items: hechos };
       });
     },
   );

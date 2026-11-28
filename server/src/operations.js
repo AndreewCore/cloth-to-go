@@ -120,7 +120,7 @@ function orderForPanel(order, photo) {
   const base = orderToApi(order);
   return {
     ...base,
-    customer: { name: order.user.name, email: order.user.email },
+    customer: { id: order.userId, name: order.user.name, email: order.user.email },
     lines: order.items.map((oi) => ({
       itemId: oi.itemId,
       code: oi.item.code,
@@ -522,6 +522,33 @@ export function registerOperationRoutes(app, { requireUser, requireCapability },
     await deliverNotice(resultado.notice, mailer, req.log);
     const actualizado = await prisma.order.findUnique({ where: { id }, include: PARA_PANEL });
     return { ...orderForPanel(actualizado, fotosPara(req)), delivery: resultado.delivery };
+  });
+
+  // Ficha de un cliente: sus pedidos (en curso y terminados) y lo que dicen de
+  // él: lo que debe, la garantía que se le retiene ahora, sus devoluciones
+  // tardías y lo que se le retuvo alguna vez. Solo para el local.
+  app.get("/api/admin/customers/:id", { preHandler: mostradorOCaja }, async (req) => {
+    const id = routeId(req.params.id, "Cliente");
+    const user = await prisma.user.findUnique({ where: { id }, select: { id: true, name: true, email: true, createdAt: true } });
+    if (!user) throw httpError(404, "Cliente no encontrado.");
+    const pedidos = await prisma.order.findMany({ where: { userId: id }, include: PARA_PANEL, orderBy: { id: "desc" } });
+    const vista = pedidos.map((o) => orderForPanel(o, fotosPara(req)));
+    const vivos = vista.filter((o) => !o.cancelledAt);
+    const lineas = vivos.flatMap((o) => o.charges.filter((c) => c.status !== "VOID"));
+    const tardias = vivos.filter((o) => o.charges.some((c) => c.note?.startsWith("Días extra")));
+    return {
+      customer: user,
+      summary: {
+        orders: vista.length,
+        cancelled: vista.length - vivos.length,
+        owedCents: lineas.filter((c) => c.status === "PENDING").reduce((s, c) => s + c.amountCents, 0),
+        depositHeldCents: vivos.reduce((s, o) => s + o.depositHeldCents, 0),
+        lateReturns: tardias.length,
+        lateCents: lineas.filter((c) => c.note?.startsWith("Días extra")).reduce((s, c) => s + c.amountCents, 0),
+        retainedCents: lineas.filter((c) => c.type === "RETENTION").reduce((s, c) => s + c.amountCents, 0),
+      },
+      orders: vista,
+    };
   });
 
   // Recorrido de un pedido: lo que lleva su número (reserva, entrega con

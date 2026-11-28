@@ -46,6 +46,8 @@ export const state = {
   items: [],
   /** Pestaña «Hoy» (`GET /api/admin/today`): lo que hay que hacer o registrar. */
   today: null,
+  /** Ejemplares marcados para una acción en lote; se vacía al cambiar de pestaña. */
+  selected: new Set(),
   /** Días que el local no abre (`GET /api/config`); null hasta cargarlos. */
   calendar: null,
   /** Modelos del catálogo (`GET /api/admin/products`). */
@@ -179,7 +181,9 @@ export function can(cap) {
 export function toast(content, error = false, { tone = "ok" } = {}) {
   const t = $("toast");
   const rich = typeof content !== "string";
-  t.replaceChildren(...[content].flat().filter((c) => c != null && c !== false));
+  // Aplanado entero: los avisos anidan piezas (`joinParts` de `garment`) y
+  // replaceChildren pintaría un arreglo como «[object HTMLElement]».
+  t.replaceChildren(...[content].flat(Infinity).filter((c) => c != null && c !== false));
   t.className = error ? "toast error" : rich ? `toast rich ${tone}` : "toast";
   t.hidden = false;
   clearTimeout(toast.timer);

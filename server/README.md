@@ -51,6 +51,8 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | GET | `/api/admin/orders` | **Mostrador o Caja**: pedidos en curso, con cliente y ejemplares (`?scope=all`, todos). |
 | GET | `/api/admin/items` | **Mostrador o Inventario**: ejemplares con su estado interno y a qué estados pueden pasar. |
 | GET | `/api/admin/today` | **Mostrador** o **Caja**: la pestaña «Hoy», por urgencia: retiros y devoluciones vencidos sin registrar (`urgent`), recibidas sin lavar, retiros y devoluciones de hoy, prendas listas para salir del lavado y pedidos por cerrar (cobro o garantía). Sustituye a las rezagadas. |
+| POST | `/api/items/status-batch` | **Mostrador**: cambio de estado de hasta 50 ejemplares (`{ids, to, laundry?, note?}`), **todo o nada**: si uno no puede, no se mueve ninguno y se dice cuál. Misma regla que el cambio suelto. |
+| GET | `/api/admin/customers/:id` | **Mostrador** o **Caja**: ficha del cliente: sus pedidos, lo que debe, la garantía en custodia, sus devoluciones tardías y lo retenido alguna vez. |
 | POST | `/api/orders/:id/reschedule` | **Mostrador**: mueve el retiro de un pedido sin entregar (`{start}`); se corre todo el alquiler los mismos días, al mismo precio, y se avisa al cliente. |
 | GET | `/api/admin/products` | **Inventario**: todos los modelos (también sin ejemplares) con sus fotos y ejemplares. |
 | POST | `/api/products` | **Inventario**: alta de un modelo (validado contra la taxonomía). |
