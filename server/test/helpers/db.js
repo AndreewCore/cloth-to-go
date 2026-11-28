@@ -58,7 +58,7 @@ export async function purge({ subs = [], itemIds: sueltos = [], productIds = [] 
     });
     await tx.activityLog.deleteMany({
       where: {
-        OR: [{ actorId: { in: userIds } }, { productId: { in: productIds } }, { itemId: { in: itemIds } }],
+        OR: [{ actorId: { in: userIds } }, { productId: { in: productIds } }, { itemId: { in: itemIds } }, { orderId: { in: orderIds } }],
       },
     });
     await tx.itemPhoto.deleteMany({

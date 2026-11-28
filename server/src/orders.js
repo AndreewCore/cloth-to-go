@@ -30,11 +30,13 @@ import { CAPABILITY, hasCapability, httpError, isStaff } from "./auth.js";
 import { assertRentable, isoToDate, pricedItem } from "./catalog.js";
 import { releaseForOrder, reserveForOrder } from "./items.js";
 import { FINANCE_EVENT, logFinance } from "./logs.js";
-import { isBusinessDay, returnByDate, todayISO } from "./dates.js";
+import { fmtDayEs, isBusinessDay, returnByDate, todayISO } from "./dates.js";
 import { holidaySet } from "./calendar.js";
 import { rewardById, rewardDiscountCents } from "./rewards.js";
 import { priceOrder } from "./quote.js";
 import { countsForRewards, isDelivered, lockUser, revokeOrderRewards, settleRewards } from "./points.js";
+import { createNotice, deliverNotice, noShowText } from "./notices.js";
+import { disabledMailer } from "./mail.js";
 
 /** Formato de fecha que acepta la API: día de calendario, sin hora ni zona. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -281,8 +283,9 @@ export function isOverlapViolation(err) {
  * @param {object} guards preHandlers de autenticación.
  * @param {Function} guards.requireUser Exige usuario autenticado.
  * @param {Function} guards.requireCapability Fabrica el guard de una capacidad.
+ * @param {{mailer?: object}} [deps] Correo de los avisos al cliente.
  */
-export function registerOrderRoutes(app, { requireUser, requireCapability }) {
+export function registerOrderRoutes(app, { requireUser, requireCapability }, { mailer = disabledMailer } = {}) {
   const requireCaja = requireCapability(CAPABILITY.CAJA);
 
   // Pedidos del usuario autenticado, del más reciente al más antiguo.
@@ -486,9 +489,17 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
     const id = Number(req.params.id);
     // Anular un pedido ajeno es de Administración (§2.1), no de cualquier
     // capacidad: es la frontera de las decisiones que hay que poder explicar.
+    // La excepción es «No vino»: el mostrador anula lo que nadie retiró, que
+    // es un hecho que tiene delante y no mueve dinero ya entregado.
     const admin = hasCapability(req.user, CAPABILITY.ADMINISTRACION);
-    const order = await findOrderFor(id, req.user, admin);
+    const noShow = req.body?.reason === "NO_SHOW";
+    const mostrador = noShow && hasCapability(req.user, CAPABILITY.MOSTRADOR);
+    const order = await findOrderFor(id, req.user, admin || mostrador);
     if (order.cancelledAt) throw httpError(409, "El pedido ya estaba anulado.");
+    if (noShow && (isDelivered(order) || order.start >= todayISO())) {
+      throw httpError(409, "«No vino» es para un retiro que ya pasó sin entrega registrada.");
+    }
+    if (mostrador && !admin && order.userId === req.user.id) throw httpError(403, "No puedes anular así un pedido propio.");
 
     // Misma frontera que `canCancelOrder()` en el frontend: el cliente puede
     // anular mientras las prendas no estén en su poder, es decir, mientras el
@@ -517,13 +528,20 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
         actorId: req.user.id,
         orderId: id,
         amountCents: reversos.reduce((s, r) => s + r.amountCents, 0),
-        note: req.body?.note
-          ? String(req.body.note).slice(0, 500)
-          : order.userId === req.user.id ? "Anulado por el cliente" : "Anulado por el local",
+        note: [noShow ? `No vino a retirar (retiro del ${order.start})` : null,
+          req.body?.note ? String(req.body.note).slice(0, 500) : null].filter(Boolean).join(" · ")
+          || (order.userId === req.user.id ? "Anulado por el cliente" : "Anulado por el local"),
       });
-      return tx.order.findUnique({ where: { id }, include: CON_LINEAS });
+      const notice = noShow
+        ? await createNotice(tx, {
+          userId: order.userId, kind: "ANULADO_SIN_RETIRO", orderId: id,
+          ...noShowText(id, fmtDayEs(order.start), order.charges.some((c) => c.status === CHARGE_STATUS.SETTLED && c.amountCents > 0)),
+        })
+        : null;
+      return { pedido: await tx.order.findUnique({ where: { id }, include: CON_LINEAS }), notice };
     });
-    return orderToApi(anulado);
+    if (anulado.notice) await deliverNotice(anulado.notice, mailer, req.log);
+    return orderToApi(anulado.pedido);
   });
 
   // Solo caja: la bitácora financiera de un pedido, de la más vieja a la más

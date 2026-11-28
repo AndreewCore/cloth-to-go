@@ -182,7 +182,7 @@ export function buildApp(opts = {}) {
   registerModerationRoutes(app, guards, { storage, mailer });
   registerNoticeRoutes(app, guards);
   registerItemRoutes(app, guards);
-  registerOrderRoutes(app, guards);
+  registerOrderRoutes(app, guards, { mailer });
   registerPointsRoutes(app, guards);
   registerQuoteRoutes(app, guards);
   registerOperationRoutes(app, guards, { storage, mailer });

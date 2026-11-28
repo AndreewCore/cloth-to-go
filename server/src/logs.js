@@ -66,6 +66,7 @@ export const ACTIVITY = Object.freeze({
   RESENA_OCULTA: "RESENA_OCULTA",
   RESENA_MOSTRADA: "RESENA_MOSTRADA",
   RESENA_AUTO_OCULTA: "RESENA_AUTO_OCULTA",
+  RETIRO_MOVIDO: "RETIRO_MOVIDO",
 });
 
 /**
@@ -77,11 +78,12 @@ export const ACTIVITY = Object.freeze({
  * @param {number|null} [entry.actorId] Quién; null = consola o sistema.
  * @param {number|null} [entry.productId] Modelo afectado.
  * @param {number|null} [entry.itemId] Ejemplar afectado.
+ * @param {number|null} [entry.orderId] Pedido afectado (retiro movido).
  * @param {object|null} [entry.detail] Datos estructurados (p. ej. claves de fotos).
  * @returns {Promise<object>} Fila creada.
  */
-export function logActivity(tx, { action, note, actorId = null, productId = null, itemId = null, detail = null }) {
-  return tx.activityLog.create({ data: { action, note, actorId, productId, itemId, detail: detail ?? undefined } });
+export function logActivity(tx, { action, note, actorId = null, productId = null, itemId = null, orderId = null, detail = null }) {
+  return tx.activityLog.create({ data: { action, note, actorId, productId, itemId, orderId, detail: detail ?? undefined } });
 }
 
 /**

@@ -50,7 +50,8 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | GET | `/api/me` | Quién es la sesión y sus capacidades (el panel decide qué pestañas enseñar). |
 | GET | `/api/admin/orders` | **Mostrador o Caja**: pedidos en curso, con cliente y ejemplares (`?scope=all`, todos). |
 | GET | `/api/admin/items` | **Mostrador o Inventario**: ejemplares con su estado interno y a qué estados pueden pasar. |
-| GET | `/api/admin/stragglers` | **Mostrador**: rezagadas (vencidas sin recibir, recibidas sin lavar, >2 días en lavado). |
+| GET | `/api/admin/today` | **Mostrador** o **Caja**: la pestaña «Hoy», por urgencia: retiros y devoluciones vencidos sin registrar (`urgent`), recibidas sin lavar, retiros y devoluciones de hoy, prendas listas para salir del lavado y pedidos por cerrar (cobro o garantía). Sustituye a las rezagadas. |
+| POST | `/api/orders/:id/reschedule` | **Mostrador**: mueve el retiro de un pedido sin entregar (`{start}`); se corre todo el alquiler los mismos días, al mismo precio, y se avisa al cliente. |
 | GET | `/api/admin/products` | **Inventario**: todos los modelos (también sin ejemplares) con sus fotos y ejemplares. |
 | POST | `/api/products` | **Inventario**: alta de un modelo (validado contra la taxonomía). |
 | PATCH | `/api/products/:id` | **Inventario** edita; valor y estrellas solo **Administración**. |
@@ -355,7 +356,7 @@ OAuth en Google Cloud.
 Pestaña **Pedidos**: entregar (Reservada → En alquiler), **registrar la
 devolución**, confirmar el cobro y liberar la garantía (Caja), anular
 (Administración). **Ejemplares**: cambio manual de estado y bitácora.
-**Rezagadas**: los umbrales del §3. **Catálogo** (Inventario): alta y edición de
+**Hoy** (primera pestaña): lo vencido sin registrar con sus salidas —«Se entregó», «Mover retiro», «No vino: anular» (`POST /api/orders/:id/cancel` con `reason: "NO_SHOW"`, que el Mostrador puede usar en un retiro vencido sin entrega)—, la agenda del día, lo que puede salir del lavado y lo que queda por cobrar. En teléfono o tablet el panel pasa a una columna, los botones crecen y las fotos abren la cámara. **Catálogo** (Inventario): alta y edición de
 modelos, sus fotos (subir, ordenar, quitar; la primera es la portada) y alta de
 ejemplares. Un modelo sin ejemplares no sale en la app y el panel lo avisa; la
 lista se filtra por categoría, estado de los ejemplares, pendientes (sin

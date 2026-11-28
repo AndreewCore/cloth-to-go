@@ -37,11 +37,13 @@ export const photoButton = (itemId) =>
 
 /** Busca, en lo ya cargado, el nombre, código y fotos del modelo de un ejemplar. */
 function fichaDe(itemId) {
-  const s = state.stragglers ?? {};
+  const t = state.today ?? {};
+  const pedidosHoy = ["pickupsOverdue", "returnsOverdue", "pickupsToday", "returnsToday", "toClose"].flatMap((k) => t[k] ?? []);
   const fichas = [
     ...state.items.map((i) => ({ ...i, itemId: i.id })),
     ...state.orders.flatMap((o) => o.lines),
-    ...(s.notReceived ?? []), ...(s.receivedNotWashed ?? []), ...(s.inLaundry ?? []),
+    ...pedidosHoy.flatMap((o) => o.lines),
+    ...(t.receivedNotWashed ?? []), ...(t.laundryReady ?? []),
     ...state.products.flatMap((p) => p.items.map((i) => ({
       itemId: i.id, code: i.code, productName: p.name, imgs: p.photos.map((f) => f.url),
     }))),
@@ -80,8 +82,9 @@ export async function preparePhoto(file) {
 }
 
 /**
- * Selector de fotos con vista previa y botón para quitar cada una. En el
- * móvil, el selector del sistema ofrece la cámara.
+ * Selector de fotos con vista previa y botón para quitar cada una. El panel se
+ * usa en teléfono o tablet: «Sacar foto» abre la cámara trasera directo
+ * (`capture`), y «Elegir» deja tomar las de la galería.
  * @param {object} [opts]
  * @param {string} [opts.label] Texto del botón.
  * @param {number} [opts.max] Máximo de fotos.
@@ -89,6 +92,7 @@ export async function preparePhoto(file) {
  */
 export function photoPicker({ label = "Agregar fotos", max = 6 } = {}) {
   const input = h("input.visually-hidden", { type: "file", accept: "image/jpeg,image/png", multiple: true });
+  const camara = h("input.visually-hidden", { type: "file", accept: "image/jpeg,image/png", capture: "environment" });
   const lista = h("div.picks");
   let elegidas = [];
 
@@ -98,15 +102,17 @@ export function photoPicker({ label = "Agregar fotos", max = 6 } = {}) {
       h("button.pick-x", { type: "button", "aria-label": `Quitar foto ${i + 1}`, dataset: { i } }, "×"),
     )));
   };
-  input.addEventListener("change", () => {
-    const sobran = [...input.files].length - (max - elegidas.length);
-    for (const file of [...input.files].slice(0, max - elegidas.length)) {
+  const recibir = (campo) => {
+    const sobran = [...campo.files].length - (max - elegidas.length);
+    for (const file of [...campo.files].slice(0, max - elegidas.length)) {
       elegidas.push({ file, url: URL.createObjectURL(file) });
     }
     if (sobran > 0) toast(`Como máximo ${max} fotos.`, true);
-    input.value = "";
+    campo.value = "";
     pintar();
-  });
+  };
+  input.addEventListener("change", () => recibir(input));
+  camara.addEventListener("change", () => recibir(camara));
   lista.addEventListener("click", (e) => {
     const b = e.target.closest("button[data-i]");
     if (!b) return;
@@ -116,7 +122,11 @@ export function photoPicker({ label = "Agregar fotos", max = 6 } = {}) {
   });
 
   return {
-    el: h("div.picker", {}, h("label.btn.pick-btn", {}, label, input), lista),
+    el: h("div.picker", {},
+      h("div.pick-row", {},
+        h("label.btn.pick-btn.primary", {}, "Sacar foto", camara),
+        h("label.btn.pick-btn", {}, label === "Agregar fotos" ? "Elegir" : `${label}: elegir`, input)),
+      lista),
     count: () => elegidas.length,
     files: () => Promise.all(elegidas.map((e) => preparePhoto(e.file))),
     dispose: () => {

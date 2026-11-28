@@ -279,27 +279,95 @@ test("la fecha de devolución no puede ser futura ni anterior al alquiler", asyn
   assert.equal((await recibir(order.id, "ayer")).statusCode, 400);
 });
 
-/* ---- Rezagadas ---- */
+/* ---- Hoy (antes, rezagadas) ---- */
 
-test("rezagadas: vencida sin recibir, y recibida que nadie llevó a lavado", async () => {
+/** La pestaña «Hoy» vista por `sub`. */
+const hoyPanel = async (sub = MOSTRADOR) => (await como(sub, { method: "GET", url: "/api/admin/today" })).json();
+const tiene = (lista, orderId) => lista.some((x) => (x.id ?? x.orderId) === orderId);
+
+test("hoy: retiro vencido sin entrega, devolución vencida y recibida que nadie llevó a lavado", async () => {
   const { order, item } = await pedido({ diasAtras: 12 });
+  let r = await hoyPanel();
+  assert.ok(tiene(r.pickupsOverdue, order.id), "pasó el retiro y nadie registró la entrega");
+  assert.ok(r.urgent >= 1);
+
   await entregar(item.id);
-  let r = (await como(MOSTRADOR, { method: "GET", url: "/api/admin/stragglers" })).json();
-  assert.ok(r.notReceived.some((x) => x.orderId === order.id), "vencida y sin recibir aparece al instante");
+  r = await hoyPanel(CAJA);
+  assert.ok(!tiene(r.pickupsOverdue, order.id));
+  assert.ok(tiene(r.returnsOverdue, order.id), "entregada y vencida sin recibir");
 
   assert.equal((await recibir(order.id, todayISO())).statusCode, 200);
-  r = (await como(MOSTRADOR, { method: "GET", url: "/api/admin/stragglers" })).json();
-  assert.ok(!r.notReceived.some((x) => x.orderId === order.id));
-  assert.ok(!r.receivedNotWashed.some((x) => x.orderId === order.id), "recién recibida todavía no es rezagada");
+  r = await hoyPanel();
+  assert.ok(!tiene(r.returnsOverdue, order.id));
+  assert.ok(tiene(r.toClose, order.id), "recibida: queda cobrar o devolver la garantía");
+  assert.ok(!tiene(r.receivedNotWashed, order.id), "recibir ya la lleva a lavado");
 
-  // Hoy recibir ya la lleva a lavado y libera la reserva; esta rezagada queda
-  // para lo recibido antes de ese cambio, que se simula como entonces: En
-  // Alquiler y con la reserva sin liberar.
+  // Lo recibido antes de que recibir llevara a lavado se simula como entonces:
+  // En Alquiler y con la reserva sin liberar.
   await prisma.item.update({ where: { id: item.id }, data: { status: "EN_ALQUILER", laundryKind: null, laundryPlace: null } });
   await prisma.orderItem.updateMany({ where: { orderId: order.id }, data: { receivedAt: new Date(Date.now() - 2 * 86_400_000), releasedAt: null } });
-  r = (await como(MOSTRADOR, { method: "GET", url: "/api/admin/stragglers" })).json();
-  assert.ok(r.receivedNotWashed.some((x) => x.orderId === order.id), "más de un día recibida y sin lavar");
-  assert.equal((await como(CAJA, { method: "GET", url: "/api/admin/stragglers" })).statusCode, 403);
+  r = await hoyPanel();
+  assert.ok(tiene(r.receivedNotWashed, order.id), "más de un día recibida y sin lavar");
+  assert.equal((await como(CLIENTE, { method: "GET", url: "/api/admin/today" })).statusCode, 403);
+  assert.equal((await como(INVENTARIO, { method: "GET", url: "/api/admin/today" })).statusCode, 403);
+});
+
+test("hoy: lo que lleva tres días en lavado está listo para salir", async () => {
+  const item = await nuevoEjemplar();
+  await prisma.item.update({
+    where: { id: item.id },
+    data: { status: "EN_LAVADO", statusSince: new Date(Date.now() - 6 * 86_400_000), laundryKind: "PROPIO", laundryPlace: "Local" },
+  });
+  assert.ok((await hoyPanel()).laundryReady.some((x) => x.itemId === item.id));
+  await prisma.item.update({ where: { id: item.id }, data: { statusSince: new Date() } });
+  assert.ok(!(await hoyPanel()).laundryReady.some((x) => x.itemId === item.id), "recién entrada, todavía no");
+});
+
+/* ---- No vino: mover el retiro o anular ---- */
+
+test("mover el retiro corre todo el alquiler, al mismo precio, y avisa al cliente", async () => {
+  const { order } = await pedido({ diasAtras: 2 });
+  const antes = await prisma.order.findUnique({ where: { id: order.id }, include: { charges: true } });
+  const nuevo = habil(2);
+  const mover = (start, sub = MOSTRADOR) => como(sub, { method: "POST", url: `/api/orders/${order.id}/reschedule`, payload: { start } });
+  assert.equal((await mover(nuevo, CAJA)).statusCode, 403);
+  assert.equal((await mover(addDaysISO(todayISO(), -1))).statusCode, 400, "no al pasado");
+
+  const res = await mover(nuevo);
+  assert.equal(res.statusCode, 200, res.body);
+  const o = res.json();
+  assert.equal(o.start, nuevo);
+  assert.equal(o.totalCents, antes.charges.reduce((s, c) => s + c.amountCents, 0), "mismo precio: no se toca el libro");
+  const reserva = await prisma.orderItem.findFirst({ where: { orderId: order.id } });
+  assert.equal(reserva.start.toISOString().slice(0, 10), nuevo);
+  assert.equal(reserva.end.toISOString().slice(0, 10), o.reschedule.returnBy);
+  assert.ok(await prisma.notice.findFirst({ where: { orderId: order.id, kind: "RETIRO_MOVIDO" } }));
+  const recorrido = (await como(MOSTRADOR, { method: "GET", url: `/api/orders/${order.id}/timeline` })).json();
+  assert.ok(recorrido.entries.some((e) => e.action === "RETIRO_MOVIDO"), "queda en el recorrido del pedido");
+});
+
+test("«No vino»: el mostrador anula un retiro vencido sin entrega, y solo ese", async () => {
+  const { order: futuro } = await pedido();
+  const noVino = (orderId, sub = MOSTRADOR) =>
+    como(sub, { method: "POST", url: `/api/orders/${orderId}/cancel`, payload: { reason: "NO_SHOW" } });
+  assert.equal((await noVino(futuro.id)).statusCode, 409, "el retiro todavía no pasó");
+  assert.equal((await como(MOSTRADOR, { method: "POST", url: `/api/orders/${futuro.id}/cancel` })).statusCode, 404,
+    "sin «No vino», anular un pedido ajeno sigue siendo de Administración");
+
+  const { order, item } = await pedido({ diasAtras: 2 });
+  assert.equal((await noVino(order.id, CAJA)).statusCode, 404);
+  const res = await noVino(order.id);
+  assert.equal(res.statusCode, 200, res.body);
+  assert.equal(res.json().status, "cancelled");
+  assert.equal((await prisma.item.findUnique({ where: { id: item.id } })).status, "DISPONIBLE", "la prenda vuelve al catálogo");
+  const aviso = await prisma.notice.findFirst({ where: { orderId: order.id, kind: "ANULADO_SIN_RETIRO" } });
+  assert.match(aviso.body, /No se te cobró nada/);
+  const log = await prisma.financeLog.findFirst({ where: { orderId: order.id, kind: "ANULACION" } });
+  assert.match(log.note, /No vino a retirar/);
+
+  const { order: entregado, item: otra } = await pedido({ diasAtras: 2 });
+  await entregar(otra.id);
+  assert.equal((await noVino(entregado.id)).statusCode, 409, "lo entregado no es «No vino»");
 });
 
 /* ---- Recepción con destino y vuelta al catálogo ---- */

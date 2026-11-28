@@ -292,3 +292,42 @@ input[type="color"] { padding: 2px; width: 64px; height: 36px; }
 .review-stars { margin: 6px 0 2px; color: var(--warn); letter-spacing: 2px; }
 .review-text { margin: 4px 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 .review-card .thumb-btn img { width: 96px; height: 96px; }
+
+/* ---------- Hoy ---------- */
+.today-title { margin-bottom: 4px; }
+.today-section { margin: 18px 0; }
+.today-section h2 { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.today-section h2 small { flex-basis: 100%; }
+.count-inline { display: inline-block; min-width: 24px; padding: 0 7px; border-radius: 12px; background: var(--line); color: var(--ink); font-size: 13px; text-align: center; }
+.today-section.urgent .count-inline { background: var(--danger); color: #fff; }
+.today-list { display: grid; gap: 8px; }
+.today-row {
+  display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px;
+}
+.today-section.urgent .today-row { border-left: 5px solid var(--danger); }
+.today-main { min-width: 0; flex: 1 1 260px; }
+.today-when { font-size: 14px; margin-top: 2px; }
+.today-when .bad, span.bad { color: var(--danger); font-weight: 600; }
+.today-row .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.pick-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- Teléfono y tablet: es donde se usa el panel en el local ---------- */
+@media (max-width: 700px) {
+  main { padding: 12px max(12px, env(safe-area-inset-left, 0px)); }
+  .top { gap: 8px; padding: 8px 12px; }
+  /* Las pestañas no se apilan en tres filas: se desplazan de lado. */
+  .tabs { flex-wrap: nowrap; overflow-x: auto; flex-basis: 100%; order: 3; scrollbar-width: none; }
+  .tabs button { flex: 0 0 auto; min-height: 44px; }
+  button.btn, .btn, .btn.small { min-height: 44px; padding: 10px 14px; font-size: 15px; }
+  .today-row .actions, .card .actions { width: 100%; }
+  .today-row .actions .btn, .card .actions .btn { flex: 1 1 140px; }
+  .cards { grid-template-columns: 1fr; }
+  dialog, dialog.wide { width: calc(100vw - 16px); max-width: none; margin: auto 8px; }
+  /* Tablas como tarjetas: cada fila es un bloque y cada celda dice qué es. */
+  .table-wrap table.stack, .table-wrap table.stack tbody, .table-wrap table.stack tr, .table-wrap table.stack td { display: block; width: auto; }
+  .table-wrap table.stack thead { display: none; }
+  .table-wrap table.stack tr { border-bottom: 1px solid var(--line); padding: 8px 4px; }
+  .table-wrap table.stack td { border: 0; padding: 3px 8px; }
+  .table-wrap table.stack td[data-label]::before { content: attr(data-label) ": "; color: var(--muted); font-size: 13px; }
+}

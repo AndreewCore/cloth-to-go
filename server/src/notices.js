@@ -57,6 +57,34 @@ export function returnedText(orderId, names, { extraCents, extraDays }) {
 }
 
 /**
+ * Texto del aviso de un retiro movido por el local.
+ * @param {number} orderId Pedido.
+ * @param {string} start Día nuevo de retiro, en palabras.
+ * @param {string} returnBy Fecha límite nueva, en palabras.
+ * @returns {{title: string, body: string}}
+ */
+export function rescheduledText(orderId, start, returnBy) {
+  return {
+    title: `Movimos el retiro de tu pedido #${orderId}`,
+    body: `Ahora lo retiras desde el ${start} y lo devuelves hasta el ${returnBy}, al mismo precio.`,
+  };
+}
+
+/**
+ * Texto del aviso de un pedido anulado porque nadie lo retiró.
+ * @param {number} orderId Pedido.
+ * @param {string} start Día de retiro que pasó, en palabras.
+ * @param {boolean} paid Si había algo pagado (con tarjeta) que se devuelve.
+ * @returns {{title: string, body: string}}
+ */
+export function noShowText(orderId, start, paid) {
+  return {
+    title: `Anulamos tu pedido #${orderId}`,
+    body: `No se retiró desde el ${start}, así que las prendas vuelven al catálogo. ${paid ? "Te devolvemos lo que pagaste." : "No se te cobró nada."} Puedes volver a alquilarlas cuando quieras.`,
+  };
+}
+
+/**
  * Guarda un aviso.
  * @param {object} tx Cliente Prisma o transacción.
  * @param {{userId: number, kind: string, title: string, body: string, reviewId?: number, orderId?: number}} data
