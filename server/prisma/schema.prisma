@@ -400,7 +400,9 @@ model User {
   sessions     Session[]
   received     OrderItem[]  @relation("OrderItemReceiver")
   photosTaken  ItemPhoto[]  @relation("ItemPhotoTaker")
-  reviews      Review[]
+  reviews      Review[]     @relation("ReviewAuthor")
+  moderated    Review[]     @relation("ReviewModerator")
+  reports      ReviewReport[]
   activity     ActivityLog[]
   points       PointsEntry[]
   coupons      Coupon[]
@@ -796,6 +798,12 @@ enum ActivityAction {
   FERIADO_EDICION
   FERIADO_BAJA
   HORARIO
+  RESENA_APROBADA
+  RESENA_RECHAZADA
+  RESENA_OCULTA
+  RESENA_MOSTRADA
+  /// Tres reportes de cuentas distintas la devolvieron a la cola; sin actor.
+  RESENA_AUTO_OCULTA
 }
 
 /// Bitácora de acciones del panel. Como las otras, solo se añade: es lo que se
@@ -829,13 +837,22 @@ enum ReviewStatus {
   OCULTA
 }
 
+/// Motivos cerrados de rechazo y de reporte (índice del plan por fases): una
+/// lista y no texto libre, para que nadie escriba un insulto como «motivo».
+enum ReviewReason {
+  OFENSIVO
+  SPAM
+  DATOS_PERSONALES
+  FUERA_DE_TEMA
+}
+
 /// Reseña de un cliente sobre un modelo que alquiló de verdad: va atada al
 /// pedido, y solo se acepta si el pedido ya está cumplido (la misma regla que
 /// los puntos). Una por modelo y pedido.
 model Review {
   id        Int          @id @default(autoincrement())
   userId    Int
-  user      User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user      User         @relation("ReviewAuthor", fields: [userId], references: [id], onDelete: Restrict)
   orderId   Int
   order     Order        @relation(fields: [orderId], references: [id], onDelete: Restrict)
   productId Int
@@ -846,10 +863,34 @@ model Review {
   /// Clave de la foto en el almacenamiento privado (`resenas/<uuid>.webp`).
   photoKey  String?      @unique
   status    ReviewStatus @default(PENDIENTE)
+  /// Motivo del último rechazo; se le enseña al autor.
+  rejectReason  ReviewReason?
+  /// Quién y cuándo tomó la última decisión de moderación.
+  moderatedById Int?
+  moderatedBy   User?         @relation("ReviewModerator", fields: [moderatedById], references: [id], onDelete: Restrict)
+  moderatedAt   DateTime?
+  reports       ReviewReport[]
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
   @@unique([orderId, productId])
   @@index([productId, status])
   @@map("reviews")
+}
+
+/// Reporte de un cliente sobre una reseña publicada. Uno por cuenta y reseña:
+/// con tres abiertos de cuentas distintas la reseña vuelve sola a la cola.
+/// Aprobarla otra vez los marca resueltos, para que no la vuelvan a ocultar.
+model ReviewReport {
+  id         Int          @id @default(autoincrement())
+  reviewId   Int
+  review     Review       @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  userId     Int
+  user       User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  reason     ReviewReason
+  createdAt  DateTime     @default(now())
+  resolvedAt DateTime?
+
+  @@unique([reviewId, userId])
+  @@map("review_reports")
 }

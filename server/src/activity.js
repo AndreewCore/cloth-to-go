@@ -5,7 +5,7 @@
  *
  * No es una tabla más donde todo se escribe dos veces: junta las cuatro que ya
  * existen, cada una de solo añadir, en una misma forma:
- * - `activity_logs`: catálogo, fotos de catálogo y taxonomía;
+ * - `activity_logs`: catálogo, fotos de catálogo, taxonomía, calendario y reseñas;
  * - `item_logs`: altas de ejemplares, cambios de estado y recepciones;
  * - `finance_logs`: cobros, garantías, anulaciones, días extra, precios y permisos;
  * - `item_photos`: fotos de salida, llegada y estado.
@@ -25,6 +25,7 @@ export const CATEGORIES = Object.freeze({
   personal: "Personal",
   taxonomia: "Taxonomía",
   calendario: "Calendario",
+  resenas: "Reseñas",
 });
 
 /**
@@ -64,6 +65,11 @@ const ACTIONS = {
   FERIADO_EDICION: { label: "Cierre editado", category: "calendario", source: "activity" },
   FERIADO_BAJA: { label: "Cierre quitado", category: "calendario", source: "activity" },
   HORARIO: { label: "Horario de atención", category: "calendario", source: "activity" },
+  RESENA_APROBADA: { label: "Reseña aprobada", category: "resenas", source: "activity" },
+  RESENA_RECHAZADA: { label: "Reseña rechazada", category: "resenas", source: "activity" },
+  RESENA_OCULTA: { label: "Reseña ocultada", category: "resenas", source: "activity" },
+  RESENA_MOSTRADA: { label: "Reseña mostrada de nuevo", category: "resenas", source: "activity" },
+  RESENA_AUTO_OCULTA: { label: "Reseña devuelta a la cola por reportes", category: "resenas", source: "activity" },
 };
 
 const STATUS_LABEL = {

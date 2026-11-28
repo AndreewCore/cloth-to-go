@@ -181,7 +181,7 @@ globalThis.__APP__ = {
   addToCart, flyToCart, bumpBadge, updateBadge,
   // Reseñas.
   productReviews, productRating, reviewFor, reviewableItems, hasPendingReview,
-  openReview, reviewValid, submitReview, deleteReview, loadProductReviews, loadMyReviews, refreshProductReviews,
+  openReview, reviewValid, submitReview, deleteReview, loadProductReviews, loadMyReviews, refreshProductReviews, hydrateCalendar, reviewReasons, openReportReview,
   REVIEW_STATUS_LABEL,
   get reviews(){ return reviews; },               set reviews(v){ reviews = v; },
   get productReviewCache(){ return productReviewCache; }, set productReviewCache(v){ productReviewCache = v; },

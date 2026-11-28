@@ -266,3 +266,8 @@ input[type="color"] { padding: 2px; width: 64px; height: 36px; }
 .holiday:last-child { border-bottom: 0; }
 .holiday.past { opacity: .6; }
 .cal-warn { margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 13px; }
+
+/* Reseñas (Moderación) */
+.review-stars { margin: 6px 0 2px; color: var(--warn); letter-spacing: 2px; }
+.review-text { margin: 4px 0 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.review-card .thumb-btn img { width: 96px; height: 96px; }

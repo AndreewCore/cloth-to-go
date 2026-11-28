@@ -48,6 +48,10 @@ export async function purge({ subs = [], itemIds: sueltos = [], productIds = [] 
     await tx.pointsEntry.deleteMany({ where: { userId: { in: userIds } } });
     await tx.coupon.deleteMany({ where: { userId: { in: userIds } } });
     await tx.session.deleteMany({ where: { userId: { in: userIds } } });
+    // Reportes y moderaciones de las cuentas de prueba, antes que sus reseñas y
+    // ellas mismas (las claves foráneas no dejan otro orden).
+    await tx.reviewReport.deleteMany({ where: { userId: { in: userIds } } });
+    await tx.review.updateMany({ where: { moderatedById: { in: userIds } }, data: { moderatedById: null } });
     await tx.review.deleteMany({
       where: { OR: [{ userId: { in: userIds } }, { orderId: { in: orderIds } }, { productId: { in: productIds } }] },
     });

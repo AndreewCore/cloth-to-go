@@ -23,6 +23,8 @@ beforeEach(async () => {
   // Sesión real y no `currentUser` a mano: es activateUserSession quien fija la
   // clave de almacenamiento, y sin ella no hay nada que comprobar en disco.
   win.activateUserSession({ sub: "u1", name: "Ana" });
+  // Los motivos de reporte llegan con /api/config, como al arrancar la app.
+  await app.hydrateCalendar();
   await flush();
 });
 
@@ -299,4 +301,52 @@ test("si las reseñas no cargan, lo dice en vez de quedarse cargando", async () 
   app.openDetail(3);
   await flush();
   assert.match(doc.querySelector(".rev-empty").textContent, /No se pudieron cargar/);
+});
+
+/* ---- Moderación ---- */
+test("una reseña publicada ajena se puede reportar con un motivo de la lista", async () => {
+  const r = aprobada(3, 2, "Spam total");
+  app.openDetail(3);
+  await flush();
+  const boton = doc.querySelector('[data-action="reportReview"]');
+  assert.ok(boton, "se ofrece reportar");
+  // El reparto de clics vive en main.js (fuera de estas pruebas): se llama a lo
+  // que despacha `reportReview` con el id del botón.
+  app.openReportReview(Number(boton.dataset.id));
+  const opciones = Array.from(doc.querySelectorAll('input[name="reportReason"]'), (i) => i.value);
+  assert.deepEqual(opciones, ["OFENSIVO", "SPAM", "DATOS_PERSONALES", "FUERA_DE_TEMA"], "los motivos vienen de /api/config");
+  doc.querySelector('input[name="reportReason"][value="SPAM"]').checked = true;
+  app.confirmModalOk();
+  await flush();
+
+  assert.deepEqual(fake.state.reports, [{ reviewId: r.id, reason: "SPAM" }]);
+  assert.equal(doc.querySelector('[data-action="reportReview"]'), null, "no se ofrece reportarla otra vez");
+  assert.match(doc.querySelector(".rev-reported").textContent, /Reportada/);
+});
+
+test("la reseña propia no se ofrece para reportar, y sin sesión tampoco", async () => {
+  pedido({ items: [3] });
+  await enviar({ rating: 4, text: "Mía" });
+  const mia = fake.state.reviews.at(-1);
+  mia.status = "APROBADA";
+  app.openDetail(3);
+  await flush();
+  assert.equal(doc.querySelectorAll(".review").length, 1);
+  assert.equal(doc.querySelector('[data-action="reportReview"]'), null);
+
+  const sin = loadDom({ account: false });
+  sin.app.openDetail(1);
+  assert.equal(sin.document.querySelector('[data-action="reportReview"]'), null);
+});
+
+test("el autor ve por qué se rechazó su reseña", async () => {
+  pedido({ items: [3] });
+  await enviar({ rating: 1, text: "Con mi teléfono 0999999999" });
+  Object.assign(fake.state.reviews.at(-1), { status: "RECHAZADA", rejectReason: "DATOS_PERSONALES" });
+  await app.loadMyReviews();
+  app.openDetail(3);
+  await flush();
+  const texto = doc.querySelector(".review").textContent;
+  assert.match(texto, /No publicada/);
+  assert.match(texto, /Motivo: Datos personales/);
 });

@@ -72,6 +72,12 @@ function setBusinessCalendar(cfg){
   if(typeof cfg.shippingFee === "number") pricingTexts.shippingFee = cfg.shippingFee;
   if(typeof cfg.volumeDiscountMax === "number") pricingTexts.volumeDiscountMax = cfg.volumeDiscountMax;
   if(typeof cfg.hoursText === "string" && cfg.hoursText.trim()) LOCAL.horario = cfg.hoursText.trim();
+  if(Array.isArray(cfg.reviewReasons)) reviewReasons.splice(0, reviewReasons.length, ...cfg.reviewReasons);
+}
+/** Texto de un motivo de reseña; la clave misma si la lista aún no llegó. */
+function reviewReasonLabel(key){
+  const r = reviewReasons.find(x => x.key === key);
+  return r ? r.label : key;
 }
 /** Día de la semana de una fecha `YYYY-MM-DD` (0 = domingo), sin zona horaria. */
 function weekdayISO(iso){
@@ -112,6 +118,9 @@ function returnByISO(start, end){
 
 /** Textos de tarifas que llegan de GET /api/config (envío, volumen máximo). */
 const pricingTexts = { shippingFee: SHIPPING_FEE, volumeDiscountMax: 0.20 };
+/* Motivos para reportar una reseña ({key, label}), tal como los sirve
+   GET /api/config. Sin API queda vacía y la app no ofrece reportar. */
+const reviewReasons = [];
 
 /**
  * Precio de una prenda suelta por `days` días, según la API, o null si el

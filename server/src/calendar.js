@@ -19,6 +19,7 @@ import { CAPABILITY, httpError } from "./auth.js";
 import { CLOSED_WEEKDAYS, addDaysISO, todayISO, weekdayOf } from "./dates.js";
 import { ACTIVITY, logActivity } from "./logs.js";
 import { SHIPPING_FEE, VOLUME_DISCOUNT_MAX } from "./pricing.js";
+import { REVIEW_REASONS } from "./moderation.js";
 
 /** Cuánto calendario se sirve hacia delante: el checkout no reserva más lejos. */
 const HORIZONTE_DIAS = 400;
@@ -146,6 +147,9 @@ export function registerCalendarRoutes(app, { requireCapability } = {}) {
       // volumen"): se dicen, pero el cálculo es siempre del servidor.
       shippingFee: SHIPPING_FEE,
       volumeDiscountMax: VOLUME_DISCOUNT_MAX,
+      // Motivos para reportar una reseña: la app los pinta de aquí y no
+      // guarda su propia copia de la lista.
+      reviewReasons: Object.entries(REVIEW_REASONS).map(([key, label]) => ({ key, label })),
     };
   });
 

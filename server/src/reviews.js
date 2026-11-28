@@ -6,8 +6,8 @@
  *   suyo ya cumplido (la misma regla que los puntos, `countsForRewards`):
  *   reseñar algo que aún no se recibió quedaría publicado.
  * - **Moderación.** Toda reseña nace PENDIENTE y solo la ve el público cuando
- *   Moderación la aprueba (decisiones transversales). El autor ve las suyas
- *   siempre, con su estado.
+ *   Moderación la aprueba (moderation.js). El autor ve las suyas siempre, con
+ *   su estado y, si se rechazó, el motivo.
  *
  * La foto pasa por la tubería de photos.js y va al cubo privado: hasta que se
  * aprueba no es de nadie más que de su autor.
@@ -63,7 +63,7 @@ export function parseReview(f) {
  */
 export function registerReviewRoutes(app, { requireUser, optionalUser }, { storage, allowUpload }) {
   /** Reseña con la forma que consume la app; la foto llega con enlace firmado. */
-  const toApi = async (r, origin, { own = false } = {}) => ({
+  const toApi = async (r, origin, { own = false, reported = false } = {}) => ({
     id: r.id,
     productId: r.productId,
     orderId: own ? r.orderId : undefined,
@@ -73,6 +73,9 @@ export function registerReviewRoutes(app, { requireUser, optionalUser }, { stora
     date: r.createdAt.toISOString().slice(0, 10),
     photo: r.photoKey ? await storage.signedUrl(r.photoKey, origin) : null,
     status: own ? r.status : undefined,
+    // Solo el autor sabe por qué se rechazó la suya.
+    rejectReason: own ? r.rejectReason ?? null : undefined,
+    reported: reported || undefined,
   });
 
   // Reseñas publicadas de un modelo, con su media. Con sesión, también las
@@ -93,10 +96,17 @@ export function registerReviewRoutes(app, { requireUser, optionalUser }, { stora
         include: { user: { select: { name: true } } },
       })
       : [];
+    // Lo que este cliente ya reportó: la app no le ofrece reportarlo dos veces.
+    const reportadas = req.user
+      ? new Set((await prisma.reviewReport.findMany({
+        where: { userId: req.user.id, reviewId: { in: publicadas.map((r) => r.id) } },
+        select: { reviewId: true },
+      })).map((x) => x.reviewId))
+      : new Set();
     return {
       average: average(publicadas),
       count: publicadas.length,
-      reviews: await Promise.all(publicadas.map((r) => toApi(r, origin, { own: r.userId === req.user?.id }))),
+      reviews: await Promise.all(publicadas.map((r) => toApi(r, origin, { own: r.userId === req.user?.id, reported: reportadas.has(r.id) }))),
       mine: await Promise.all(mias.map((r) => toApi(r, origin, { own: true }))),
     };
   });

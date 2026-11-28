@@ -17,6 +17,7 @@ import { catalogClick, loadCatalog, renderCatalog } from "./catalog.js";
 import { loadTaxonomyAdmin, renderTaxonomy, taxonomyClick } from "./taxonomy.js";
 import { activityClick, loadActivity, renderActivity, setActivityFilter } from "./activity.js";
 import { calendarClick, calendarSubmit, loadCalendar, renderCalendar } from "./calendar.js";
+import { loadModeration, moderationClick, pendingReviews, renderModeration } from "./moderation.js";
 
 /** Mismo cliente OAuth que la app y la web (js/auth.js): es público. */
 const GOOGLE_CLIENT_ID = "115840486389-f3vitcouhua5eckn3grn1gk9kqb7ccjs.apps.googleusercontent.com";
@@ -99,6 +100,7 @@ function tabs() {
     { id: "catalog", label: "Catálogo", show: can("INVENTARIO") },
     { id: "taxonomy", label: "Taxonomía", show: can("INVENTARIO") },
     { id: "calendar", label: "Calendario", show: can("ADMINISTRACION") },
+    { id: "reviews", label: "Reseñas", show: can("MODERACION") },
     // Al extremo derecho: no es una tarea del día, es para revisar.
     { id: "activity", label: "Bitácora", show: can("ADMINISTRACION"), end: true },
   ].filter((t) => t.show);
@@ -123,6 +125,7 @@ function renderTabs() {
     { type: "button", role: "tab", "aria-selected": String(state.tab === t.id), dataset: { action: "tab", tab: t.id } },
     t.label,
     t.id === "stragglers" && rezagadas > 0 ? h("span.count", {}, rezagadas) : null,
+    t.id === "reviews" && pendingReviews() > 0 ? h("span.count", {}, pendingReviews()) : null,
   )));
   nav.hidden = false;
 }
@@ -147,6 +150,7 @@ async function loadTab() {
     if (state.tab === "taxonomy") await loadTaxonomyAdmin();
     if (state.tab === "activity") await loadActivity();
     if (state.tab === "calendar") await loadCalendar();
+    if (state.tab === "reviews") await loadModeration();
     // Las rezagadas se piden siempre que se pueda: alimentan el número de la pestaña.
     if (can("MOSTRADOR")) state.stragglers = await api("/api/admin/stragglers");
   } catch (err) {
@@ -167,6 +171,7 @@ function render() {
     taxonomy: renderTaxonomy,
     activity: renderActivity,
     calendar: renderCalendar,
+    reviews: renderModeration,
   }[state.tab];
   $("view").replaceChildren(...(view ? view() : []));
 }
@@ -577,7 +582,7 @@ document.addEventListener("click", async (e) => {
     case "photos":
       return showPhotos(item);
     default:
-      if (!catalogClick(el) && !taxonomyClick(el) && !calendarClick(el)) activityClick(el, render);
+      if (!catalogClick(el) && !taxonomyClick(el) && !calendarClick(el) && !moderationClick(el, render)) activityClick(el, render);
   }
 });
 
