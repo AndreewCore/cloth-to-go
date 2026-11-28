@@ -180,6 +180,11 @@ dialog label.pick-btn, .pick-btn { display: inline-flex; width: max-content; ali
 .receive-item { display: grid; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 .receive-item:last-child { border-bottom: 0; }
 .receive-photos { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; padding-left: 26px; }
+.receive-dest { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; padding-left: 26px; }
+.receive-dest label, .dest-fields label { display: grid; gap: 2px; font-size: .9em; }
+.dest-fields { display: flex; flex-wrap: wrap; gap: 8px; }
+.dest-fields .grow { flex: 1 1 220px; }
+.dest-fields[hidden] { display: none; }
 dialog h4 { margin: 6px 0 0; font-size: 14px; }
 dialog .msg:empty { display: none; }
 .photo-caption { margin: 0; text-align: center; }

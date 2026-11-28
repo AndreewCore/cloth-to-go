@@ -43,7 +43,7 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | POST | `/api/orders/:id/cancel` | Anula el pedido y revierte sus cargos. |
 | POST | `/api/orders/:id/settle` | **Solo local**: confirma que el efectivo entró. |
 | POST | `/api/orders/:id/deposit-release` | **Solo local**: libera el depósito. |
-| POST | `/api/orders/:id/receive` | **Mostrador**: registra la devolución (día real) y cobra los días extra. |
+| POST | `/api/orders/:id/receive` | **Mostrador**: registra la devolución (día real), cobra los días extra y manda cada prenda a lavado o a desperfecto. |
 | GET | `/api/me` | Quién es la sesión y sus capacidades (el panel decide qué pestañas enseñar). |
 | GET | `/api/admin/orders` | **Mostrador o Caja**: pedidos en curso, con cliente y ejemplares (`?scope=all`, todos). |
 | GET | `/api/admin/items` | **Mostrador o Inventario**: ejemplares con su estado interno y a qué estados pueden pasar. |
@@ -386,9 +386,20 @@ pudo cargar la foto. Con Supabase, la CSP del panel añade su origen a `img-src`
 Recibir anota el **día real** en que volvió la prenda (puede ser anterior al
 registro, §6.3) y quién lo registró. Pasada la fecha límite se cobran los días
 **hábiles** extra continuando la escalera del pedido —`precio(días + extra) −
-precio(días)`—, en una línea `RENTAL` y una entrada `DIAS_EXTRA`. Recibir no
-cambia el estado físico: llevarla a lavado es otro acto, y lo que se olvida ahí
-aparece como rezagada.
+precio(días)`—, en una línea `RENTAL` y una entrada `DIAS_EXTRA`. Recibir
+también decide **adónde va cada prenda**: el cuerpo lleva
+`items: [{itemId, to: "EN_LAVADO", laundry: {kind, place}}]` o
+`{itemId, to: "NO_ALQUILABLE", note}` (desperfecto), validados con la misma tabla
+que el cambio manual. Nunca vuelve directo a Disponible: sale del lavado cuando
+el mostrador la marca. La respuesta trae `receipt` (días extra cobrados y
+destino de cada prenda) para el aviso del panel.
+
+**Cuándo se vuelve a ofrecer** (`rentableFrom()` en `src/catalog.js`). En
+Alquiler, No Alquilable y Perdida no admiten pedidos nuevos. En Lavado sí, pero
+para retirar desde **3 días después** de entrar al lavado, corrido al siguiente
+día hábil (lo que entra el viernes se retira el lunes). `/api/products` lo
+publica por ejemplar como `availableFrom`, y `POST /api/quote` y
+`POST /api/orders` rechazan con 409 un retiro anterior.
 
 > Cupones y puntos **todavía no**: el pedido aún no acepta `couponId`. Es la §2
 > del plan de backend, y sin el ledger de puntos aceptar un descuento del

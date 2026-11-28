@@ -35,6 +35,8 @@ function addToCart(id){
   if(inCart(id)){ toast("Ya está en tu carrito"); return; }
   cart.push({ id });
   persistCart();
+  // Una prenda que vuelve del lavado puede retrasar el primer día de retiro.
+  snapRentalDates(true);
   updateBadge();
   renderCart();
   renderGrid();
@@ -173,7 +175,7 @@ function renderCart(){
     <div class="dates">
       <label>Desde
         <input class="field" type="date" id="startDate" data-action="date" data-value="start"
-               value="${rentalStart}" min="${isoOffset(0)}">
+               value="${rentalStart}" min="${earliestStartISO()}">
       </label>
       <label>Hasta
         <input class="field" type="date" id="endDate" data-action="date" data-value="end"
@@ -315,7 +317,7 @@ function checkoutDataHTML(){
       <div class="dates">
         <label>Desde
           <input class="field" type="date" data-action="date" data-value="start"
-                 value="${rentalStart}" min="${isoOffset(0)}"></label>
+                 value="${rentalStart}" min="${earliestStartISO()}"></label>
         <label>Hasta
           <input class="field" type="date" data-action="date" data-value="end"
                  value="${rentalEnd}" min="${addDaysISO(rentalStart, 1)}"></label>

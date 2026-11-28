@@ -14,7 +14,7 @@ import { httpError } from "./auth.js";
 import { DELIVERY, RETURN_TO, cents, rentalDays, rentalPrice } from "./pricing.js";
 import { discountCharge, initialCharges, revenueCents, CHARGE_TYPE } from "./ledger.js";
 import { orderPoints, rewardById, rewardDiscountCents, rewardIssue } from "./rewards.js";
-import { pricedItem } from "./catalog.js";
+import { assertRentable, pricedItem } from "./catalog.js";
 import { returnByDate } from "./dates.js";
 import { holidaySet } from "./calendar.js";
 
@@ -124,6 +124,9 @@ export function registerQuoteRoutes(app, { optionalUser }) {
     if (items.some((i) => i.product.pricing !== "CTG")) {
       throw httpError(409, "Alguna de las prendas no está disponible.");
     }
+    const feriados = await holidaySet();
+    // Lo mismo que comprobará el pedido: mejor enterarse al cotizar que al pagar.
+    assertRentable(items, datos.start, feriados);
     const porId = new Map(items.map((i) => [i.id, i]));
     const ordenados = datos.items.map((id) => porId.get(id));
 
@@ -138,7 +141,6 @@ export function registerQuoteRoutes(app, { optionalUser }) {
     const days = rentalDays(datos.start, datos.end);
     const rentalCents = sumType(lineas, CHARGE_TYPE.RENTAL);
     const listCents = priced.reduce((s, p) => s + cents(rentalPrice(p, days, 1)), 0);
-    const feriados = await holidaySet();
 
     return {
       days,

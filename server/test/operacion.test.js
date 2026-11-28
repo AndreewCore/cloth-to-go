@@ -4,7 +4,8 @@
  *
  * Lo que más se vigila: que pasarse de la fecha límite cueste días extra de la
  * escalera (no una multa), que los días se cuenten desde el día REAL de
- * devolución y no desde el registro (§6.3), y que solo el mostrador reciba.
+ * devolución y no desde el registro (§6.3), que solo el mostrador reciba, y
+ * que una prenda recibida vaya a lavado y no vuelva sola al catálogo (§3).
  *
  * Cada prueba usa un ejemplar recién creado: mover un pedido al pasado sobre
  * una prenda de demostración podría chocar con reservas que no son suyas.
@@ -14,8 +15,8 @@ import assert from "node:assert/strict";
 import { buildApp } from "../src/app.js";
 import prisma from "../src/db.js";
 import { holidaySet } from "../src/calendar.js";
-import { pricedItem } from "../src/catalog.js";
-import { addDaysISO, isBusinessDay, returnByDate, todayISO } from "../src/dates.js";
+import { LAUNDRY_READY_DAYS, pricedItem, rentableFrom } from "../src/catalog.js";
+import { addDaysISO, isBusinessDay, nextBusinessDay, returnByDate, todayISO } from "../src/dates.js";
 import { lateCharge, lateDays } from "../src/operations.js";
 import { cents, rentalDays, rentalPrice } from "../src/pricing.js";
 import { ADMIN_CSP } from "../src/admin.js";
@@ -88,9 +89,17 @@ async function entregar(itemId) {
   assert.equal(res.statusCode, 200, res.body);
 }
 
-/** Registra la devolución de todo el pedido. */
-function recibir(orderId, returnedOn, sub = MOSTRADOR, extra = {}) {
-  return como(sub, { method: "POST", url: `/api/orders/${orderId}/receive`, payload: { returnedOn, ...extra } });
+/** Destino de lavado propio en el local, el más común al recibir. */
+const aLavado = (itemId) => ({ itemId, to: "EN_LAVADO", laundry: { kind: "PROPIO", place: "Local" } });
+
+/**
+ * Registra la devolución. Sin `extra.items`, todas las prendas del pedido van
+ * a lavado en el local.
+ */
+async function recibir(orderId, returnedOn, sub = MOSTRADOR, extra = {}) {
+  const items = extra.items
+    ?? (await prisma.orderItem.findMany({ where: { orderId }, select: { itemId: true } })).map((x) => aLavado(x.itemId));
+  return como(sub, { method: "POST", url: `/api/orders/${orderId}/receive`, payload: { returnedOn, ...extra, items } });
 }
 
 before(async () => {
@@ -211,7 +220,11 @@ test("a tiempo: se anota el día real y no se cobra nada más", async () => {
   assert.equal(o.lines[0].returnedOn, todayISO());
   assert.ok(o.lines[0].receivedAt);
   assert.equal(o.totalCents, order.totalCents, "sin días extra");
-  assert.equal(o.lines[0].status, "EN_ALQUILER", "el estado físico lo cambia otro acto");
+  assert.equal(o.lines[0].status, "EN_LAVADO", "recibir la lleva a lavado en el mismo acto");
+  assert.deepEqual(o.receipt, {
+    extraCents: 0,
+    items: [{ itemId: item.id, code: item.code, productName: o.receipt.items[0].productName, to: "EN_LAVADO", laundryPlace: "Local", extraDays: 0 }],
+  });
 
   const otra = await recibir(order.id, todayISO());
   assert.equal(otra.statusCode, 409, "no se recibe dos veces");
@@ -236,6 +249,7 @@ test("tarde: se cobran los días hábiles extra desde el día REAL de devolució
   });
   const linea = o.charges.find((c) => c.note?.startsWith("Días extra"));
   assert.ok(linea, "hay una línea de días extra");
+  assert.equal(o.receipt.extraCents, esperado.amountCents, "el panel recibe lo cobrado para decirlo");
   assert.equal(linea.type, "RENTAL");
   assert.equal(linea.amountCents, esperado.amountCents);
   assert.equal(o.totalCents, order.totalCents + esperado.amountCents);
@@ -270,8 +284,97 @@ test("rezagadas: vencida sin recibir, y recibida que nadie llevó a lavado", asy
   assert.ok(!r.notReceived.some((x) => x.orderId === order.id));
   assert.ok(!r.receivedNotWashed.some((x) => x.orderId === order.id), "recién recibida todavía no es rezagada");
 
-  await prisma.orderItem.updateMany({ where: { orderId: order.id }, data: { receivedAt: new Date(Date.now() - 2 * 86_400_000) } });
+  // Hoy recibir ya la lleva a lavado y libera la reserva; esta rezagada queda
+  // para lo recibido antes de ese cambio, que se simula como entonces: En
+  // Alquiler y con la reserva sin liberar.
+  await prisma.item.update({ where: { id: item.id }, data: { status: "EN_ALQUILER", laundryKind: null, laundryPlace: null } });
+  await prisma.orderItem.updateMany({ where: { orderId: order.id }, data: { receivedAt: new Date(Date.now() - 2 * 86_400_000), releasedAt: null } });
   r = (await como(MOSTRADOR, { method: "GET", url: "/api/admin/stragglers" })).json();
   assert.ok(r.receivedNotWashed.some((x) => x.orderId === order.id), "más de un día recibida y sin lavar");
   assert.equal((await como(CAJA, { method: "GET", url: "/api/admin/stragglers" })).statusCode, 403);
+});
+
+/* ---- Recepción con destino y vuelta al catálogo ---- */
+
+test("recibir lleva cada prenda a lavado (con quién y dónde) en una sola entrada de bitácora", async () => {
+  const { order, item } = await pedido({ diasAtras: 1 });
+  await entregar(item.id);
+  const res = await recibir(order.id, todayISO(), MOSTRADOR, {
+    items: [{ itemId: item.id, to: "EN_LAVADO", laundry: { kind: "EXTERNO", place: "Lavandería Sol" } }],
+  });
+  assert.equal(res.statusCode, 200, res.body);
+  const fila = await prisma.item.findUnique({ where: { id: item.id } });
+  assert.equal(fila.status, "EN_LAVADO");
+  assert.equal(fila.laundryKind, "EXTERNO");
+  assert.equal(fila.laundryPlace, "Lavandería Sol");
+
+  const logs = await prisma.itemLog.findMany({ where: { itemId: item.id, orderId: order.id, note: { startsWith: "Recibida" } } });
+  assert.equal(logs.length, 1);
+  assert.equal(logs[0].from, "EN_ALQUILER");
+  assert.equal(logs[0].to, "EN_LAVADO");
+  assert.equal(logs[0].laundryPlace, "Lavandería Sol");
+  const reserva = await prisma.orderItem.findFirst({ where: { orderId: order.id } });
+  assert.ok(reserva.releasedAt, "la reserva se libera: sus días ya no bloquean pedidos nuevos");
+
+  // Sale del lavado: Disponible, no «Reservada» por su propio pedido ya devuelto.
+  const sale = await como(MOSTRADOR, { method: "POST", url: `/api/items/${item.id}/status`, payload: { to: "DISPONIBLE" } });
+  assert.equal(sale.json().status, "DISPONIBLE");
+});
+
+test("recibir como desperfecto exige observación; lavado exige lugar; nunca directo a Disponible", async () => {
+  const { order, item } = await pedido({ diasAtras: 1 });
+  await entregar(item.id);
+  const con = (dest) => recibir(order.id, todayISO(), MOSTRADOR, { items: [{ itemId: item.id, ...dest }] });
+  assert.equal((await con({ to: "NO_ALQUILABLE" })).statusCode, 400, "desperfecto sin observación");
+  assert.equal((await con({ to: "EN_LAVADO", laundry: { kind: "PROPIO", place: " " } })).statusCode, 400, "lavado sin lugar");
+  assert.equal((await con({ to: "DISPONIBLE" })).statusCode, 400, "no vuelve al catálogo sin lavar");
+  assert.equal((await prisma.orderItem.findFirst({ where: { orderId: order.id } })).receivedAt, null, "nada quedó a medias");
+
+  const ok = await con({ to: "NO_ALQUILABLE", note: "Cremallera rota" });
+  assert.equal(ok.statusCode, 200, ok.body);
+  const fila = await prisma.item.findUnique({ where: { id: item.id } });
+  assert.equal(fila.status, "NO_ALQUILABLE");
+  assert.equal(fila.unrentableReason, "DESPERFECTO");
+});
+
+test(`en lavado se retira desde ${LAUNDRY_READY_DAYS} días después, corrido al siguiente hábil`, () => {
+  // Hora de Guayaquil (UTC−5): las 15:00 del viernes 27 son las 20:00 UTC.
+  const lavado = (iso) => ({ status: "EN_LAVADO", statusSince: new Date(`${iso}T20:00:00Z`) });
+  const hoy = "2026-11-20";
+  assert.deepEqual(rentableFrom(lavado("2026-11-27"), new Set(), hoy), { rentable: true, from: "2026-11-30" }, "viernes → lunes");
+  assert.deepEqual(rentableFrom(lavado("2026-11-30"), new Set(), hoy), { rentable: true, from: "2026-12-03" }, "lunes → jueves");
+  assert.equal(rentableFrom(lavado("2026-12-22"), new Set(["2026-12-25"]), hoy).from, "2026-12-28", "el feriado lo corre");
+  assert.deepEqual(rentableFrom(lavado("2026-11-02"), new Set(), hoy), { rentable: true, from: null }, "ya pasó: desde hoy");
+  assert.deepEqual(rentableFrom({ status: "EN_ALQUILER" }), { rentable: false, from: null }, "fuera, no se ofrece");
+  assert.deepEqual(rentableFrom({ status: "DISPONIBLE" }), { rentable: true, from: null });
+});
+
+test("el catálogo y el pedido respetan el lavado; lo que está fuera no se ofrece", async () => {
+  const item = await nuevoEjemplar();
+  const enCatalogo = async () => (await app.inject({ method: "GET", url: "/api/products" })).json()
+    .flatMap((p) => p.items).find((i) => i.id === item.id);
+
+  await prisma.item.update({ where: { id: item.id }, data: { status: "EN_ALQUILER" } });
+  assert.equal((await enCatalogo()).available, false, "en alquiler sin reserva viva tampoco se ofrece");
+
+  await prisma.item.update({ where: { id: item.id }, data: { status: "EN_LAVADO", statusSince: new Date(), laundryKind: "PROPIO", laundryPlace: "Local" } });
+  const desde = nextBusinessDay(addDaysISO(todayISO(), LAUNDRY_READY_DAYS), await holidaySet());
+  const visto = await enCatalogo();
+  assert.equal(visto.available, true);
+  assert.equal(visto.availableFrom, desde);
+
+  const pedir = (start) => como(CLIENTE, {
+    method: "POST",
+    url: "/api/orders",
+    payload: { items: [item.id], start, end: start, delivery: "pickup", ret: "store", pay: "cash" },
+  });
+  const pronto = await pedir(habil(0));
+  assert.equal(pronto.statusCode, 409);
+  assert.match(pronto.json().error, /vuelve del lavado/);
+  const cotiza = await app.inject({
+    method: "POST", url: "/api/quote",
+    payload: { items: [item.id], start: habil(0), end: habil(0), delivery: "pickup", ret: "store" },
+  });
+  assert.equal(cotiza.statusCode, 409, "la cotización avisa antes de pagar");
+  assert.equal((await pedir(desde)).statusCode, 201, "desde el día prometido, sí");
 });

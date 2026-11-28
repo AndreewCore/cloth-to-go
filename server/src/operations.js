@@ -14,7 +14,7 @@ import { CHARGE_TYPE, settlementFor } from "./ledger.js";
 import { cents, rentalDays, rentalPrice } from "./pricing.js";
 import { addDaysISO, isBusinessDay, todayISO } from "./dates.js";
 import { holidaySet } from "./calendar.js";
-import { manualTargets } from "./items.js";
+import { manualTargets, planTransition } from "./items.js";
 import { FINANCE_EVENT, logFinance, logItem } from "./logs.js";
 import { CON_LINEAS, orderToApi } from "./orders.js";
 import { panelPhotoUrl } from "./catalogAdmin.js";
@@ -122,11 +122,18 @@ const PARA_PANEL = {
   },
 };
 
+/** Adónde puede ir una prenda al recibirla: nunca directo al catálogo (§3). */
+export const RECEIVE_TARGETS = Object.freeze([S.EN_LAVADO, S.NO_ALQUILABLE]);
+
 /**
  * Valida el cuerpo de una recepción.
+ *
+ * Cada prenda dice adónde va: a lavado (con quién lava y dónde está) o a
+ * desperfecto (con observación). Así la recepción y el lavado son un solo
+ * registro, y una prenda devuelta no puede volver a ofrecerse sin lavar.
  * @param {object} body Cuerpo de la petición.
  * @param {string} today Hoy (`YYYY-MM-DD`).
- * @returns {{returnedOn: string, itemIds: number[]|null, note: string|null}}
+ * @returns {{returnedOn: string, items: object[], note: string|null}}
  */
 function parseReceipt(body, today) {
   const b = body ?? {};
@@ -136,16 +143,18 @@ function parseReceipt(body, today) {
   // Una fecha futura no es «cuándo volvió»: es un error de tecleo que cobraría
   // días que todavía no pasaron.
   if (b.returnedOn > today) throw httpError(400, "La fecha de devolución no puede ser futura.");
-  let itemIds = null;
-  if (b.itemIds != null) {
-    if (!Array.isArray(b.itemIds) || b.itemIds.length === 0 || b.itemIds.length > 50
-      || !b.itemIds.every((n) => Number.isInteger(n) && n > 0)) {
-      throw httpError(400, "Lista de prendas no válida.");
-    }
-    itemIds = [...new Set(b.itemIds)];
+  if (!Array.isArray(b.items) || b.items.length === 0 || b.items.length > 50) {
+    throw httpError(400, "Indica qué prendas volvieron y adónde va cada una.");
   }
+  const vistos = new Set();
+  const items = b.items.map((x) => {
+    if (!Number.isInteger(x?.itemId) || x.itemId <= 0 || vistos.has(x.itemId)) throw httpError(400, "Lista de prendas no válida.");
+    if (!RECEIVE_TARGETS.includes(x.to)) throw httpError(400, "Cada prenda va a lavado o a desperfecto.");
+    vistos.add(x.itemId);
+    return { itemId: x.itemId, to: x.to, laundry: x.laundry, reason: x.reason ?? "DESPERFECTO", note: x.note };
+  });
   const note = typeof b.note === "string" && b.note.trim() ? b.note.trim().slice(0, 500) : null;
-  return { returnedOn: b.returnedOn, itemIds, note };
+  return { returnedOn: b.returnedOn, items, note };
 }
 
 /**
@@ -265,17 +274,17 @@ export function registerOperationRoutes(app, { requireUser, requireCapability },
     return { notReceived: sinRecibir, receivedNotWashed: sinLavar, inLaundry: enLavado };
   });
 
-  // Recibir prendas devueltas: anota el día real, quién y cuándo lo registró, y
-  // cobra los días extra si se pasó de la fecha límite. El estado físico no
-  // cambia aquí: llevarla a lavado (o a desperfecto) es otro acto, con sus
-  // propios datos obligatorios.
+  // Recibir prendas devueltas: anota el día real, quién y cuándo lo registró,
+  // cobra los días extra si se pasó de la fecha límite y lleva cada prenda a
+  // lavado o a desperfecto. Todo en una transacción: una prenda recibida
+  // nunca queda «En alquiler» esperando a que alguien se acuerde de lavarla.
   app.post("/api/orders/:id/receive", { preHandler: mostrador }, async (req) => {
     const id = routeId(req.params.id, "Pedido");
     const hoy = todayISO();
     const datos = parseReceipt(req.body, hoy);
     const feriados = await holidaySet();
 
-    await prisma.$transaction(async (tx) => {
+    const receipt = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
         where: { id },
         include: { items: { include: { item: { include: { product: { include: { materialRef: true } } } } } } },
@@ -286,30 +295,40 @@ export function registerOperationRoutes(app, { requireUser, requireCapability },
         throw httpError(400, "La prenda no puede volver antes de que empezara el alquiler.");
       }
 
-      const pendientes = order.items.filter((oi) => !oi.receivedAt);
-      const elegidas = datos.itemIds
-        ? pendientes.filter((oi) => datos.itemIds.includes(oi.itemId))
-        : pendientes;
-      if (datos.itemIds && elegidas.length !== datos.itemIds.length) {
+      const pendientes = new Map(order.items.filter((oi) => !oi.receivedAt).map((oi) => [oi.itemId, oi]));
+      if (pendientes.size === 0) throw httpError(409, "Todas las prendas de este pedido ya se recibieron.");
+      if (datos.items.some((x) => !pendientes.has(x.itemId))) {
         throw httpError(409, "Alguna de esas prendas no es de este pedido o ya se recibió.");
       }
-      if (elegidas.length === 0) throw httpError(409, "Todas las prendas de este pedido ya se recibieron.");
       // Solo vuelve lo que se entregó: una prenda Reservada nunca salió del
       // local, y recibirla escondería que nadie registró la entrega.
-      const noEntregada = elegidas.find((oi) => oi.item.status !== S.EN_ALQUILER);
+      const noEntregada = datos.items.map((x) => pendientes.get(x.itemId)).find((oi) => oi.item.status !== S.EN_ALQUILER);
       if (noEntregada) {
         throw httpError(409, `La prenda ${noEntregada.item.code ?? `#${noEntregada.itemId}`} no consta como entregada; márcala En Alquiler primero.`);
       }
 
       const dias = rentalDays(order.start, order.end);
-      for (const oi of elegidas) {
+      const resumen = { extraCents: 0, items: [] };
+      for (const pedida of datos.items) {
+        const oi = pendientes.get(pedida.itemId);
+        // El destino se valida con la misma tabla que el cambio manual: lavado
+        // exige quién y dónde; desperfecto, una observación.
+        const plan = planTransition(oi.item, { ...pedida, note: pedida.note ?? datos.note }, req.user);
+        if (plan.error) throw httpError(plan.status, `${oi.item.product.name}: ${plan.error}`);
+
         // Condición sobre `receivedAt`: dos mostradores que reciben a la vez no
-        // pueden cobrar dos veces los mismos días extra.
+        // pueden cobrar dos veces los mismos días extra. Y la reserva se libera
+        // (`releasedAt`): la prenda ya volvió, así que sus días hasta la fecha
+        // límite no deben frenar ni la vuelta a Disponible ni un pedido nuevo
+        // desde que sale del lavado.
+        const ahora = new Date();
         const { count } = await tx.orderItem.updateMany({
           where: { id: oi.id, receivedAt: null },
-          data: { returnedOn: new Date(`${datos.returnedOn}T00:00:00Z`), receivedAt: new Date(), receivedById: req.user.id },
+          data: { returnedOn: new Date(`${datos.returnedOn}T00:00:00Z`), receivedAt: ahora, receivedById: req.user.id, releasedAt: ahora },
         });
         if (count === 0) throw httpError(409, "Otra persona registró esta devolución mientras tanto; vuelve a cargar.");
+        const movida = await tx.item.updateMany({ where: { id: oi.itemId, status: S.EN_ALQUILER }, data: plan.data });
+        if (movida.count === 0) throw httpError(409, "La prenda cambió de estado mientras tanto; vuelve a cargar.");
 
         const returnBy = isoDe(oi.end);
         const extra = lateDays(returnBy, datos.returnedOn, feriados);
@@ -325,21 +344,34 @@ export function registerOperationRoutes(app, { requireUser, requireCapability },
             amountCents: linea.amountCents,
             note: linea.note,
           });
+          resumen.extraCents += linea.amountCents;
         }
+        // Una sola entrada: la nota empieza por «Recibida», que es como la
+        // bitácora general distingue la recepción de un cambio manual.
         await logItem(tx, {
           itemId: oi.itemId,
-          from: oi.item.status,
-          to: oi.item.status,
+          from: S.EN_ALQUILER,
+          to: plan.data.status,
           actorId: req.user.id,
           orderId: id,
-          note: [`Recibida; volvió el ${datos.returnedOn}`, extra ? `${extra} día(s) extra` : null, datos.note]
+          laundry: plan.laundry,
+          note: [`Recibida; volvió el ${datos.returnedOn}`, extra ? `${extra} día(s) extra` : null, plan.note]
             .filter(Boolean).join(" · "),
         });
+        resumen.items.push({
+          itemId: oi.itemId,
+          code: oi.item.code,
+          productName: oi.item.product.name,
+          to: plan.data.status,
+          laundryPlace: plan.data.laundryPlace,
+          extraDays: extra,
+        });
       }
+      return resumen;
     });
 
     const actualizado = await prisma.order.findUnique({ where: { id }, include: PARA_PANEL });
-    return orderForPanel(actualizado, fotosPara(req));
+    return { ...orderForPanel(actualizado, fotosPara(req)), receipt };
   });
 }
 

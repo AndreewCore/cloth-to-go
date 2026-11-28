@@ -313,6 +313,8 @@ function addToCart(id, origin){
   if(inCart(id)){ toast("Ya está en tu carrito"); return; }
   if(isRented(id)){ toast("Ya la tienes alquilada"); renderGrid(); return; }
   cart.push({ id });
+  // Una prenda que vuelve del lavado puede retrasar el primer día de retiro.
+  snapRentalDates(false);
   saveState();
   updateBadge();
   // El vuelo sale antes del repintado; si no llegó a lanzarse (sin origen, con
@@ -562,7 +564,9 @@ function renderDetail(){
       <p class="dt-note">Mientras más días, más barato sale cada uno. Alquilando varias prendas a la vez ahorras hasta un ${Math.round(pricingTexts.volumeDiscountMax * 100)}% adicional.</p>
     </div>
     <p class="detail-avail">${unitsAvailable(p) > 0
-      ? `${icon("checkCircle", { size: 15 })} Disponible · ${p.disponibles} unidad${p.disponibles===1?'':'es'} (prenda única)`
+      ? pickItem(p)?.availableFrom
+        ? `${icon("checkCircle", { size: 15 })} Vuelve del lavado · se retira desde el ${fmtDate(pickItem(p).availableFrom)}`
+        : `${icon("checkCircle", { size: 15 })} Disponible · ${p.disponibles} unidad${p.disponibles===1?'':'es'} (prenda única)`
       : isRented(p.id)
         ? `${icon("ban", { size: 15 })} No disponible por el momento`
         : `${icon("ban", { size: 15 })} Ya está en tu carrito (prenda única)`}</p>

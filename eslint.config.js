@@ -66,7 +66,7 @@ const APP_GLOBALS = {
     "waterSavedForItems", "cartWaterSaved", "totalWaterSaved",
     "reachedWaterGoals", "nextWaterGoal", "waterGoalProgress", "applyAccount", "accountSynced",
     "toggleWaterGoalInfo", "celebrateWaterGoals",
-    "orderDeposit", "orderItemPrice", "cartItemIds", "paymentStatusLabel", "isArchivedOrder",
+    "orderDeposit", "orderItemPrice", "cartItemIds", "pickItem", "earliestStartISO", "paymentStatusLabel", "isArchivedOrder",
     "isCancelledOrder", "isPastOrder", "canCancelOrder", "isDelivered",
     "reviews", "productReviewCache", "notices", "unreadNotices", "reviewOrderId", "reviewProductId", "reviewRating", "reviewText",
     "reviewPhoto", "reviewPhotoBlob", "REVIEW_STATUS_LABEL",

@@ -357,15 +357,16 @@ async function receiveOrder(id) {
     if (/^\d{4}-\d{2}-\d{2}$/.test(fecha.value)) vista.replaceChildren(dayStrip(o, fecha.value));
   });
   // Una tanda de fotos por prenda: así cada foto queda atada a su ejemplar y
-  // se puede comparar con las de su salida.
-  const fichas = recibibles.map((l) => ({ l, picker: photoPicker({ label: "Fotos de cómo llegó" }) }));
+  // se puede comparar con las de su salida. Y un destino por prenda: nada
+  // vuelve al catálogo sin pasar por lavado (§3).
+  const fichas = recibibles.map((l) => ({ l, picker: photoPicker({ label: "Fotos de cómo llegó" }), destino: destinationFields(l.itemId) }));
   const marcadas = (form) => new Set(new FormData(form).getAll("item").map(Number));
   const datos = await formDialog(`Devolución del pedido #${id}`, [
     h("p.meta", {}, `Límite sin costo: ${fmtDay(o.returnBy)}. Los días hábiles después se cobran como días extra.`),
     h("label", {}, "Día en que volvió de verdad", fecha),
     vista,
     h("fieldset", {}, h("legend", {}, "Prendas que volvieron"),
-      fichas.map(({ l, picker }) => h("div.receive-item", {},
+      fichas.map(({ l, picker, destino }) => h("div.receive-item", {},
         h("label.check", {},
           h("input", { type: "checkbox", name: "item", value: l.itemId, checked: true }),
           thumb(l.imgs),
@@ -373,29 +374,37 @@ async function receiveOrder(id) {
         h("div.receive-photos", {},
           h("button.btn.small", { type: "button", dataset: { action: "photos", item: l.itemId } }, "Ver cómo salió"),
           picker.el),
+        destino.el,
       ))),
-    h("label", {}, "Observación (opcional)", h("textarea", { name: "note", maxlength: 500, rows: 2 })),
+    h("label", {}, "Observación general (opcional)", h("textarea", { name: "note", maxlength: 500, rows: 2 })),
   ], "Registrar", {
     wide: true,
     validate: (form) => {
       const elegidas = marcadas(form);
       if (!elegidas.size) return "Marca al menos una prenda.";
       const sinFoto = fichas.find(({ l, picker }) => elegidas.has(l.itemId) && !picker.count());
-      return sinFoto ? `Falta al menos una foto de cómo llegó ${sinFoto.l.productName}.` : null;
+      if (sinFoto) return `Falta al menos una foto de cómo llegó ${sinFoto.l.productName}.`;
+      const incompleta = fichas.find(({ l, destino }) => elegidas.has(l.itemId) && destino.error());
+      return incompleta ? `${incompleta.l.productName}: ${incompleta.destino.error()}` : null;
     },
   });
   try {
     if (!datos) return;
     const itemIds = datos.getAll("item").map(Number);
+    const elegidas = fichas.filter(({ l }) => itemIds.includes(l.itemId));
     // Las fotos primero: si la subida falla, no queda registrada una
     // devolución sin su prueba, y se puede reintentar entera.
-    for (const { l, picker } of fichas.filter(({ l: x }) => itemIds.includes(x.itemId))) {
+    for (const { l, picker } of elegidas) {
       await upload(`/api/items/${l.itemId}/photos`, await picker.files(), { kind: "LLEGADA", orderId: String(id) });
     }
     await act(
       () => api(`/api/orders/${id}/receive`, {
         method: "POST",
-        body: { returnedOn: datos.get("returnedOn"), itemIds, note: datos.get("note") || undefined },
+        body: {
+          returnedOn: datos.get("returnedOn"),
+          note: datos.get("note") || undefined,
+          items: elegidas.map(({ destino }) => destino.value()),
+        },
       }),
       "Devolución registrada con sus fotos.",
     );
@@ -404,6 +413,41 @@ async function receiveOrder(id) {
   } finally {
     fichas.forEach(({ picker }) => picker.dispose());
   }
+}
+
+/**
+ * Campos de adónde va una prenda al recibirla: a lavado (quién lava y dónde
+ * está) o a desperfecto (qué le pasó). Solo se ven los del destino elegido.
+ * @param {number} itemId Ejemplar.
+ * @returns {{el: HTMLElement, value: () => object, error: () => string|null}}
+ */
+function destinationFields(itemId) {
+  const destino = h("select", { "aria-label": "Adónde va" },
+    h("option", { value: "EN_LAVADO" }, "A lavado"),
+    h("option", { value: "NO_ALQUILABLE" }, "Desperfecto (no se alquila)"));
+  const quien = h("select", { "aria-label": "Quién lava" },
+    h("option", { value: "PROPIO" }, "Propio"), h("option", { value: "EXTERNO" }, "Externo"));
+  const lugar = h("input", { maxlength: 120, value: "Local", "aria-label": "Dónde está", placeholder: "Local, o nombre de la lavandería" });
+  const nota = h("input", { maxlength: 500, "aria-label": "Qué le pasó", placeholder: "Qué le pasó (obligatorio)" });
+  const lavado = h("div.dest-fields", {}, h("label", {}, "Quién lava", quien), h("label", {}, "Dónde está", lugar));
+  const danio = h("div.dest-fields", {}, h("label.grow", {}, "Desperfecto", nota));
+  const sync = () => {
+    lavado.hidden = destino.value !== "EN_LAVADO";
+    danio.hidden = destino.value !== "NO_ALQUILABLE";
+  };
+  destino.addEventListener("change", sync);
+  sync();
+  return {
+    el: h("div.receive-dest", {}, h("label", {}, "Adónde va", destino), lavado, danio),
+    value: () => (destino.value === "EN_LAVADO"
+      ? { itemId, to: "EN_LAVADO", laundry: { kind: quien.value, place: lugar.value.trim() } }
+      : { itemId, to: "NO_ALQUILABLE", reason: "DESPERFECTO", note: nota.value.trim() }),
+    error: () => {
+      if (destino.value === "EN_LAVADO" && !lugar.value.trim()) return "indica dónde se lava.";
+      if (destino.value === "NO_ALQUILABLE" && !nota.value.trim()) return "describe el desperfecto.";
+      return null;
+    },
+  };
 }
 
 /**
