@@ -37,7 +37,7 @@ function pedido({ cumplido = true, items = [3], id = 1 } = {}) {
   const start = cumplido ? app.isoOffset(-2) : app.isoOffset(1);
   const o = {
     id, date: app.isoOffset(-3), items,
-    start, end: app.isoOffset(5),
+    start, end: app.isoOffset(5), deliveredAt: cumplido ? start : null,
     delivery: "pickup", ret: "local", retAddr: "",
     pay: "cash", status: "pending", total: 20, pointsCredited: true,
   };

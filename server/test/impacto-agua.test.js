@@ -42,10 +42,13 @@ function fecha(dias) {
  */
 function pedido({ items, ...datos }) {
   // Un pedido anulado no reserva: su fila nace liberada, como la dejaría la API.
+  // Lo que ya empezó se da por entregado, como lo habría registrado el
+  // mostrador: el contador solo suma pedidos con la entrega registrada.
   const reserva = {
     start: isoToDate(datos.start),
     end: isoToDate(datos.end),
     releasedAt: datos.cancelledAt ?? null,
+    deliveredAt: datos.start < fecha(0) ? new Date() : null,
   };
   return prisma.order.create({
     data: {

@@ -19,7 +19,7 @@ let win, doc, app;
 function pedidoEntregado(extra = {}) {
   return {
     id: 1001, date: "2026-07-01", items: [app.products[0].id],
-    start: "2026-07-02", end: "2026-07-05",
+    start: "2026-07-02", end: "2026-07-05", deliveredAt: "2026-07-02",
     delivery: "pickup", ret: "store", retAddr: "",
     pay: "cash", status: "settled", total: 30, ...extra,
   };
@@ -152,4 +152,18 @@ test("Ajustes pinta un control por cada preferencia que existe", () => {
   for (const p of Object.keys(app.DEFAULT_PREFS)) {
     assert.ok(prefs.includes(p), `la preferencia "${p}" no tiene control en Ajustes`);
   }
+});
+
+test("la etiqueta dice «Reservado» hasta que el local registra la entrega", () => {
+  const o = pedidoEntregado({ status: "pending", deliveredAt: null, start: app.isoOffset(1), end: app.isoOffset(4), returnBy: app.isoOffset(4) });
+  app.orders = [o];
+  win.renderProfile();
+  const tag = () => doc.querySelector("#sheetBody .rent-tag").textContent;
+  assert.match(tag(), /Reservado · retira desde el/);
+  assert.ok(doc.querySelector('[data-action="cancelOrder"]'), "todavía se puede anular");
+
+  o.deliveredAt = app.isoOffset(0);
+  win.renderProfile();
+  assert.equal(tag(), "En alquiler");
+  assert.equal(doc.querySelector('[data-action="cancelOrder"]'), null, "entregado: ya no se anula desde la app");
 });

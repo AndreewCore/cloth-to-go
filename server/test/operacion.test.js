@@ -26,7 +26,8 @@ const CLIENTE = "test-sub-op-cliente";
 const MOSTRADOR = "test-sub-op-mostrador";
 const CAJA = "test-sub-op-caja";
 const INVENTARIO = "test-sub-op-inventario";
-const SUBS = [CLIENTE, MOSTRADOR, CAJA, INVENTARIO];
+const MOSTRADOR_CAJA = "test-sub-op-mostrador-caja";
+const SUBS = [CLIENTE, MOSTRADOR, CAJA, INVENTARIO, MOSTRADOR_CAJA];
 
 let app;
 const creados = [];
@@ -83,10 +84,16 @@ async function pedido({ diasAtras = 0 } = {}) {
   return { order, item, returnBy };
 }
 
-/** Marca entregado (Reservada → En Alquiler) por el mostrador. */
+/**
+ * Registra la entrega del pedido de un ejemplar por el mostrador, el mismo día
+ * de retiro (que estas pruebas ya llevaron al pasado).
+ * @param {number} itemId Ejemplar.
+ */
 async function entregar(itemId) {
-  const res = await como(MOSTRADOR, { method: "POST", url: `/api/items/${itemId}/status`, payload: { to: "EN_ALQUILER" } });
+  const oi = await prisma.orderItem.findFirst({ where: { itemId }, orderBy: { id: "desc" }, include: { order: true } });
+  const res = await como(MOSTRADOR, { method: "POST", url: `/api/orders/${oi.orderId}/deliver`, payload: { deliveredOn: oi.order.start } });
   assert.equal(res.statusCode, 200, res.body);
+  return res.json();
 }
 
 /** Destino de lavado propio en el local, el más común al recibir. */
@@ -115,6 +122,7 @@ beforeEach(async () => {
   await grant(MOSTRADOR, ["MOSTRADOR"]);
   await grant(CAJA, ["CAJA"]);
   await grant(INVENTARIO, ["INVENTARIO"]);
+  await grant(MOSTRADOR_CAJA, ["MOSTRADOR", "CAJA"]);
 });
 
 after(async () => {
@@ -201,7 +209,7 @@ test("no se recibe lo que no consta como entregado", async () => {
   const { order } = await pedido({ diasAtras: 1 });
   const res = await recibir(order.id, todayISO());
   assert.equal(res.statusCode, 409);
-  assert.match(res.json().error, /En Alquiler/);
+  assert.match(res.json().error, /registra la entrega/);
 });
 
 test("recibir es del mostrador, no de caja ni del cliente", async () => {
@@ -431,4 +439,66 @@ test("el recorrido de un pedido sigue a la prenda hasta que vuelve a Disponible"
   assert.equal((await como(CLIENTE, { method: "GET", url: `/api/orders/${order.id}/timeline` })).statusCode, 403);
   assert.equal((await como(INVENTARIO, { method: "GET", url: `/api/orders/${order.id}/timeline` })).statusCode, 403);
   assert.equal((await como(CAJA, { method: "GET", url: "/api/orders/99999999/timeline" })).statusCode, 404);
+});
+
+/* ---- Entrega registrada ---- */
+
+/** Registra la entrega de un pedido como `sub`. */
+const entregarPedido = (orderId, payload, sub = MOSTRADOR) =>
+  como(sub, { method: "POST", url: `/api/orders/${orderId}/deliver`, payload });
+
+test("entregar es un registro del mostrador con el día real, no un cambio de estado a mano", async () => {
+  const { order, item } = await pedido({ diasAtras: 2 });
+  const fila = await prisma.order.findUnique({ where: { id: order.id } });
+  assert.equal((await como(MOSTRADOR, { method: "POST", url: `/api/items/${item.id}/status`, payload: { to: "EN_ALQUILER" } })).statusCode, 409,
+    "En Alquiler ya no se pone a mano");
+  assert.equal((await entregarPedido(order.id, { deliveredOn: fila.start }, CAJA)).statusCode, 403);
+  assert.equal((await entregarPedido(order.id, { deliveredOn: fila.start }, CLIENTE)).statusCode, 403);
+  assert.equal((await entregarPedido(order.id, { deliveredOn: addDaysISO(todayISO(), 1) })).statusCode, 400, "no en el futuro");
+  assert.equal((await entregarPedido(order.id, { deliveredOn: addDaysISO(fila.start, -7) })).statusCode, 400, "no antes del retiro");
+
+  // El cliente lo ve Reservado hasta que el local registra la entrega.
+  const antes = (await como(CLIENTE, { method: "GET", url: "/api/orders" })).json().find((o) => o.id === order.id);
+  assert.equal(antes.deliveredAt, null);
+
+  const res = await entregarPedido(order.id, { deliveredOn: fila.start, note: "Retiró su hermana" });
+  assert.equal(res.statusCode, 200, res.body);
+  assert.equal(res.json().lines[0].status, "EN_ALQUILER");
+  assert.equal(res.json().lines[0].deliveredOn, fila.start);
+  assert.deepEqual(res.json().delivery.items.map((x) => x.itemId), [item.id]);
+  assert.equal((await entregarPedido(order.id, { deliveredOn: fila.start })).statusCode, 409, "no se entrega dos veces");
+
+  const despues = (await como(CLIENTE, { method: "GET", url: "/api/orders" })).json().find((o) => o.id === order.id);
+  assert.ok(despues.deliveredAt, "ahora cuenta como entregado");
+  assert.equal(despues.lines[0].deliveredOn, fila.start);
+  const log = await prisma.itemLog.findFirst({ where: { itemId: item.id, orderId: order.id, note: { startsWith: "Entregada" } } });
+  assert.match(log.note, /Retiró su hermana/);
+  const aviso = await prisma.notice.findFirst({ where: { orderId: order.id, kind: "ENTREGA" } });
+  assert.ok(aviso, "el cliente recibe el aviso de la entrega");
+  assert.match(aviso.body, /sin costo extra hasta el/);
+});
+
+test("entregar con cobro: solo quien también es Caja confirma el efectivo en el mismo acto", async () => {
+  const { order } = await pedido({ diasAtras: 1 });
+  const fila = await prisma.order.findUnique({ where: { id: order.id }, include: { charges: true } });
+  const pendiente = fila.charges.filter((c) => c.status === "PENDING").reduce((s, c) => s + c.amountCents, 0);
+  assert.ok(pendiente > 0, "en efectivo hay cobro pendiente");
+  assert.equal((await entregarPedido(order.id, { deliveredOn: fila.start, settle: true })).statusCode, 403, "el mostrador solo no toca dinero");
+
+  const res = await entregarPedido(order.id, { deliveredOn: fila.start, settle: true }, MOSTRADOR_CAJA);
+  assert.equal(res.statusCode, 200, res.body);
+  assert.equal(res.json().delivery.settledCents, pendiente);
+  assert.equal(res.json().status, "settled");
+  assert.ok(await prisma.financeLog.findFirst({ where: { orderId: order.id, kind: "COBRO_CONFIRMADO" } }));
+});
+
+test("la devolución registrada avisa al cliente, con los días extra si los hubo", async () => {
+  const { order, item } = await pedido({ diasAtras: 12 });
+  await entregar(item.id);
+  assert.equal((await recibir(order.id, todayISO())).statusCode, 200);
+  const aviso = await prisma.notice.findFirst({ where: { orderId: order.id, kind: "DEVOLUCION" } });
+  assert.ok(aviso);
+  assert.match(aviso.body, /día(s)? hábil(es)? después de la fecha límite/);
+  const bitacora = await como(MOSTRADOR, { method: "GET", url: `/api/orders/${order.id}/timeline` });
+  assert.ok(bitacora.json().entries.some((e) => e.action === "ENTREGA"), "la entrega sale con su nombre en el recorrido");
 });

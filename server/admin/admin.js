@@ -369,7 +369,8 @@ const pendingCents = (o) => o.charges.filter((c) => c.status === "PENDING").redu
 function orderCard(o) {
   const pendienteCents = pendingCents(o);
   const porRecibir = o.lines.filter((l) => !l.receivedAt);
-  const recibible = porRecibir.some((l) => l.status === "EN_ALQUILER");
+  const recibible = porRecibir.some((l) => l.deliveredAt && l.status === "EN_ALQUILER");
+  const entregable = o.lines.some((l) => !l.deliveredAt && l.status === "RESERVADA");
   const hoy = todayISO();
   const vencido = porRecibir.length > 0 && o.returnBy < hoy;
 
@@ -387,11 +388,11 @@ function orderCard(o) {
       h("span.line-actions", {},
         photoButton(l.itemId),
         " ",
-        l.receivedAt ? h("span.chip", { title: `Registrada ${when(l.receivedAt)}` }, `Volvió ${fmtDay(l.returnedOn)}`) : statusChip(l.status),
-        " ",
-        !l.receivedAt && l.status === "RESERVADA" && can("MOSTRADOR")
-          ? h("button.btn", { type: "button", disabled: o.start > hoy || null, title: o.start > hoy ? `Se entrega desde el ${fmtDay(o.start)}` : null, dataset: { action: "deliver", order: o.id, item: l.itemId } }, "Entregar")
-          : null,
+        l.receivedAt
+          ? h("span.chip", { title: `Registrada ${when(l.receivedAt)}` }, `Volvió ${fmtDay(l.returnedOn)}`)
+          : l.deliveredAt
+            ? h("span.chip.warn", { title: `Registrada ${when(l.deliveredAt)}` }, `Salió ${fmtDay(l.deliveredOn)}`)
+            : statusChip(l.status),
       ),
     ))),
     h("dl.money", {},
@@ -400,6 +401,12 @@ function orderCard(o) {
       h("dt", {}, "Garantía retenida"), h("dd", {}, money(o.depositHeldCents)),
     ),
     h("div.actions", {},
+      entregable && can("MOSTRADOR")
+        ? h("button.btn.primary", {
+          type: "button", disabled: o.start > hoy || null,
+          title: o.start > hoy ? `Se entrega desde el ${fmtDay(o.start)}` : null,
+          dataset: { action: "deliver", order: o.id },
+        }, o.start > hoy ? `Entrega desde el ${fmtDay(o.start)}` : "Registrar entrega") : null,
       recibible && can("MOSTRADOR")
         ? h("button.btn.primary", { type: "button", dataset: { action: "receive", order: o.id } }, "Registrar devolución") : null,
       pendienteCents > 0 && can("CAJA")
@@ -416,7 +423,7 @@ function orderCard(o) {
 /** Diálogo de recepción: qué prendas, qué día volvieron de verdad y observación. */
 async function receiveOrder(id) {
   const o = state.orders.find((x) => x.id === id);
-  const recibibles = o.lines.filter((l) => !l.receivedAt && l.status === "EN_ALQUILER");
+  const recibibles = o.lines.filter((l) => !l.receivedAt && l.deliveredAt && l.status === "EN_ALQUILER");
   const fecha = h("input", { type: "date", name: "returnedOn", required: true, value: todayISO(), max: todayISO(), min: o.start });
   const vista = h("div", {}, dayStrip(o, fecha.value));
   // Vista previa: la tira se rehace con el día elegido para ver los días extra
@@ -540,34 +547,70 @@ function destinationFields(itemId) {
 }
 
 /**
- * Entrega una prenda: pide fotos de cómo sale (son la referencia con la que
- * se comparará al volver) y la pasa a En Alquiler.
+ * Registra la entrega de un pedido: qué prendas salieron, el día real (hoy por
+ * defecto; puede ser anterior si se registra tarde) y una tanda de fotos por
+ * prenda, que es con lo que se comparará al volver. Si quien entrega también
+ * es Caja y hay efectivo pendiente, el mismo diálogo confirma el cobro.
  * @param {number} orderId Pedido.
- * @param {number} itemId Ejemplar.
  */
-async function deliverItem(orderId, itemId) {
+async function deliverOrder(orderId) {
   const o = state.orders.find((x) => x.id === orderId);
-  const l = o?.lines.find((x) => x.itemId === itemId);
-  const picker = photoPicker({ label: "Fotos de cómo sale" });
-  const datos = await formDialog(`Entregar ${l?.productName ?? "prenda"} (${l?.code ?? `#${itemId}`})`, [
-    h("p.meta", {}, "Fotografía la prenda tal como sale: de frente, de espalda y cualquier detalle (manchas, botones, costuras). Es lo que se compara cuando vuelva."),
-    h("button.btn.small", { type: "button", dataset: { action: "photos", item: itemId } }, "Ver fotos del catálogo"),
-    picker.el,
-  ], "Entregar", { wide: true, validate: () => (picker.count() ? null : "Saca al menos una foto de cómo sale.") });
+  const listas = o.lines.filter((l) => !l.deliveredAt && l.status === "RESERVADA");
+  const hoy = todayISO();
+  const fichas = listas.map((l) => ({ l, picker: photoPicker({ label: "Fotos de cómo sale" }) }));
+  const pendiente = pendingCents(o);
+  const cobra = pendiente > 0 && o.pay === "cash" && can("CAJA");
+  const marcadas = (form) => new Set(new FormData(form).getAll("item").map(Number));
+  const datos = await formDialog(`Entrega del pedido #${orderId} · ${customerName(o)}`, [
+    h("p.meta", {}, "Fotografía cada prenda tal como sale: de frente, de espalda y cualquier detalle (manchas, botones, costuras). Es lo que se compara cuando vuelva."),
+    h("label", {}, "Día en que salió",
+      h("input", { type: "date", name: "deliveredOn", required: true, value: hoy < o.start ? o.start : hoy, min: o.start, max: hoy })),
+    h("fieldset", {}, h("legend", {}, "Prendas que salen"),
+      fichas.map(({ l, picker }) => h("div.receive-item", {},
+        h("label.check", {},
+          h("input", { type: "checkbox", name: "item", value: l.itemId, checked: true }),
+          thumb(l.imgs), ` ${l.productName} (${l.code ?? `#${l.itemId}`})`),
+        h("div.receive-photos", {},
+          h("button.btn.small", { type: "button", dataset: { action: "photos", item: l.itemId } }, "Ver fotos del catálogo"),
+          picker.el),
+      ))),
+    cobra
+      ? h("label.check.pay-check", {}, h("input", { type: "checkbox", name: "settle", value: "1", checked: true }),
+        " Cobré ", h("strong", {}, money(pendiente)), " en efectivo")
+      : pendiente > 0 ? h("p.meta.warn", {}, `Queda ${money(pendiente)} por cobrar: lo confirma Caja.`) : null,
+    h("label", {}, "Observación (opcional)", h("textarea", { name: "note", maxlength: 500, rows: 2, placeholder: "Quién retiró, cómo se envió…" })),
+  ], "Registrar entrega", {
+    wide: true,
+    validate: (form) => {
+      const elegidas = marcadas(form);
+      if (!elegidas.size) return "Marca al menos una prenda.";
+      const sinFoto = fichas.find(({ l, picker }) => elegidas.has(l.itemId) && !picker.count());
+      return sinFoto ? `Saca al menos una foto de cómo sale ${sinFoto.l.productName}.` : null;
+    },
+  });
   try {
     if (!datos) return;
-    await upload(`/api/items/${itemId}/photos`, await picker.files(), { kind: "SALIDA", orderId: String(orderId) });
+    const items = datos.getAll("item").map(Number);
+    // Las fotos primero: si la subida falla, no queda una entrega sin su prueba.
+    for (const { l, picker } of fichas.filter(({ l: x }) => items.includes(x.itemId))) {
+      await upload(`/api/items/${l.itemId}/photos`, await picker.files(), { kind: "SALIDA", orderId: String(orderId) });
+    }
     await act(
-      () => api(`/api/items/${itemId}/status`, { method: "POST", body: { to: "EN_ALQUILER", note: "Entregada al cliente" } }),
-      () => [
-        ...garment(l?.productName ?? "Prenda", l?.code), " entregada a ", h("strong", {}, customerName(o)),
-        " · devuelve hasta el ", h("strong", {}, fmtDay(o.returnBy)), " sin costo.",
+      () => api(`/api/orders/${orderId}/deliver`, {
+        method: "POST",
+        body: { deliveredOn: datos.get("deliveredOn"), items, settle: datos.get("settle") === "1", note: datos.get("note") || undefined },
+      }),
+      (res) => [
+        "Pedido #", String(orderId), " entregado a ", h("strong", {}, customerName(o)), ": ",
+        ...joinParts(res.delivery.items.map((x) => garment(x.productName, x.code)), ", "),
+        ". Devuelve sin costo hasta el ", h("strong", {}, fmtDay(res.delivery.returnBy)), ".",
+        res.delivery.settledCents > 0 ? [" Cobrado: ", amt(res.delivery.settledCents), "."] : "",
       ],
     );
   } catch (err) {
     toast(err.message, true);
   } finally {
-    picker.dispose();
+    fichas.forEach(({ picker }) => picker.dispose());
   }
 }
 
@@ -707,7 +750,7 @@ document.addEventListener("click", async (e) => {
     case "sign-out":
       return signOut(true);
     case "deliver":
-      return deliverItem(order, item);
+      return deliverOrder(order);
     case "receive":
       return receiveOrder(order);
     case "settle": {

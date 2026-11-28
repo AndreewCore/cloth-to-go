@@ -27,7 +27,7 @@ function conAgua(litrosObjetivo) {
     i++;
   }
   app.orders = [{
-    id: 1, items, start: app.isoOffset(-5), end: app.isoOffset(-1),
+    id: 1, items, start: app.isoOffset(-5), end: app.isoOffset(-1), deliveredAt: app.isoOffset(-5),
     status: "settled", points: 0, pointsCredited: true, total: 10,
   }];
   return env;

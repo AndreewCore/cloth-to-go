@@ -16,7 +16,7 @@ import prisma from "../src/db.js";
 import { createDiskStorage } from "../src/storage.js";
 import { publicAuthor } from "../src/reviews.js";
 import { addDaysISO, todayISO } from "../src/dates.js";
-import { grant, habil, loadHolidays, purge } from "./helpers/db.js";
+import { grant, habil, loadHolidays, markDelivered, purge } from "./helpers/db.js";
 
 const CLIENTE = "test-sub-resena-cliente";
 const OTRO = "test-sub-resena-otro";
@@ -67,7 +67,10 @@ async function alquiler({ cumplido = true } = {}) {
   });
   assert.equal(res.statusCode, 201, res.body);
   const order = res.json();
-  if (cumplido) await prisma.order.update({ where: { id: order.id }, data: { start: addDaysISO(todayISO(), -3) } });
+  if (cumplido) {
+    await prisma.order.update({ where: { id: order.id }, data: { start: addDaysISO(todayISO(), -3) } });
+    await markDelivered(order.id);
+  }
   return { productId: m.id, orderId: order.id };
 }
 
@@ -107,7 +110,10 @@ test("solo reseña quien alquiló de verdad, con el pedido ya cumplido", async (
   assert.equal(pronto.statusCode, 409);
   assert.match(pronto.json().error, /cuando hayas recibido/);
 
+  // Pasar la fecha no basta: hace falta que el local registre la entrega.
   await prisma.order.update({ where: { id: orderId }, data: { start: addDaysISO(todayISO(), -3) } });
+  assert.equal((await resenar(CLIENTE, { orderId, productId, rating: 5 })).statusCode, 409, "sin entrega registrada, no");
+  await markDelivered(orderId);
   assert.equal((await resenar(OTRO, { orderId, productId, rating: 5 })).statusCode, 404, "un pedido ajeno no existe");
   assert.equal((await resenar(CLIENTE, { orderId, productId: productId + 100000, rating: 5 })).statusCode, 409, "prenda que no es del pedido");
   await prisma.order.update({ where: { id: orderId }, data: { cancelledAt: new Date() } });

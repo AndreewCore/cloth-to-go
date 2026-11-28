@@ -39,9 +39,12 @@ test("rentalDays = días entre las fechas del carrito (mínimo 1)", () => {
 
 
 
-test("isLate: la fecha límite del alquiler ya pasó", () => {
-  assert.ok(!A.isLate({ end: A.isoOffset(2) })); // vence en el futuro
-  assert.ok(A.isLate({ end: A.isoOffset(-2) })); // venció hace 2 días
+test("isLate: entregada, sin devolver y con la fecha límite ya pasada", () => {
+  const entregada = { deliveredAt: A.isoOffset(-5) };
+  assert.ok(!A.isLate({ ...entregada, end: A.isoOffset(2) })); // vence en el futuro
+  assert.ok(A.isLate({ ...entregada, end: A.isoOffset(-2) })); // venció hace 2 días
+  assert.ok(!A.isLate({ ...entregada, end: A.isoOffset(-2), returned: true }), "ya volvió");
+  assert.ok(!A.isLate({ end: A.isoOffset(-2) }), "lo que nunca salió no está atrasado");
 });
 
 test("isArchivedOrder: pagado Y con el período ya terminado", () => {
@@ -79,11 +82,13 @@ test("unitsAvailable nunca baja de 0 aunque coincidan alquiler y carrito", () =>
 /* ---- Anulación de pedido ---- */
 test("canCancelOrder: solo mientras las prendas no estén en manos del cliente", () => {
   const base = { items: [7], status: "pending", end: A.isoOffset(5) };
-  // Aún no empieza (o empieza hoy) → se puede anular.
+  // Sin entrega registrada se puede anular, aunque ya pasara el día de retiro:
+  // si no vino a retirar, no alquiló.
   assert.ok(A.canCancelOrder({ ...base, start: A.isoOffset(2) }));
   assert.ok(A.canCancelOrder({ ...base, start: A.isoOffset(0) }));
-  // Ya empezó → la prenda está con el cliente.
-  assert.ok(!A.canCancelOrder({ ...base, start: A.isoOffset(-1) }));
+  assert.ok(A.canCancelOrder({ ...base, start: A.isoOffset(-1) }));
+  // El local registró la entrega → la prenda está con el cliente.
+  assert.ok(!A.canCancelOrder({ ...base, start: A.isoOffset(-1), deliveredAt: A.isoOffset(-1) }));
   // Terminado (pagado y vencido) o ya anulado → tampoco.
   assert.ok(!A.canCancelOrder({ items: [7], status: "settled", start: A.isoOffset(-5), end: A.isoOffset(-2) }));
   assert.ok(!A.canCancelOrder({ ...base, start: A.isoOffset(2), status: "cancelled" }));

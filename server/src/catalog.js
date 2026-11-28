@@ -10,7 +10,7 @@
 import prisma from "./db.js";
 import { CAPABILITY, httpError } from "./auth.js";
 import { logItem } from "./logs.js";
-import { addDaysISO, nextBusinessDay, todayISO } from "./dates.js";
+import { addDaysISO, fmtDayEs, nextBusinessDay, todayISO } from "./dates.js";
 import { depositFor, rentalPrice } from "./pricing.js";
 import { catalogPhotoUrl, requestOrigin } from "./storage.js";
 import { holidaySet } from "./calendar.js";
@@ -81,14 +81,7 @@ export function assertRentable(items, start, holidays) {
   }
 }
 
-const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
-const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
-/** «lun 30 nov» de un día `YYYY-MM-DD`, para los mensajes al cliente. */
-function fmtDayEs(iso) {
-  const d = new Date(`${iso}T00:00:00Z`);
-  return `${DIAS[d.getUTCDay()]} ${d.getUTCDate()} ${MESES[d.getUTCMonth()]}`;
-}
 
 /** Condiciones físicas válidas de un ejemplar. */
 const CONDITIONS = ["NUEVA", "COMO_NUEVA", "BUENA", "USO_VISIBLE"];

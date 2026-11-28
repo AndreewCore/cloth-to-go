@@ -83,6 +83,20 @@ export async function purge({ subs = [], itemIds: sueltos = [], productIds = [] 
  * @param {string[]} capabilities Capacidades.
  * @returns {Promise<object>} Fila de `users`.
  */
+/**
+ * Da por entregadas las prendas de un pedido sin pasar por el mostrador: para
+ * las pruebas que solo necesitan que el pedido cuente como entregado (puntos,
+ * litros, reseñas, anulación). La entrega de verdad, con su estado y su
+ * bitácora, se prueba en operacion.test.js.
+ * @param {number} orderId Pedido.
+ */
+export async function markDelivered(orderId) {
+  await prisma.orderItem.updateMany({
+    where: { orderId, deliveredAt: null },
+    data: { deliveredAt: new Date(), deliveredOn: new Date(`${todayISO()}T00:00:00Z`) },
+  });
+}
+
 export function grant(sub, capabilities) {
   return prisma.user.upsert({
     where: { googleSub: sub },

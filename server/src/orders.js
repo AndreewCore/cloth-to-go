@@ -34,7 +34,7 @@ import { isBusinessDay, returnByDate, todayISO } from "./dates.js";
 import { holidaySet } from "./calendar.js";
 import { rewardById, rewardDiscountCents } from "./rewards.js";
 import { priceOrder } from "./quote.js";
-import { countsForRewards, lockUser, revokeOrderRewards, settleRewards } from "./points.js";
+import { countsForRewards, isDelivered, lockUser, revokeOrderRewards, settleRewards } from "./points.js";
 
 /** Formato de fecha que acepta la API: día de calendario, sin hora ni zona. */
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -72,6 +72,15 @@ export function orderToApi(order) {
     items: (order.items ?? []).map((i) => i.item.productId),
     itemIds: (order.items ?? []).map((i) => i.itemId),
     status: order.cancelledAt ? "cancelled" : paymentStatus(charges),
+    // Cuándo el local registró la primera entrega; null = todavía «Reservado».
+    // De esto dependen la etiqueta del cliente, si puede anular y sus premios.
+    deliveredAt: firstDelivery(order.items),
+    // Por ejemplar: el día real en que salió y en que volvió.
+    lines: (order.items ?? []).map((i) => ({
+      itemId: i.itemId,
+      deliveredOn: i.deliveredOn ? i.deliveredOn.toISOString().slice(0, 10) : null,
+      returnedOn: i.returnedOn ? i.returnedOn.toISOString().slice(0, 10) : null,
+    })),
     // Premio aplicado y lo que rebaja hoy (las líneas DISCOUNT, en positivo).
     couponId: order.coupon?.id ?? null,
     discountCents: discountCents(charges),
@@ -96,6 +105,42 @@ export function orderToApi(order) {
       createdAt: c.createdAt,
     })),
   };
+}
+
+/**
+ * Confirma que entró el dinero pendiente de un pedido. Cambia el ESTADO de las
+ * líneas, no su importe: la línea sigue diciendo lo mismo, lo que cambia es que
+ * ese dinero ya entró. La usan «Confirmar cobro» y la entrega con cobro.
+ * @param {object} tx Transacción Prisma.
+ * @param {object} order Pedido con `charges` y `pay`.
+ * @param {number} actorId Quién confirma (Caja).
+ * @returns {Promise<number>} Centavos confirmados; 0 si no había nada.
+ */
+export async function settlePending(tx, order, actorId) {
+  const cents = order.charges.filter((c) => c.status === CHARGE_STATUS.PENDING).reduce((s, c) => s + c.amountCents, 0);
+  const { count } = await tx.charge.updateMany({
+    where: { orderId: order.id, status: CHARGE_STATUS.PENDING },
+    data: { status: CHARGE_STATUS.SETTLED },
+  });
+  if (!count) return 0;
+  await logFinance(tx, {
+    kind: FINANCE_EVENT.COBRO_CONFIRMADO,
+    actorId,
+    orderId: order.id,
+    amountCents: cents,
+    note: `Cobro confirmado en ${order.pay === "cash" ? "efectivo" : "caja"}`,
+  });
+  return cents;
+}
+
+/**
+ * Primera entrega registrada de un pedido.
+ * @param {{deliveredAt: Date|null}[]} [items] Líneas del pedido.
+ * @returns {Date|null}
+ */
+function firstDelivery(items = []) {
+  const fechas = items.map((i) => i.deliveredAt).filter(Boolean).sort((a, b) => a - b);
+  return fechas[0] ?? null;
 }
 
 /** Qué relaciones hay que traer para poder derivar los totales. */
@@ -410,21 +455,7 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
     const pendientes = order.charges.filter((c) => c.status === CHARGE_STATUS.PENDING);
     if (pendientes.length === 0) throw httpError(409, "El pedido no tiene cobros pendientes.");
 
-    // Cambia el ESTADO de las líneas, no su importe: la línea sigue diciendo lo
-    // mismo, lo que cambia es que ese dinero ya entró.
-    await prisma.$transaction(async (tx) => {
-      await tx.charge.updateMany({
-        where: { orderId: id, status: CHARGE_STATUS.PENDING },
-        data: { status: CHARGE_STATUS.SETTLED },
-      });
-      await logFinance(tx, {
-        kind: FINANCE_EVENT.COBRO_CONFIRMADO,
-        actorId: req.user.id,
-        orderId: id,
-        amountCents: pendientes.reduce((s, c) => s + c.amountCents, 0),
-        note: `Cobro confirmado en ${order.pay === "cash" ? "efectivo" : "caja"}`,
-      });
-    });
+    await prisma.$transaction((tx) => settlePending(tx, order, req.user.id));
     return orderToApi(await findOrderFor(id, req.user, true));
   });
 
@@ -460,11 +491,12 @@ export function registerOrderRoutes(app, { requireUser, requireCapability }) {
     if (order.cancelledAt) throw httpError(409, "El pedido ya estaba anulado.");
 
     // Misma frontera que `canCancelOrder()` en el frontend: el cliente puede
-    // anular mientras las prendas no estén en su poder. Pasada la fecha de
-    // inicio ya se entregaron, y eso se resuelve hablando con el local — que
-    // sí puede anular, porque puede comprobarlo.
-    if (!admin && todayISO() > order.start) {
-      throw httpError(409, "El alquiler ya empezó: la anulación se gestiona con el local.");
+    // anular mientras las prendas no estén en su poder, es decir, mientras el
+    // local no haya registrado la entrega (aunque ya pasara el día de retiro:
+    // si no vino, no alquiló). Después se resuelve hablando con el local, que
+    // sí puede anular porque puede comprobarlo.
+    if (!admin && isDelivered(order)) {
+      throw httpError(409, "Ya recibiste las prendas: la anulación se gestiona con el local.");
     }
 
     const reversos = cancellationCharges(order.charges, req.body?.note);

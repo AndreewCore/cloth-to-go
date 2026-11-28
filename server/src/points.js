@@ -9,7 +9,6 @@
  */
 import prisma from "./db.js";
 import { httpError, isStaff } from "./auth.js";
-import { todayISO } from "./dates.js";
 import { garmentWater } from "./water.js";
 import { REWARDS, WATER_GOALS, rewardById } from "./rewards.js";
 
@@ -23,16 +22,25 @@ export const POINTS_REASON = Object.freeze({
 });
 
 /**
- * ¿El pedido ya ganó sus recompensas? Entregado y fuera de la ventana de
- * anulación: el cliente anula hasta el día de inicio inclusive, así que cuenta
- * desde el día siguiente. Acreditar antes permitía canjear, anular y quedarse
- * con el premio (era el hallazgo #50 del navegador).
- * @param {{start: string, cancelledAt: Date|null}} order Pedido.
- * @param {string} [hoy=todayISO()] Día de referencia.
+ * ¿El pedido ya ganó sus recompensas? Cuando el local registró la entrega de
+ * alguna de sus prendas: desde ese momento el cliente ya no puede anular, así
+ * que premiar no es explotable (canjear, anular y quedarse con el premio era el
+ * hallazgo #50). La fecha de retiro, por sí sola, ya no cuenta: un cliente que
+ * no vino no alquiló nada.
+ * @param {{cancelledAt: Date|null, items?: {deliveredAt: Date|null}[]}} order Pedido con sus líneas.
  * @returns {boolean}
  */
-export function countsForRewards(order, hoy = todayISO()) {
-  return !order.cancelledAt && order.start < hoy;
+export function countsForRewards(order) {
+  return !order.cancelledAt && isDelivered(order);
+}
+
+/**
+ * ¿El local registró la entrega de alguna prenda del pedido?
+ * @param {{items?: {deliveredAt: Date|null}[]}} order Pedido con sus líneas.
+ * @returns {boolean}
+ */
+export function isDelivered(order) {
+  return (order.items ?? []).some((i) => i.deliveredAt);
 }
 
 /**
@@ -49,12 +57,11 @@ export async function balanceOf(db, userId) {
 /**
  * Litros ahorrados por los alquileres cumplidos de una cuenta.
  * @param {object[]} orders Pedidos con `items.item.product`.
- * @param {string} hoy Día de referencia.
  * @returns {number}
  */
-function litersOf(orders, hoy) {
+function litersOf(orders) {
   return orders
-    .filter((o) => countsForRewards(o, hoy))
+    .filter((o) => countsForRewards(o))
     .reduce((s, o) => s + o.items.reduce((t, i) => t + garmentWater(i.item.product), 0), 0);
 }
 
@@ -63,18 +70,17 @@ function litersOf(orders, hoy) {
  * agua alcanzadas. Idempotente (claves únicas + `skipDuplicates`).
  * @param {object} db Cliente o transacción Prisma.
  * @param {number} userId Usuario.
- * @param {string} [hoy=todayISO()] Día de referencia.
  * @returns {Promise<{liters: number}>} Litros cumplidos, para quien los quiera mostrar.
  */
-export async function settleRewards(db, userId, hoy = todayISO()) {
+export async function settleRewards(db, userId) {
   const orders = await db.order.findMany({
     where: { userId, cancelledAt: null },
     include: { items: { include: { item: { include: { product: true } } } } },
   });
   const ganados = orders
-    .filter((o) => countsForRewards(o, hoy) && o.pointsEarned > 0)
+    .filter((o) => countsForRewards(o) && o.pointsEarned > 0)
     .map((o) => ({ userId, delta: o.pointsEarned, reason: POINTS_REASON.EARNED_DELIVERY, orderId: o.id }));
-  const liters = litersOf(orders, hoy);
+  const liters = litersOf(orders);
   const metas = WATER_GOALS.filter((g) => liters >= g.liters)
     .map((g) => ({ userId, delta: g.points, reason: POINTS_REASON.WATER_GOAL, goalId: g.id }));
   const filas = [...ganados, ...metas];

@@ -151,6 +151,9 @@ dialog .actions { justify-content: flex-end; }
 .strip .gap { flex: 0 0 18px; background: none; align-content: center; }
 .when { margin: 4px 0 0; font-size: 13px; font-weight: 600; color: var(--muted); }
 .when.warn { color: var(--warn); }
+.meta.warn { color: var(--warn); }
+/* El cobro dentro de la entrega: que no pase desapercibido. */
+.pay-check { padding: 10px 12px; background: var(--accent-soft); border-radius: 8px; }
 .when.bad { color: var(--danger); }
 .when.ok { color: var(--accent); }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin: 0 0 12px; }

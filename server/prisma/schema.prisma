@@ -399,6 +399,7 @@ model User {
   financeAbout FinanceLog[] @relation("FinanceSubject")
   sessions     Session[]
   received     OrderItem[]  @relation("OrderItemReceiver")
+  delivered    OrderItem[]  @relation("OrderItemDeliverer")
   photosTaken  ItemPhoto[]  @relation("ItemPhotoTaker")
   reviews      Review[]     @relation("ReviewAuthor")
   moderated    Review[]     @relation("ReviewModerator")
@@ -470,6 +471,7 @@ model Order {
   financeLogs FinanceLog[]
   itemPhotos  ItemPhoto[]
   reviews     Review[]
+  notices     Notice[]
 
   @@index([userId])
   @@map("orders")
@@ -508,6 +510,13 @@ model OrderItem {
   receivedAt   DateTime?
   receivedById Int?
   receivedBy   User?     @relation("OrderItemReceiver", fields: [receivedById], references: [id], onDelete: Restrict)
+  /// Día en que la prenda salió DE VERDAD hacia el cliente, y cuándo y quién
+  /// lo registró. Sin esto el pedido no cuenta como entregado: ni puntos, ni
+  /// litros, ni reseña, y el cliente todavía puede anular.
+  deliveredOn   DateTime? @db.Date
+  deliveredAt   DateTime?
+  deliveredById Int?
+  deliveredBy   User?     @relation("OrderItemDeliverer", fields: [deliveredById], references: [id], onDelete: Restrict)
 
   @@unique([orderId, itemId])
   @@index([itemId])
@@ -900,6 +909,11 @@ model ReviewReport {
 /// De qué trata un aviso. La fase 6 sumará los de solicitudes de socios.
 enum NoticeKind {
   RESENA_RECHAZADA
+  ENTREGA
+  DEVOLUCION
+  RETIRO_MOVIDO
+  ANULADO_SIN_RETIRO
+  GARANTIA
 }
 
 /// Aviso para un cliente (decisiones transversales, «Avisos»): se ve en la app
@@ -915,6 +929,9 @@ model Notice {
   /// Reseña de la que trata, si es de una. Se suelta si el autor la retira.
   reviewId  Int?
   review    Review?    @relation(fields: [reviewId], references: [id], onDelete: SetNull)
+  /// Pedido del que trata (entrega, devolución, retiro, garantía).
+  orderId   Int?
+  order     Order?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
   readAt    DateTime?
   /// Cuándo salió el correo; null = sin correo (apagado o falló).
   emailedAt DateTime?

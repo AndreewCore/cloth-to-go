@@ -66,7 +66,8 @@ function installFakeApi(win) {
   };
   const st = fake.state;
 
-  const credited = (o) => !o.cancelledAt && o.start < today();
+  // Como el servidor: cuenta lo que el local registró como entregado.
+  const credited = (o) => !o.cancelledAt && Boolean(o.deliveredAt);
   const toApi = (o) => ({ ...o, pointsCredited: o.points > 0 && credited(o) });
   const summary = () => ({
     balance: st.balance + st.orders.filter(credited).reduce((s, o) => s + o.points, 0),

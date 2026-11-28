@@ -538,6 +538,10 @@ function orderFromApi(o) {
     couponId: o.couponId ?? null,
     points: o.points || 0,
     pointsCredited: !!o.pointsCredited,
+    // Cuándo el local registró la entrega; null = reservado, todavía por retirar.
+    deliveredAt: o.deliveredAt ? localDayOf(o.deliveredAt) : null,
+    // Todas sus prendas volvieron (el local registró la devolución).
+    returned: Array.isArray(o.lines) && o.lines.length > 0 && o.lines.every(l => l.returnedOn),
   };
 }
 

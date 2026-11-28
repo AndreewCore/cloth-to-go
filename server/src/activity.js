@@ -6,7 +6,7 @@
  * No es una tabla más donde todo se escribe dos veces: junta las cuatro que ya
  * existen, cada una de solo añadir, en una misma forma:
  * - `activity_logs`: catálogo, fotos de catálogo, taxonomía, calendario y reseñas;
- * - `item_logs`: altas de ejemplares, cambios de estado y recepciones;
+ * - `item_logs`: altas de ejemplares, cambios de estado, entregas y recepciones;
  * - `finance_logs`: cobros, garantías, anulaciones, días extra, precios y permisos;
  * - `item_photos`: fotos de salida, llegada y estado.
  */
@@ -43,12 +43,19 @@ const ACTIONS = {
   EJEMPLAR_ALTA: { label: "Alta de ejemplar", category: "prendas", source: "items", where: { from: null } },
   // La recepción no cambia el estado (de En alquiler a En alquiler): se
   // distingue por la nota que escribe siempre `POST /api/orders/:id/receive`.
+  // La entrega y la recepción se reconocen por la nota que escriben siempre
+  // sus rutas (`/deliver` y `/receive`), que es la que las separa de un cambio
+  // manual de estado.
+  ENTREGA: { label: "Entrega registrada", category: "prendas", source: "items", where: { note: { startsWith: "Entregada" } } },
   RECEPCION: { label: "Devolución registrada", category: "prendas", source: "items", where: { note: { startsWith: "Recibida" } } },
   ESTADO: {
     label: "Cambio de estado",
     category: "prendas",
     source: "items",
-    where: { from: { not: null }, OR: [{ note: null }, { NOT: { note: { startsWith: "Recibida" } } }] },
+    where: {
+      from: { not: null },
+      OR: [{ note: null }, { AND: [{ NOT: { note: { startsWith: "Recibida" } } }, { NOT: { note: { startsWith: "Entregada" } } }] }],
+    },
   },
   COBRO_CONFIRMADO: { label: "Cobro confirmado", category: "dinero", source: "finance" },
   GARANTIA_LIBERADA: { label: "Garantía liberada", category: "dinero", source: "finance" },
@@ -197,8 +204,9 @@ export async function readActivity(f, { signed, catalog }) {
       include: { actor: { select: { id: true, name: true } }, item: { select: { id: true, code: true, product: { select: { id: true, name: true } } } } },
     }).then((rows) => rows.map((r) => {
       const recepcion = r.note?.startsWith("Recibida");
-      const action = r.from === null ? "EJEMPLAR_ALTA" : recepcion ? "RECEPCION" : "ESTADO";
-      const cambio = r.from && !recepcion ? `${STATUS_LABEL[r.from]} → ${STATUS_LABEL[r.to]}` : r.from ? "" : `Alta: ${STATUS_LABEL[r.to]}`;
+      const entrega = r.from !== null && r.note?.startsWith("Entregada");
+      const action = r.from === null ? "EJEMPLAR_ALTA" : recepcion ? "RECEPCION" : entrega ? "ENTREGA" : "ESTADO";
+      const cambio = r.from && !recepcion && !entrega ? `${STATUS_LABEL[r.from]} → ${STATUS_LABEL[r.to]}` : r.from ? "" : `Alta: ${STATUS_LABEL[r.to]}`;
       const lavado = r.laundryPlace ? `en ${r.laundryKind === "EXTERNO" ? "lavandería externa" : "lavado propio"}: ${r.laundryPlace}` : "";
       return {
         key: `i:${r.id}`, at: r.createdAt, action, actor: r.actor,

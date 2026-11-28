@@ -185,7 +185,7 @@ export function buildApp(opts = {}) {
   registerOrderRoutes(app, guards);
   registerPointsRoutes(app, guards);
   registerQuoteRoutes(app, guards);
-  registerOperationRoutes(app, guards, { storage });
+  registerOperationRoutes(app, guards, { storage, mailer });
   registerTaxonomyAdminRoutes(app, guards);
   registerPricingAdminRoutes(app, guards);
   registerActivityRoutes(app, guards, { storage });

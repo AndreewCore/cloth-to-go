@@ -18,7 +18,7 @@ import { buildApp } from "../src/app.js";
 import prisma from "../src/db.js";
 import { todayISO, addDaysISO } from "../src/dates.js";
 import { WATER_GOALS, orderPoints } from "../src/rewards.js";
-import { demoItems, grant, habil, loadHolidays, purge } from "./helpers/db.js";
+import { demoItems, grant, habil, loadHolidays, markDelivered, purge } from "./helpers/db.js";
 
 const CLIENTE = "test-sub-puntos";
 const OTRO = "test-sub-puntos-otro";
@@ -74,9 +74,10 @@ function canjear(rewardId, sub = CLIENTE) {
   return como(sub, { method: "POST", url: `/api/rewards/${rewardId}/redeem` });
 }
 
-/** Lleva el inicio de un pedido a ayer: ya entregado y fuera de la anulación. */
+/** Lleva el inicio de un pedido a ayer y registra su entrega: fuera de la anulación. */
 async function entregar(orderId) {
   await prisma.order.update({ where: { id: orderId }, data: { start: addDaysISO(todayISO(), -1) } });
+  await markDelivered(orderId);
 }
 
 before(async () => {
