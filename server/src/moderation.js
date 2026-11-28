@@ -13,6 +13,8 @@ import { CAPABILITY, httpError } from "./auth.js";
 import { routeId } from "./catalog.js";
 import { ACTIVITY, logActivity } from "./logs.js";
 import { requestOrigin } from "./storage.js";
+import { createNotice, deliverNotice, rejectedReviewText } from "./notices.js";
+import { disabledMailer } from "./mail.js";
 
 /** Motivos de rechazo y de reporte, con el texto que ve la gente. */
 export const REVIEW_REASONS = Object.freeze({
@@ -55,9 +57,10 @@ function parseReason(reason) {
  * @param {number} id Reseña.
  * @param {{action: string, reason?: string}} body Decisión.
  * @param {number} actorId Quién decide.
- * @param {{onReject?: (tx: object, review: object) => Promise<void>}} [hooks]
- *   Lo que debe pasar dentro de la misma transacción al rechazar (avisos).
- * @returns {Promise<object>} Reseña actualizada.
+ * @param {{onReject?: (tx: object, review: object, reason: string) => Promise<object>}} [hooks]
+ *   Lo que debe pasar dentro de la misma transacción al rechazar (el aviso al
+ *   autor); lo que devuelva viaja como `notice`.
+ * @returns {Promise<object>} Reseña actualizada, con `notice` si se creó uno.
  */
 export async function moderate(id, body, actorId, { onReject } = {}) {
   const move = MOVES[body?.action];
@@ -85,8 +88,8 @@ export async function moderate(id, body, actorId, { onReject } = {}) {
       note: `Reseña #${id} de ${r.product.name} ${move.label}${reason ? `: ${REVIEW_REASONS[reason]}` : ""}`,
       detail: { reviewId: id, reason },
     });
-    if (move.to === "RECHAZADA" && onReject) await onReject(tx, r);
-    return r;
+    const notice = move.to === "RECHAZADA" && onReject ? await onReject(tx, r, reason) : null;
+    return { ...r, notice };
   });
 }
 
@@ -128,12 +131,26 @@ export async function report(id, reason, userId) {
 }
 
 /**
+ * Aviso al autor de una reseña rechazada, con el motivo en palabras.
+ * @param {object} tx Transacción de la decisión.
+ * @param {object} r Reseña, con `product.name`.
+ * @param {string} reason Clave del motivo.
+ * @returns {Promise<object>} Aviso creado.
+ */
+function rejectNotice(tx, r, reason) {
+  return createNotice(tx, {
+    userId: r.userId, kind: "RESENA_RECHAZADA", reviewId: r.id,
+    ...rejectedReviewText(r.product.name, REVIEW_REASONS[reason]),
+  });
+}
+
+/**
  * Registra las rutas de moderación.
  * @param {import("fastify").FastifyInstance} app Instancia Fastify.
  * @param {{requireUser: Function, requireCapability: Function}} guards preHandlers.
- * @param {{storage: object, onReject?: Function}} deps Fotos firmadas y avisos.
+ * @param {{storage: object, mailer: object}} deps Fotos firmadas y correo de los avisos.
  */
-export function registerModerationRoutes(app, { requireUser, requireCapability }, { storage, onReject }) {
+export function registerModerationRoutes(app, { requireUser, requireCapability }, { storage, mailer = disabledMailer }) {
   const moderacion = requireCapability(CAPABILITY.MODERACION);
 
   // La cola. Lo pendiente sale del más viejo al más nuevo (se atiende en
@@ -182,8 +199,10 @@ export function registerModerationRoutes(app, { requireUser, requireCapability }
   });
 
   app.post("/api/reviews/:id/moderate", { preHandler: moderacion }, async (req) => {
-    const r = await moderate(routeId(req.params.id, "Reseña"), req.body, req.user.id, { onReject });
-    return { id: r.id, status: r.status, rejectReason: r.rejectReason };
+    const r = await moderate(routeId(req.params.id, "Reseña"), req.body, req.user.id, { onReject: rejectNotice });
+    // Después del commit: el correo nunca deshace la decisión.
+    if (r.notice) await deliverNotice(r.notice, mailer, req.log);
+    return { id: r.id, status: r.status, rejectReason: r.rejectReason, noticeId: r.notice?.id ?? null };
   });
 
   app.post("/api/reviews/:id/report", { preHandler: requireUser }, async (req, reply) => {

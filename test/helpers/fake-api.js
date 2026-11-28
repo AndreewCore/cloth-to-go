@@ -62,7 +62,7 @@ function installFakeApi(win) {
   const fake = {
     calls: [],
     failNext: null,
-    state: { orders: [], balance: 0, coupons: [], reached: [], reviews: [], reports: [], nextOrderId: 2001, nextCouponId: 1, nextReviewId: 1 },
+    state: { orders: [], balance: 0, coupons: [], reached: [], reviews: [], reports: [], notices: [], nextOrderId: 2001, nextCouponId: 1, nextReviewId: 1 },
   };
   const st = fake.state;
 
@@ -240,6 +240,16 @@ function installFakeApi(win) {
       st.reviews.push(r);
       fake.lastUpload = body;
       return respond(201, r);
+    }],
+    // Avisos: los siembra la prueba en `state.notices` ({id, title, body, read, …}).
+    ["GET", /^\/api\/me\/notices$/, () => respond(200, {
+      unread: st.notices.filter((n) => !n.read).length,
+      notices: st.notices.slice().reverse(),
+    })],
+    ["POST", /^\/api\/me\/notices\/read$/, () => {
+      const marked = st.notices.filter((n) => !n.read).length;
+      for (const n of st.notices) n.read = true;
+      return respond(200, { marked });
     }],
     ["POST", /^\/api\/reviews\/(\d+)\/report$/, (m, body) => {
       const r = st.reviews.find((x) => x.id === Number(m[1]) && x.status === "APROBADA");

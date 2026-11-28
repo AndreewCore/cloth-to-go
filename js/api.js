@@ -409,6 +409,34 @@ async function loadMyReviews() {
 }
 
 /**
+ * Trae los avisos del cliente (GET /api/me/notices) y actualiza el punto del
+ * botón de perfil.
+ * @returns {Promise<boolean>} true si llegaron.
+ */
+async function loadNotices() {
+  if (!readSessionToken()) return false;
+  const r = await apiFetch("/api/me/notices");
+  if (!r.ok || !r.data || !Array.isArray(r.data.notices)) return false;
+  notices = r.data.notices;
+  unreadNotices = r.data.unread || 0;
+  if (typeof updateNoticeDot === "function") updateNoticeDot();
+  return true;
+}
+
+/**
+ * Marca como leídos todos los avisos, en el servidor y aquí.
+ * @returns {Promise<boolean>} true si el servidor lo aceptó.
+ */
+async function markNoticesRead() {
+  const r = await apiFetch("/api/me/notices/read", { method: "POST", body: {} });
+  if (!r.ok) return false;
+  notices = notices.map(n => ({ ...n, read: true }));
+  unreadNotices = 0;
+  if (typeof updateNoticeDot === "function") updateNoticeDot();
+  return true;
+}
+
+/**
  * Trae las reseñas publicadas de una prenda y su media
  * (GET /api/products/:id/reviews) y las deja en `productReviewCache`.
  * @param {number} id Prenda.
@@ -514,8 +542,8 @@ function couponFromApi(c) {
  */
 async function refreshAccount() {
   if (!readSessionToken()) return null;
-  // Las reseñas propias van aparte: si fallan, la cuenta se sincroniza igual.
-  const [o, p] = await Promise.all([apiFetch("/api/orders"), apiFetch("/api/me/points"), loadMyReviews()]);
+  // Reseñas propias y avisos van aparte: si fallan, la cuenta se sincroniza igual.
+  const [o, p] = await Promise.all([apiFetch("/api/orders"), apiFetch("/api/me/points"), loadMyReviews(), loadNotices()]);
   if (!o.ok || !p.ok || !Array.isArray(o.data)) return null;
   return { goals: applyAccount({ orders: o.data.map(orderFromApi), points: p.data }) };
 }

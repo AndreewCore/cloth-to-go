@@ -197,6 +197,8 @@ de la web:
 | `GEMINI_API_KEY` | *(Opcional)* Clave gratuita de [Google AI Studio](https://aistudio.google.com/apikey). Sin ella el asistente de la web queda apagado. |
 | `SUPABASE_URL` | `https://<proyecto>.supabase.co` (Project Settings → API). Activa las fotos en Storage; ver 1.5. |
 | `SUPABASE_SERVICE_KEY` | La clave **service_role** (o *secret key*) del mismo sitio. Da acceso total: solo aquí, nunca en el frontend. |
+| `RESEND_API_KEY` | *(Opcional, tras comprar y verificar el dominio)* Clave de [Resend](https://resend.com/api-keys). Sin ella los avisos se ven en la app y la web, sin correo. |
+| `MAIL_FROM` | *(Con la anterior)* Remitente del dominio verificado, p. ej. `CLOTH TO GO <avisos@dominio.com>`. Resend rechaza cualquier otro. |
 | `TRUST_PROXY` | `1`. Sin esto, el límite por IP del asistente ve a todos los visitantes como la IP del proxy de Render. Tras desplegar, el `remoteAddress` de los logs debe ser tu IP pública; si es una del proxy, súbelo a `2`. |
 
 Tres avisos que ahorran una tarde:

@@ -15,8 +15,8 @@ import { buildApp } from "../src/app.js";
 import prisma from "../src/db.js";
 import { createDiskStorage } from "../src/storage.js";
 import { REPORTS_TO_HIDE } from "../src/moderation.js";
-import { addDaysISO, todayISO } from "../src/dates.js";
-import { grant, habil, loadHolidays, purge } from "./helpers/db.js";
+import { grant, loadHolidays, purge } from "./helpers/db.js";
+import { reviewFixture } from "./helpers/reviews.js";
 
 const AUTOR = "test-sub-mod-autor";
 const MODERA = "test-sub-mod-moderacion";
@@ -35,34 +35,8 @@ function como(sub, opts) {
   return app.inject({ ...opts, headers: { ...opts.headers, ...headers } });
 }
 
-/** Crea modelo, ejemplar, pedido cumplido del autor y su reseña; devuelve la reseña. */
-async function resenaNueva() {
-  const m = (await como(INVENTARIO, {
-    method: "POST",
-    url: "/api/products",
-    payload: { name: "Falda moderada", categoryKey: "casual", material: "algodon", value: 20, stars: 3, weightKg: 0.2 },
-  })).json();
-  modelos.push(m.id);
-  const molde = await prisma.item.findFirst({ orderBy: { id: "asc" } });
-  const item = (await como(INVENTARIO, {
-    method: "POST",
-    url: `/api/products/${m.id}/items`,
-    payload: { size: molde.size, sizeScale: molde.sizeScale, color: molde.color },
-  })).json();
-  const order = (await como(AUTOR, {
-    method: "POST",
-    url: "/api/orders",
-    payload: { items: [item.id], start: habil(1), end: habil(1), delivery: "pickup", ret: "store", pay: "cash" },
-  })).json();
-  await prisma.order.update({ where: { id: order.id }, data: { start: addDaysISO(todayISO(), -3) } });
-
-  const b = "----ctgmod";
-  const campos = { orderId: order.id, productId: m.id, rating: 4, text: "Me quedó perfecta" };
-  const cuerpo = Object.entries(campos).map(([k, v]) => `--${b}\r\nContent-Disposition: form-data; name="${k}"\r\n\r\n${v}\r\n`).join("") + `--${b}--\r\n`;
-  const res = await como(AUTOR, { method: "POST", url: "/api/reviews", payload: cuerpo, headers: { "content-type": `multipart/form-data; boundary=${b}` } });
-  assert.equal(res.statusCode, 201, res.body);
-  return { ...res.json(), productId: m.id };
-}
+/** Reseña pendiente nueva del autor, sobre un modelo propio de la prueba. */
+const resenaNueva = () => reviewFixture(como, { inventario: INVENTARIO, autor: AUTOR, modelos });
 
 /** Decide sobre una reseña como `sub`. */
 const decidir = (sub, id, payload) => como(sub, { method: "POST", url: `/api/reviews/${id}/moderate`, payload });

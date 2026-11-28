@@ -67,6 +67,8 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | DELETE | `/api/reviews/:id` | El autor retira su reseña, con su foto. |
 | POST | `/api/reviews/:id/report` | Un cliente reporta una reseña **publicada** ajena con un motivo de la lista (`reason`). Uno por cuenta; con 3 abiertos vuelve a la cola. |
 | GET | `/api/admin/reviews?status=` | MODERACION: la cola (`PENDIENTE` por defecto, del más viejo al más nuevo) o lo decidido, con foto firmada, reportes abiertos y cuántas hay por estado. |
+| GET | `/api/me/notices` | Avisos del cliente (los 50 últimos) y cuántos sigue sin leer. |
+| POST | `/api/me/notices/read` | Marca como leídos los avisos `ids` (o todos si no se manda). Solo toca los propios. |
 | POST | `/api/reviews/:id/moderate` | MODERACION: `{action: approve\|reject\|hide\|show, reason?}`. `reject` exige motivo. Queda en `activity_logs`. |
 | GET | `/api/admin/activity` | **Administración**: bitácora general (catálogo, fotos, prendas, dinero, precio, personal, taxonomía) con filtros `category`, `action`, `actor` (id o `system`), `from`/`to`, `q`, `product` y paginación (`limit`, `before`+`beforeKey`). |
 | GET | `/api/admin/activity/meta` | **Administración**: categorías, acciones y personas para pintar los filtros. |
@@ -218,6 +220,13 @@ cambio es condicional al estado de partida, así dos moderadores no se pisan
 `PENDIENTE` (`RESENA_AUTO_OCULTA`, sin actor). Aprobarla otra vez da esos
 reportes por resueltos. Los motivos se sirven en `/api/config`
 (`reviewReasons`), así la app no guarda su propia lista.
+
+**Avisos** (`src/notices.js`, `src/mail.js`): rechazar una reseña crea un aviso
+(`notices`) para su autor con el motivo, dentro de la misma transacción. El
+correo por Resend sale **después** del commit y nunca deshace la decisión: si
+falla, el aviso sigue en la app y `emailedAt` queda en null. La app lo enseña
+en el perfil y la web en el menú de la cuenta, con un punto mientras haya sin
+leer.
 
 La foto pasa por la tubería de siempre y va al cubo **privado**
 (`resenas/<uuid>.webp`), servida con enlace firmado. Se firma como «Nombre I.»:
@@ -413,6 +422,7 @@ aparece como rezagada.
 | `MEDIA_DIR` | Carpeta del conductor de disco (por defecto `server/uploads/`). |
 | `MEDIA_SIGNING_SECRET` | Secreto de los enlaces firmados en disco; sin él, uno aleatorio por proceso (los enlaces vivos caducan al reiniciar, que es inocuo). |
 | `UPLOADS_PER_MINUTE` | Subidas por persona y minuto (por defecto 30). |
+| `RESEND_API_KEY` / `MAIL_FROM` | Encienden el correo de los avisos por [Resend](https://resend.com) (`src/mail.js`). `MAIL_FROM` es un remitente de un dominio **verificado** en Resend, p. ej. `CLOTH TO GO <avisos@dominio.com>`. Sin las dos, el correo queda apagado y los avisos solo se ven en la app y la web. |
 
 > CORS limita quién puede **leer** la respuesta, no quién puede **enviar** la
 > petición, así que no protege contra CSRF. Cuando se agregue autenticación, la

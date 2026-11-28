@@ -23,6 +23,8 @@ import { registerPricingAdminRoutes } from "./pricingAdmin.js";
 import { registerActivityRoutes } from "./activity.js";
 import { registerReviewRoutes } from "./reviews.js";
 import { registerModerationRoutes } from "./moderation.js";
+import { registerNoticeRoutes } from "./notices.js";
+import { mailerFromEnv } from "./mail.js";
 import { MULTIPART_LIMITS, createUploadLimiter } from "./photos.js";
 import { storageFromEnv } from "./storage.js";
 import { registerImpactRoutes } from "./impact.js";
@@ -77,10 +79,12 @@ function corsOrigin() {
  * @param {object} [opts.storage] Almacenamiento de fotos; por defecto según el
  *   entorno (disco o Supabase). Las pruebas pasan uno en una carpeta temporal.
  * @param {(userId: number) => boolean} [opts.allowUpload] Límite de subidas.
+ * @param {{enabled: boolean, send: Function}} [opts.mailer] Correo de los
+ *   avisos; por defecto Resend si hay RESEND_API_KEY y MAIL_FROM, si no apagado.
  * @returns {import("fastify").FastifyInstance}
  */
 export function buildApp(opts = {}) {
-  const { verifyGoogleToken, chat = {}, storage = storageFromEnv(), allowUpload, ...fastifyOpts } = opts;
+  const { verifyGoogleToken, chat = {}, storage = storageFromEnv(), allowUpload, mailer = mailerFromEnv(), ...fastifyOpts } = opts;
   const app = Fastify(fastifyOpts);
 
   app.register(cors, { origin: corsOrigin() });
@@ -175,7 +179,8 @@ export function buildApp(opts = {}) {
   const uploads = allowUpload ?? createUploadLimiter({ perMinute: Number(process.env.UPLOADS_PER_MINUTE) || 30 });
   registerCatalogAdminRoutes(app, guards, { storage, allowUpload: uploads });
   registerReviewRoutes(app, guards, { storage, allowUpload: uploads });
-  registerModerationRoutes(app, guards, { storage });
+  registerModerationRoutes(app, guards, { storage, mailer });
+  registerNoticeRoutes(app, guards);
   registerItemRoutes(app, guards);
   registerOrderRoutes(app, guards);
   registerPointsRoutes(app, guards);

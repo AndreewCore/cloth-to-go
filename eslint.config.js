@@ -68,7 +68,7 @@ const APP_GLOBALS = {
     "toggleWaterGoalInfo", "celebrateWaterGoals",
     "orderDeposit", "orderItemPrice", "cartItemIds", "paymentStatusLabel", "isArchivedOrder",
     "isCancelledOrder", "isPastOrder", "canCancelOrder", "isDelivered",
-    "reviews", "productReviewCache", "reviewOrderId", "reviewProductId", "reviewRating", "reviewText",
+    "reviews", "productReviewCache", "notices", "unreadNotices", "reviewOrderId", "reviewProductId", "reviewRating", "reviewText",
     "reviewPhoto", "reviewPhotoBlob", "REVIEW_STATUS_LABEL",
     "productReviews", "productRating", "reviewFor", "reviewableItems", "hasPendingReview",
     "deleteReview",
@@ -82,7 +82,7 @@ const APP_GLOBALS = {
     "sheetFoot", "sheetTitle", "searchInput", "loginEl", "greeting", "backBtn",
     "SHEET_BACK", "FULL_VIEWS", "optionCardHTML", "localCardHTML", "openSheet", "closeSheet", "renderSheet", "scrollSheetTo", "updateBadge", "bumpBadge", "flyToCart", "toastTimer", "toast",
     "sheetStack", "stackOverlay", "stackBody", "stackFoot", "openStackSheet", "closeStackSheet",
-    "modalOverlay", "modalText", "modalOk", "modalCancel", "onConfirmCb", "confirmDialog", "closeModal"
+    "modalOverlay", "modalText", "modalOk", "modalCancel", "onConfirmCb", "confirmDialog", "closeModal", "updateNoticeDot"
   ],
   catalog: [
     "renderFilters", "sortProducts", "filteredProducts", "anyFilterActive", "clearFilters",
@@ -101,7 +101,7 @@ const APP_GLOBALS = {
     "resetCheckoutState", "finishOrder", "goToOrders"
   ],
   profile: [
-    "renderProfile", "PAY_LABELS", "profileHeadHTML", "contactInfoHTML", "orderCardHTML", "waterGoalHTML", "saveProfile", "editProfile", "cancelProfileEdit", "phoneVerifyHTML", "verifyPhone", "toggleLateInfo",
+    "renderProfile", "noticesHTML", "PAY_LABELS", "profileHeadHTML", "contactInfoHTML", "orderCardHTML", "waterGoalHTML", "saveProfile", "editProfile", "cancelProfileEdit", "phoneVerifyHTML", "verifyPhone", "toggleLateInfo",
     "returnEditorHTML", "renderReturnEditor", "openReturnEditor", "closeReturnEditor", "saveReturn", "cancelOrder",
     "renderRewards", "couponListHTML", "redeem",
     "prefOptionsHTML", "prefToggleHTML", "renderSettings",
@@ -119,7 +119,7 @@ const APP_GLOBALS = {
     "readApiOverride", "backendForHost", "isMixedContent",
     "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog", "hydrateCalendar", "verifyGoogleCredential",
     "fetchWaterImpact", "fetchChatStatus", "askChatbot",
-    "catalogFromApi", "SESSION_KEY", "readSessionToken", "storeSessionToken", "clearSessionToken",
+    "catalogFromApi", "loadNotices", "markNoticesRead", "SESSION_KEY", "readSessionToken", "storeSessionToken", "clearSessionToken",
     "canRentOnline", "apiFetch", "apiUpload", "loadMyReviews", "loadProductReviews", "apiErrorText", "logoutSession", "localDayOf", "orderFromApi",
     "couponFromApi", "refreshAccount", "quoteInFlight", "quotePromise", "requestQuote"
   ],
@@ -155,6 +155,7 @@ const WEB_GLOBALS = [
   "webAuthAvailable", "webDecodeJwt", "persistCart", "readGuestCart", "clearGuestCart",
   "startWebSession", "signOutWeb", "onSessionExpired", "requireSession", "onWebGoogleCredential",
   "initWebAuth", "showLoginHint", "renderSession", "userMenuOpen", "toggleUserMenu", "closeUserMenu",
+  "webNoticesHTML", "updateNoticeDot",
   // web/js/catalog.js
   "webImg", "webCover", "webSortProducts", "webFilteredProducts", "webAnyFilter",
   "clearWebFilters", "chipHTML", "cardHTML", "openDetail", "updateFilterCount",

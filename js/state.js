@@ -43,6 +43,10 @@ let reviews = [];
 // Reseñas publicadas de cada prenda (GET /api/products/:id/reviews), por id.
 // Las pide el detalle al abrirse; una prenda sin entrada aún no se cargó.
 let productReviewCache = {};
+// Avisos del local (GET /api/me/notices): rechazos de reseñas con su motivo.
+// Espejo del servidor como los pedidos; nunca se persisten aquí.
+let notices = [];
+let unreadNotices = 0;
 // Prenda y pedido que se están reseñando, y el borrador del formulario.
 // Efímeros: un borrador a medias no merece sobrevivir a una recarga.
 let reviewOrderId = null;
@@ -575,6 +579,10 @@ function resetStateToDefaults(){
   accountSynced = false;
   reviews = [];      // las de otra cuenta no pueden asomar en esta sesión
   productReviewCache = {};
+  notices = [];
+  unreadNotices = 0;
+  // El punto de avisos de la cuenta anterior no puede quedarse encendido.
+  if(typeof updateNoticeDot === "function") updateNoticeDot();
   profile = defaultProfile();
 }
 
