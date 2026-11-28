@@ -148,7 +148,10 @@ function actionWhere(source, actions, column) {
 /**
  * Lee de las cuatro tablas lo que piden los filtros y lo devuelve en una sola
  * forma, de lo más nuevo a lo más viejo.
- * @param {object} f Filtros de `parseFilters()`.
+ * @param {object} f Filtros de `parseFilters()`. Con `f.order` (`{orderId,
+ *   items: [{itemId, from, to}]}`) se queda con el recorrido de un pedido: lo
+ *   que lleva su número y lo que les pasó a sus prendas en esa ventana (el
+ *   lavado y la vuelta a Disponible no llevan número de pedido).
  * @param {(key: string) => Promise<string>} signed Enlace firmado de una foto privada.
  * @param {(img: string) => string} catalog URL de una foto de catálogo.
  * @returns {Promise<{entries: object[], next: object|null}>}
@@ -159,9 +162,17 @@ export async function readActivity(f, { signed, catalog }) {
   const actor = (col) => (f.actor === undefined ? {} : { [col]: f.actor });
   const texto = (extra = []) => (f.text ? { OR: [{ note: ci(f.text) }, ...extra] } : {});
   const porModelo = (rel) => (f.productId ? rel(f.productId) : {});
+  // Recorrido de un pedido: su número, o sus prendas dentro de la ventana.
+  const ventana = (o) => o.items.map((x) => ({
+    itemId: x.itemId, createdAt: { gte: x.from, ...(x.to ? { lt: x.to } : {}) },
+  }));
+  const porPedido = (conPrendas) => (f.order
+    ? { OR: [{ orderId: f.order.orderId }, ...(conPrendas ? ventana(f.order) : [])] }
+    : {});
   const consultas = [];
 
-  const wActivity = actionWhere("activity", f.actions, "action");
+  // El catálogo y la taxonomía no son de ningún pedido.
+  const wActivity = f.order ? null : actionWhere("activity", f.actions, "action");
   if (wActivity) {
     consultas.push(prisma.activityLog.findMany({
       where: and(wActivity, comun, actor("actorId"), texto([{ product: { name: ci(f.text) } }]), porModelo((id) => ({ productId: id }))),
@@ -180,7 +191,7 @@ export async function readActivity(f, { signed, catalog }) {
     consultas.push(prisma.itemLog.findMany({
       where: and(wItems, comun, actor("actorId"),
         texto([{ item: { code: ci(f.text) } }, { item: { product: { name: ci(f.text) } } }]),
-        porModelo((id) => ({ item: { productId: id } }))),
+        porModelo((id) => ({ item: { productId: id } })), porPedido(true)),
       orderBy: { createdAt: "desc" },
       take,
       include: { actor: { select: { id: true, name: true } }, item: { select: { id: true, code: true, product: { select: { id: true, name: true } } } } },
@@ -202,7 +213,7 @@ export async function readActivity(f, { signed, catalog }) {
     consultas.push(prisma.financeLog.findMany({
       where: and(wFinance, comun, actor("actorId"),
         texto([{ product: { name: ci(f.text) } }, { subjectUser: { name: ci(f.text) } }, { subjectUser: { email: ci(f.text) } }]),
-        porModelo((id) => ({ productId: id }))),
+        porModelo((id) => ({ productId: id })), porPedido(false)),
       orderBy: { createdAt: "desc" },
       take,
       include: {
@@ -225,7 +236,7 @@ export async function readActivity(f, { signed, catalog }) {
       ? { OR: [{ item: { code: ci(f.text) } }, { item: { product: { name: ci(f.text) } } }] }
       : {};
     consultas.push(prisma.itemPhoto.findMany({
-      where: and(comun, actor("takenById"), fotosTexto, porModelo((id) => ({ item: { productId: id } }))),
+      where: and(comun, actor("takenById"), fotosTexto, porModelo((id) => ({ item: { productId: id } })), porPedido(true)),
       orderBy: { createdAt: "desc" },
       take,
       include: { takenBy: { select: { id: true, name: true } }, item: { select: { id: true, code: true, product: { select: { id: true, name: true } } } } },

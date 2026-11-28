@@ -8,14 +8,14 @@
  * comprobación real la hace cada ruta del servidor.
  */
 import {
-  $, PAY_LABEL, STATUS_LABEL, WEEKDAY, act, addDays, api, can, confirmWithNote, daysBetween, fmtDay,
+  $, PAY_LABEL, STATUS_LABEL, WEEKDAY, act, addDays, amt, api, can, garment, joinParts, confirmWithNote, daysBetween, fmtDay,
   formDialog, h, holidayName, hooks, isOpen, isoDate, lateDays, money, relDays, since, state, statusChip,
   toast, todayISO, upload, when,
 } from "./core.js";
 import { photoButton, photoPicker, showPhotos, thumb } from "./photos.js";
 import { catalogClick, loadCatalog, renderCatalog } from "./catalog.js";
 import { loadTaxonomyAdmin, renderTaxonomy, taxonomyClick } from "./taxonomy.js";
-import { activityClick, loadActivity, renderActivity, setActivityFilter } from "./activity.js";
+import { activityClick, entryRow, loadActivity, renderActivity, setActivityFilter } from "./activity.js";
 import { calendarClick, calendarSubmit, loadCalendar, renderCalendar } from "./calendar.js";
 import { loadModeration, moderationClick, pendingReviews, renderModeration } from "./moderation.js";
 
@@ -101,8 +101,7 @@ function tabs() {
     { id: "taxonomy", label: "Taxonomía", show: can("INVENTARIO") },
     { id: "calendar", label: "Calendario", show: can("ADMINISTRACION") },
     { id: "reviews", label: "Reseñas", show: can("MODERACION") },
-    // Al extremo derecho: no es una tarea del día, es para revisar.
-    { id: "activity", label: "Bitácora", show: can("ADMINISTRACION"), end: true },
+    { id: "activity", label: "Bitácora", show: can("ADMINISTRACION") },
   ].filter((t) => t.show);
 }
 
@@ -121,7 +120,7 @@ function renderTabs() {
     ? state.stragglers.notReceived.length + state.stragglers.receivedNotWashed.length + state.stragglers.inLaundry.length
     : 0;
   nav.replaceChildren(...tabs().map((t) => h(
-    t.end ? "button.tab-end" : "button",
+    "button",
     { type: "button", role: "tab", "aria-selected": String(state.tab === t.id), dataset: { action: "tab", tab: t.id } },
     t.label,
     t.id === "stragglers" && rezagadas > 0 ? h("span.count", {}, rezagadas) : null,
@@ -144,7 +143,12 @@ async function openTab(id) {
 /** Recarga los datos de la pestaña abierta y la vuelve a pintar. */
 async function loadTab() {
   try {
-    if (state.tab === "orders") state.orders = await api("/api/admin/orders");
+    if (state.tab === "orders") {
+      [state.orders, state.history] = await Promise.all([
+        api("/api/admin/orders"),
+        api(`/api/admin/orders?scope=history&days=${state.historyDays}`),
+      ]);
+    }
     if (state.tab === "items") state.items = await api("/api/admin/items");
     if (state.tab === "catalog") await loadCatalog();
     if (state.tab === "taxonomy") await loadTaxonomyAdmin();
@@ -192,17 +196,74 @@ const matches = (...texts) => {
 
 /* ---------- Pedidos ---------- */
 
-/** Pestaña de pedidos en curso. */
+/** Indica si un pedido coincide con la búsqueda de la pestaña. */
+const orderMatches = (o) => matches(
+  `#${o.id}`, o.customer.name, o.customer.email, ...o.lines.flatMap((l) => [l.code, l.productName]),
+);
+
+/** Pestaña de pedidos: los que están en curso y, debajo, los que ya terminaron. */
 function renderOrders() {
-  const lista = state.orders.filter((o) => matches(
-    `#${o.id}`, o.customer.name, o.customer.email, ...o.lines.flatMap((l) => [l.code, l.productName]),
-  ));
+  const lista = state.orders.filter(orderMatches);
+  const hist = state.history ?? { days: state.historyDays, orders: [], hasMore: false };
+  const terminados = hist.orders.filter(orderMatches);
   return [
     h("h2", {}, "Pedidos en curso ", h("small", {}, "con prendas por recibir, cobro pendiente o garantía retenida")),
     searchBar("Buscar por #pedido, cliente, código o prenda"),
     stripLegend(),
     lista.length ? h("div.cards", {}, lista.map(orderCard)) : h("p.empty", {}, "No hay pedidos en curso."),
+    h("h2", {}, "Terminados recientemente ", h("small", {}, `cerrados o anulados en los últimos ${hist.days} días`)),
+    terminados.length
+      ? h("div.cards", {}, terminados.map(historyCard))
+      : h("p.empty", {}, state.filter ? "Ningún pedido terminado coincide con la búsqueda." : "Ningún pedido terminó en estos días."),
+    hist.hasMore ? h("div.bar", {}, h("button.btn", { type: "button", dataset: { action: "history-more" } }, `Ver ${HISTORY_STEP} días más`)) : null,
   ];
+}
+
+/** Días que suma cada «Ver más» del historial. */
+const HISTORY_STEP = 30;
+
+/**
+ * Tarjeta compacta de un pedido terminado: quién, qué prendas, cuándo, cuánto
+ * y cómo acabó. El detalle está en «Ver recorrido».
+ */
+function historyCard(o) {
+  const anulado = Boolean(o.cancelledAt);
+  return h("article.card.history-card", {},
+    h("header", {},
+      h("h3", {}, `#${o.id} · ${customerName(o)}`),
+      h(`span.chip${anulado ? ".bad" : ""}`, {}, anulado ? "Anulado" : "Cerrado")),
+    h("div.meta", {}, `Del ${fmtDay(o.start)} al ${fmtDay(o.returnBy)} · terminó `, since(o.finishedAt)),
+    h("ul.lines", {}, o.lines.map((l) => h("li", {},
+      h("span", {}, `${l.productName} `, h("span.meta", {}, l.code ?? `#${l.itemId}`)),
+      h("span.line-actions", {},
+        l.returnedOn ? h("span.meta", {}, `volvió ${fmtDay(l.returnedOn)} `) : null,
+        h("span", { title: "Estado de la prenda hoy" }, statusChip(l.status))),
+    ))),
+    h("dl.money", {},
+      h("dt", {}, anulado ? "Total tras anular" : "Total cobrado"), h("dd", {}, money(o.totalCents)),
+      o.charges.some((c) => c.note?.startsWith("Días extra"))
+        ? [h("dt", {}, "Días extra"), h("dd.bad", {}, money(o.charges.filter((c) => c.note?.startsWith("Días extra")).reduce((s, c) => s + c.amountCents, 0)))]
+        : null,
+    ),
+    h("div.actions", {}, timelineButton(o.id)),
+  );
+}
+
+/** Botón que abre el recorrido de un pedido. */
+const timelineButton = (id) => h("button.btn", { type: "button", dataset: { action: "timeline", order: id } }, "Ver recorrido");
+
+/**
+ * Recorrido de un pedido, del principio al final: reserva, entrega con fotos,
+ * devolución, lavado, vuelta a Disponible, cobro y garantía, con quién y cuándo.
+ * @param {number} id Pedido.
+ */
+async function showTimeline(id) {
+  let r;
+  try { r = await api(`/api/orders/${id}/timeline`); } catch (err) { return toast(err.message, true); }
+  await formDialog(`Recorrido del pedido #${id}`, [
+    h("p.meta", {}, "De lo más viejo a lo más nuevo. Incluye lo que les pasó a sus prendas hasta que otro pedido las tomó."),
+    h("ul.activity-list.timeline-list", {}, r.entries.map((e) => entryRow(e, { orderLink: false, fullDate: true }))),
+  ], "Cerrar", { cancel: false, wide: true });
 }
 
 /** Celdas que caben en la tira antes de recortar el medio. */
@@ -298,9 +359,15 @@ function stripLegend() {
     item("cerrado", "Local cerrado"), item("hoy", "Hoy"));
 }
 
+/** Nombre del cliente de un pedido, o su correo si no lo dio. */
+const customerName = (o) => o?.customer.name || o?.customer.email || "el cliente";
+
+/** Cobro pendiente de un pedido, en centavos. */
+const pendingCents = (o) => o.charges.filter((c) => c.status === "PENDING").reduce((s, c) => s + c.amountCents, 0);
+
 /** Tarjeta de un pedido con sus prendas, su dinero y sus acciones. */
 function orderCard(o) {
-  const pendienteCents = o.charges.filter((c) => c.status === "PENDING").reduce((s, c) => s + c.amountCents, 0);
+  const pendienteCents = pendingCents(o);
   const porRecibir = o.lines.filter((l) => !l.receivedAt);
   const recibible = porRecibir.some((l) => l.status === "EN_ALQUILER");
   const hoy = todayISO();
@@ -338,7 +405,8 @@ function orderCard(o) {
       pendienteCents > 0 && can("CAJA")
         ? h("button.btn", { type: "button", dataset: { action: "settle", order: o.id } }, `Confirmar cobro de ${money(pendienteCents)}`) : null,
       o.depositHeldCents > 0 && porRecibir.length === 0 && can("CAJA")
-        ? h("button.btn", { type: "button", dataset: { action: "release", order: o.id } }, "Liberar garantía") : null,
+        ? h("button.btn", { type: "button", dataset: { action: "release", order: o.id } }, `Devolver garantía de ${money(o.depositHeldCents)}`) : null,
+      timelineButton(o.id),
       can("ADMINISTRACION")
         ? h("button.btn.danger", { type: "button", dataset: { action: "cancel", order: o.id } }, "Anular") : null,
     ),
@@ -406,13 +474,34 @@ async function receiveOrder(id) {
           items: elegidas.map(({ destino }) => destino.value()),
         },
       }),
-      "Devolución registrada con sus fotos.",
+      (res) => receiptMessage(id, res.receipt),
+      (res) => ({ tone: res.receipt.extraCents > 0 ? "warn" : "ok" }),
     );
   } catch (err) {
     toast(err.message, true);
   } finally {
     fichas.forEach(({ picker }) => picker.dispose());
   }
+}
+
+/**
+ * Aviso de una devolución: qué volvió, adónde fue cada prenda y, si se pasó
+ * de la fecha, cuánto se cobró de más (en rojo).
+ * @param {number} id Pedido.
+ * @param {{extraCents: number, items: object[]}} receipt Lo que registró el servidor.
+ * @returns {Array<string|Node>}
+ */
+function receiptMessage(id, receipt) {
+  const prendas = receipt.items.map((x) => [
+    ...garment(x.productName, x.code), " → ", statusChip(x.to), x.laundryPlace ? ` en ${x.laundryPlace}` : "",
+  ]);
+  const dias = Math.max(0, ...receipt.items.map((x) => x.extraDays));
+  return [
+    `Pedido #${id} recibido: `, ...joinParts(prendas, "; "),
+    receipt.extraCents > 0
+      ? [". Se cobran ", amt(receipt.extraCents, "bad"), ` por ${dias} día${dias === 1 ? "" : "s"} hábil${dias === 1 ? "" : "es"} extra.`]
+      : ". A tiempo, sin cobros extra.",
+  ];
 }
 
 /**
@@ -457,7 +546,8 @@ function destinationFields(itemId) {
  * @param {number} itemId Ejemplar.
  */
 async function deliverItem(orderId, itemId) {
-  const l = state.orders.find((o) => o.id === orderId)?.lines.find((x) => x.itemId === itemId);
+  const o = state.orders.find((x) => x.id === orderId);
+  const l = o?.lines.find((x) => x.itemId === itemId);
   const picker = photoPicker({ label: "Fotos de cómo sale" });
   const datos = await formDialog(`Entregar ${l?.productName ?? "prenda"} (${l?.code ?? `#${itemId}`})`, [
     h("p.meta", {}, "Fotografía la prenda tal como sale: de frente, de espalda y cualquier detalle (manchas, botones, costuras). Es lo que se compara cuando vuelva."),
@@ -469,7 +559,10 @@ async function deliverItem(orderId, itemId) {
     await upload(`/api/items/${itemId}/photos`, await picker.files(), { kind: "SALIDA", orderId: String(orderId) });
     await act(
       () => api(`/api/items/${itemId}/status`, { method: "POST", body: { to: "EN_ALQUILER", note: "Entregada al cliente" } }),
-      "Prenda entregada con sus fotos.",
+      () => [
+        ...garment(l?.productName ?? "Prenda", l?.code), " entregada a ", h("strong", {}, customerName(o)),
+        " · devuelve hasta el ", h("strong", {}, fmtDay(o.returnBy)), " sin costo.",
+      ],
     );
   } catch (err) {
     toast(err.message, true);
@@ -545,7 +638,12 @@ async function moveItem(id) {
       ...(to === "EN_LAVADO" ? { laundry: { kind: datos.get("kind"), place: datos.get("place") } } : {}),
       ...(to === "NO_ALQUILABLE" ? { reason: datos.get("reason") } : {}),
     },
-  }), "Estado actualizado.");
+  }), (res) => [
+    ...garment(it.productName, it.code), ": ", statusChip(it.status), " → ", statusChip(res.status),
+    res.laundryPlace ? ` en ${res.laundryPlace}` : "",
+    // Pidió Disponible y quedó Reservada: el servidor vio un pedido esperándola.
+    to === "DISPONIBLE" && res.status === "RESERVADA" ? ". Ya la espera un pedido: apártala para entregarla." : ".",
+  ], (res) => ({ tone: ["NO_ALQUILABLE", "PERDIDA"].includes(res.status) ? "bad" : "ok" }));
 }
 
 /** Muestra la bitácora de un ejemplar, de lo más reciente a lo más viejo. */
@@ -556,7 +654,12 @@ async function showLog(id) {
     ficha.logs.length ? h("ul.lines", {}, ficha.logs.map((l) => h("li", {},
       h("span", {},
         h("strong", {}, l.from ? `${STATUS_LABEL[l.from]} → ${STATUS_LABEL[l.to]}` : `Alta: ${STATUS_LABEL[l.to]}`),
-        l.note ? h("div.meta", {}, l.note) : null),
+        l.note ? h("div.meta", {}, l.note) : null,
+        l.laundryPlace ? h("div.meta", {}, `${l.laundryKind === "EXTERNO" ? "Lavandería externa" : "Lavado propio"}: ${l.laundryPlace}`) : null,
+        // Saltar al pedido para seguir la historia de la prenda.
+        l.orderId && (can("MOSTRADOR") || can("CAJA"))
+          ? h("button.link", { type: "button", dataset: { action: "timeline", order: l.orderId } }, `Ver recorrido del pedido #${l.orderId}`)
+          : null),
       h("span.meta", {}, `${when(l.createdAt)} · ${l.actor?.name ?? "sistema"}`),
     ))) : h("p.empty", {}, "Sin entradas."),
   ], "Cerrar", { cancel: false });
@@ -608,17 +711,37 @@ document.addEventListener("click", async (e) => {
     case "receive":
       return receiveOrder(order);
     case "settle": {
-      const ok = await confirmWithNote("Confirmar cobro", `¿Entró el dinero pendiente del pedido #${order}?`, "Confirmar");
-      return ok && act(() => api(`/api/orders/${order}/settle`, { method: "POST", body: ok }), "Cobro confirmado.");
+      const o = state.orders.find((x) => x.id === order);
+      const cuanto = pendingCents(o);
+      const ok = await confirmWithNote("Confirmar cobro",
+        `¿Entraron ${money(cuanto)} de ${customerName(o)} por el pedido #${order}?`, "Confirmar");
+      return ok && act(() => api(`/api/orders/${order}/settle`, { method: "POST", body: ok }), () => [
+        "Cobro confirmado: ", amt(cuanto), ` de ${customerName(o)} · pedido #${order}.`,
+      ]);
     }
     case "release": {
-      const ok = await confirmWithNote("Liberar garantía", `Se devuelve toda la garantía del pedido #${order} al cliente.`, "Liberar");
-      return ok && act(() => api(`/api/orders/${order}/deposit-release`, { method: "POST", body: ok }), "Garantía liberada.");
+      const o = state.orders.find((x) => x.id === order);
+      const ok = await confirmWithNote("Devolver garantía",
+        `Se devuelven ${money(o.depositHeldCents)} de garantía a ${customerName(o)} (pedido #${order}).`, "Devolver");
+      return ok && act(() => api(`/api/orders/${order}/deposit-release`, { method: "POST", body: ok }), () => [
+        "Garantía devuelta: ", amt(o.depositHeldCents), ` a ${customerName(o)} · pedido #${order}.`,
+      ]);
     }
     case "cancel": {
-      const ok = await confirmWithNote("Anular pedido", `Se anula el pedido #${order}: se revierten sus cargos y se liberan las prendas.`, "Anular", true);
-      return ok && act(() => api(`/api/orders/${order}/cancel`, { method: "POST", body: ok }), "Pedido anulado.");
+      const o = state.orders.find((x) => x.id === order);
+      const prendas = o.lines.map((l) => l.productName).join(", ");
+      const ok = await confirmWithNote("Anular pedido",
+        `Se anula el pedido #${order} de ${customerName(o)}: se revierten sus cargos y se liberan ${prendas}.`, "Anular", true);
+      return ok && act(() => api(`/api/orders/${order}/cancel`, { method: "POST", body: ok }), (res) => [
+        `Pedido #${order} anulado. Se revirtieron `, amt(o.totalCents - res.totalCents, "bad"),
+        " y quedan libres: ", ...joinParts(o.lines.map((l) => garment(l.productName, l.code)), ", "), ".",
+      ], { tone: "bad" });
     }
+    case "timeline":
+      return showTimeline(order);
+    case "history-more":
+      state.historyDays += HISTORY_STEP;
+      return loadTab();
     case "move":
       return moveItem(item);
     case "log":

@@ -43,6 +43,8 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | POST | `/api/orders/:id/cancel` | Anula el pedido y revierte sus cargos. |
 | POST | `/api/orders/:id/settle` | **Solo local**: confirma que el efectivo entró. |
 | POST | `/api/orders/:id/deposit-release` | **Solo local**: libera el depósito. |
+| GET | `/api/admin/orders?scope=history&days=30` | **Mostrador** o **Caja**: pedidos **terminados** (anulados, o con todo recibido, cobrado y la garantía devuelta) en los últimos N días, con `finishedAt` y `hasMore`. |
+| GET | `/api/orders/:id/timeline` | **Mostrador** o **Caja**: recorrido del pedido, de lo más viejo a lo más nuevo: lo que lleva su número (reserva, entrega, recepción, días extra, cobro, garantía) y lo que les pasó a sus prendas hasta que otro pedido las tomó (lavado, vuelta a Disponible). |
 | POST | `/api/orders/:id/receive` | **Mostrador**: registra la devolución (día real), cobra los días extra y manda cada prenda a lavado o a desperfecto. |
 | GET | `/api/me` | Quién es la sesión y sus capacidades (el panel decide qué pestañas enseñar). |
 | GET | `/api/admin/orders` | **Mostrador o Caja**: pedidos en curso, con cliente y ejemplares (`?scope=all`, todos). |

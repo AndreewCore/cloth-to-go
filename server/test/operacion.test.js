@@ -378,3 +378,57 @@ test("el catálogo y el pedido respetan el lavado; lo que está fuera no se ofre
   assert.equal(cotiza.statusCode, 409, "la cotización avisa antes de pagar");
   assert.equal((await pedir(desde)).statusCode, 201, "desde el día prometido, sí");
 });
+
+/* ---- Historial y recorrido ---- */
+
+/** Lleva un pedido hasta el final: entregado, recibido a lavado, cobrado y con la garantía devuelta. */
+async function pedidoTerminado() {
+  const { order, item } = await pedido({ diasAtras: 1 });
+  await entregar(item.id);
+  assert.equal((await recibir(order.id, todayISO())).statusCode, 200);
+  assert.equal((await como(CAJA, { method: "POST", url: `/api/orders/${order.id}/settle` })).statusCode, 200);
+  const garantia = await como(CAJA, { method: "POST", url: `/api/orders/${order.id}/deposit-release` });
+  assert.equal(garantia.statusCode, 200, garantia.body);
+  return { order, item };
+}
+
+test("el historial trae los pedidos terminados, que ya no están en curso", async () => {
+  const { order } = await pedidoTerminado();
+  const enCurso = (await como(MOSTRADOR, { method: "GET", url: "/api/admin/orders" })).json();
+  assert.ok(!enCurso.some((o) => o.id === order.id), "terminado: fuera de la lista en curso");
+
+  const hist = (await como(CAJA, { method: "GET", url: "/api/admin/orders?scope=history" })).json();
+  assert.equal(hist.days, 30);
+  const visto = hist.orders.find((o) => o.id === order.id);
+  assert.ok(visto, "aparece en el historial");
+  assert.ok(visto.finishedAt);
+  assert.ok(hist.orders.every((o) => o.cancelledAt || o.status !== "pending"), "solo terminados");
+
+  const { order: vivo } = await pedido();
+  const hist2 = (await como(MOSTRADOR, { method: "GET", url: "/api/admin/orders?scope=history&days=9999" })).json();
+  assert.equal(hist2.days, 365, "con tope");
+  assert.ok(!hist2.orders.some((o) => o.id === vivo.id), "lo que sigue en curso no es historia");
+  assert.equal((await como(CLIENTE, { method: "GET", url: "/api/admin/orders?scope=history" })).statusCode, 403);
+});
+
+test("el recorrido de un pedido sigue a la prenda hasta que vuelve a Disponible", async () => {
+  const { order, item } = await pedidoTerminado();
+  // Salir del lavado no lleva número de pedido, pero es parte de su historia.
+  assert.equal((await como(MOSTRADOR, { method: "POST", url: `/api/items/${item.id}/status`, payload: { to: "DISPONIBLE" } })).statusCode, 200);
+
+  const res = await como(CAJA, { method: "GET", url: `/api/orders/${order.id}/timeline` });
+  assert.equal(res.statusCode, 200, res.body);
+  const pasos = res.json().entries.map((e) => e.action);
+  assert.equal(pasos[0], "PEDIDO", "empieza con el pedido");
+  const en = (a) => pasos.indexOf(a);
+  for (const a of ["RECEPCION", "COBRO_CONFIRMADO", "GARANTIA_LIBERADA"]) assert.ok(en(a) > 0, `falta ${a}`);
+  const recepcion = res.json().entries.find((e) => e.action === "RECEPCION");
+  assert.match(recepcion.note, /lavado propio: Local/);
+  const vuelta = res.json().entries.findLast((e) => e.action === "ESTADO");
+  assert.match(vuelta.note, /En lavado → Disponible/);
+  assert.ok(pasos.lastIndexOf("ESTADO") > en("RECEPCION"), "en orden cronológico");
+
+  assert.equal((await como(CLIENTE, { method: "GET", url: `/api/orders/${order.id}/timeline` })).statusCode, 403);
+  assert.equal((await como(INVENTARIO, { method: "GET", url: `/api/orders/${order.id}/timeline` })).statusCode, 403);
+  assert.equal((await como(CAJA, { method: "GET", url: "/api/orders/99999999/timeline" })).statusCode, 404);
+});

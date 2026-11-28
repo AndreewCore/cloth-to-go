@@ -100,10 +100,25 @@ async function reject(id) {
         mod.data.reasons.map((r) => h("option", { value: r.key }, r.label)))),
   ], "Rechazar");
   if (!datos) return;
-  await act(() => api(`/api/reviews/${id}/moderate`, { method: "POST", body: { action: "reject", reason: datos.get("reason") } }), "Reseña rechazada.");
+  const reason = datos.get("reason");
+  await act(() => api(`/api/reviews/${id}/moderate`, { method: "POST", body: { action: "reject", reason } }),
+    (res) => [...reviewLabel(id), " rechazada por ", h("strong", {}, reasonLabel(reason)),
+      res.noticeId ? ". Se avisó al autor." : "."],
+    { tone: "bad" });
 }
 
-const OK = { approve: "Reseña publicada.", hide: "Reseña oculta.", show: "Reseña publicada de nuevo." };
+const OK = { approve: "publicada", hide: "oculta: el público ya no la ve", show: "publicada de nuevo" };
+
+/**
+ * «Reseña de Ana P. sobre **Blazer de lino**», para los avisos: con el número
+ * solo nadie sabe cuál fue.
+ * @param {number} id Reseña.
+ * @returns {Array<string|Node>}
+ */
+function reviewLabel(id) {
+  const r = mod.data?.reviews.find((x) => x.id === id);
+  return r ? [`Reseña de ${r.author} sobre `, h("strong", {}, r.product.name)] : [`Reseña #${id}`];
+}
 
 /**
  * Atiende un clic delegado de la pestaña.
@@ -123,7 +138,10 @@ export function moderationClick(el, render) {
       const id = Number(el.dataset.review);
       const move = el.dataset.move;
       if (move === "reject") reject(id);
-      else act(() => api(`/api/reviews/${id}/moderate`, { method: "POST", body: { action: move } }), OK[move]);
+      else {
+        act(() => api(`/api/reviews/${id}/moderate`, { method: "POST", body: { action: move } }),
+          () => [...reviewLabel(id), ` ${OK[move]}.`], { tone: move === "hide" ? "warn" : "ok" });
+      }
       return true;
     }
     case "review-photo":
