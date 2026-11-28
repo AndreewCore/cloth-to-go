@@ -391,16 +391,14 @@ function initWeb(){
   renderGrid();
   renderCart();
   wireEvents();
-  // El catálogo del backend sustituye al embebido en cuanto llegue; si no hay
-  // servidor (todavía no existe la base de datos), la web sigue con los datos
-  // locales — el mismo trato que la app.
+  // El catálogo llega de la base, igual que en la app; sin servidor la
+  // rejilla lo dice.
   // Días cerrados y feriados: encaja las fechas elegidas y repinta el carrito.
   // El horario también llega con el calendario: se repinta el contacto.
   hydrateCalendar(true).then(ok => { if(ok){ renderCart(); renderContact(); } });
   hydrateCatalog().then(hidratado => {
-    // Si el catálogo llegó del backend, las cifras de la portada (cuántas
-    // prendas, cuánto se ahorra, cuánta agua) ya no son las de los datos
-    // embebidos: se recalculan sobre lo que de verdad se está mostrando.
+    // Las cifras de la portada (cuántas prendas, cuánto se ahorra, cuánta
+    // agua) salen del catálogo: se calculan cuando llega.
     if(hidratado) renderHeroFacts();
   });
 }

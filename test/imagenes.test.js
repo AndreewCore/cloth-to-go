@@ -43,8 +43,10 @@ test("las imágenes citadas en index.html existen en disco", () => {
   }
 });
 
-test("las fotos del catálogo existen en disco", () => {
-  const data = fs.readFileSync(path.join(ROOT, "js", "data.js"), "utf8");
+test("las fotos del catálogo de la semilla existen en disco", () => {
+  // Las prendas de demostración las siembra el servidor con rutas
+  // `img/products/…`, que /api/products deja pasar tal cual.
+  const data = fs.readFileSync(path.join(ROOT, "server", "prisma", "seed.js"), "utf8");
   const rutas = [...data.matchAll(/"(img\/products\/[^"]+)"/g)].map(m => m[1]);
 
   assert.ok(rutas.length >= 10, "debe haber al menos una foto por prenda");

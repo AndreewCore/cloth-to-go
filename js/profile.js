@@ -169,7 +169,7 @@ function orderCardHTML(o, i, archived){
         </div>
       </div>
 
-      ${o.items.map(id => { const p = productById(id); return `
+      ${o.items.map(id => { const p = productOrStub(id); return `
         <div class="order-item">
           <div class="ci-thumb" data-action="openDetail" data-id="${p.id}"
                role="button" tabindex="0" aria-label="Ver detalle de ${escapeHTML(p.name)}">${imgPlaceholder(p)}</div>
@@ -581,7 +581,7 @@ function cancelOrder(i){
   }
 
   const days = daysBetween(o.start, o.end);
-  const prendas = o.items.map(id => productById(id));
+  const prendas = o.items.map(id => productOrStub(id));
   const items = prendas.map(p => escapeHTML(p.name)).join(" · ");
   // Miniaturas de lo que se anula: reconocer la prenda de un vistazo evita
   // anular el pedido equivocado cuando hay varios abiertos.
@@ -732,7 +732,7 @@ function renderReview(){
   if(!o){ view = "profile"; renderSheet(); return; }
   const pendientes = reviewableItems(o).filter(id => !reviewFor(o.id, id));
 
-  const prendas = pendientes.map(id => { const p = productById(id); return `
+  const prendas = pendientes.map(id => { const p = productOrStub(id); return `
     <div class="rev-pick${reviewProductId === id ? " on" : ""}" data-action="pickReviewItem" data-id="${id}"
          role="button" tabindex="0">
       <div class="ci-thumb">${imgPlaceholder(p)}</div>

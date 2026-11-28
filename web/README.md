@@ -11,10 +11,10 @@ python3 -m http.server          # desde la RAÍZ del proyecto
 # → http://localhost:8000/web/
 ```
 
-Por `file://` (abriendo `web/index.html` a doble clic) el catálogo y el carrito
-funcionan, pero **no** el inicio de sesión: Google Identity necesita un origen
-http(s). En ese caso el diálogo lo explica en vez de dejar un botón muerto. Es
-la misma degradación que hace la app.
+Por `file://` (abriendo `web/index.html` a doble clic) no hay API: la rejilla
+dice que el catálogo necesita conexión, y el inicio de sesión tampoco funciona
+(Google Identity necesita un origen http(s)); el diálogo lo explica en vez de
+dejar un botón muerto. Es la misma degradación que hace la app.
 
 ## Qué comparte con la app (y por qué)
 
@@ -31,11 +31,10 @@ Por eso el precio, el depósito y el ahorro de agua **no se calculan aquí**: se
 piden a `rentalPrice()`, `depositForItems()`, `grandTotal()`… Si una tarifa
 cambia en `js/data.js`, cambia en las dos superficies a la vez.
 
-**Base de datos.** Todavía no existe; las dos superficies funcionan con el
-catálogo embebido de `js/data.js`. El día que el backend esté publicado, la web
-lo consume por el mismo `hydrateCatalog()` que la app (de ahí que sus funciones
-de pintado se llamen `renderGrid()` y `renderFilters()`: son las que `api.js`
-invoca al hidratar). No hay nada más que tocar.
+**Base de datos.** El catálogo vive solo en la base: la web lo consume por el
+mismo `hydrateCatalog()` que la app (de ahí que sus funciones de pintado se
+llamen `renderGrid()` y `renderFilters()`: son las que `api.js` invoca al
+hidratar). Sin servidor, la rejilla lo dice (`catalogEmptyText()`).
 
 **Almacenamiento.** Los pedidos, los puntos y los canjes viven en la **base**
 (fase 3): un alquiler confirmado en la web aparece en "Mis pedidos" del móvil

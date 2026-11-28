@@ -35,7 +35,7 @@ bundler y **sin dependencias en tiempo de ejecución**. Se abre directamente con
 
 |  | Estado |
 |---|---|
-| **Catálogo** | Real. Embebido en `js/data.js`; si el backend está levantado, se sirve desde la API. |
+| **Catálogo** | Real, en la base: se sirve desde la API y se edita en el panel. Sin backend la rejilla avisa de que necesita conexión. |
 | **Precios y depósitos** | Reales: los calcula **solo el servidor** a partir del valor de cada prenda (ver [Modelo de precios](#-modelo-de-precios)); la app y la web solo los muestran. |
 | **Inicio de sesión** | Real con **Google**, verificado en el servidor. Sin backend o por `file://`, se entra como invitado. |
 | **Mapas** | Real con Google Maps, si hay clave. Sin clave, el checkout cae al campo de dirección escrito a mano. |
@@ -93,9 +93,8 @@ python3 -m http.server
 # luego visita http://localhost:8000
 ```
 
-> Por `file://` se pierden solo las piezas que dependen de la red: el inicio de sesión
-> con Google, el mapa y la hidratación del catálogo desde la API. Todo lo demás funciona
-> igual.
+> Por `file://` no hay API, así que tampoco catálogo (la rejilla lo dice), ni inicio
+> de sesión con Google, ni mapa. Para la demo, sírvela con `python3 -m http.server`.
 
 ### Herramientas de desarrollo (opcional)
 
@@ -171,8 +170,8 @@ HTML. Los eventos usan **delegación** mediante atributos `data-action`.
 | `js/main.js` | Pantalla de bienvenida, cableado de eventos (delegación) y render inicial. **Carga al final.** |
 
 Los tres módulos que dependen de la red —`api.js`, `auth.js` y `maps.js`— siguen el mismo
-patrón: si el recurso no está, la pieza no se dibuja y la app sigue funcionando. Es lo que
-mantiene viva la demo por `file://`.
+patrón: si el recurso no está, la pieza no se dibuja y la app sigue en pie. Sin API, el
+catálogo queda vacío con un aviso en lugar de prendas sin precio.
 
 ---
 
@@ -195,8 +194,7 @@ base en Supabase:
 
 Postgres en desarrollo, en CI y en producción: el mismo motor en los tres sitios, para
 que las migraciones de `server/prisma/migrations/` se ejerciten siempre. Si el servidor
-no está levantado, el frontend usa
-los datos embebidos y sigue abriéndose por `file://`. Ver
+no está levantado, el frontend abre igual pero sin catálogo, y lo dice. Ver
 [`server/README.md`](server/README.md).
 
 Las rutas de pedidos y el libro de cargos ya existen en el servidor, pero el frontend

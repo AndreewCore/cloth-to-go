@@ -11,6 +11,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { CATALOG_FIXTURE_JS } = require("./helpers/catalog-fixture.js");
 const { JSDOM } = require("jsdom");
 const { loadDom } = require("./helpers/load-dom.js");
 const { installFakeApi, ITEM_BASE } = require("./helpers/fake-api.js");
@@ -25,7 +26,7 @@ function cargarWeb() {
   const fake = installFakeApi(win);
   const archivos = ["js/icons.js", "js/data.js", "js/state.js", "js/api.js",
     "web/js/session.js", "web/js/catalog.js", "web/js/cart.js"];
-  const src = archivos.map(f => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n");
+  const src = archivos.map(f => fs.readFileSync(path.join(ROOT, f), "utf8") + (f === "js/data.js" ? CATALOG_FIXTURE_JS : "")).join("\n;\n");
   win.eval(`${src}
     ;globalThis.__APP__ = { get products(){ return PRODUCTS; }, REWARDS, WATER_GOALS };
     // toast() vive en web/js/main.js, que no se carga (arrastra el arranque).

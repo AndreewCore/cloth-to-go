@@ -253,6 +253,7 @@ function setFilterValue(group, value){
 function renderGrid(){
   const list = filteredProducts();
   noResults.style.display = list.length ? "none" : "block";
+  if(!list.length) noResults.textContent = catalogEmptyText();
 
   // Barra de resultados: conteo + limpiar filtros (#7)
   const n = list.length;

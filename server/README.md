@@ -433,10 +433,10 @@ aparece como rezagada.
 
 `js/api.js` resuelve el origen del backend con `resolveApiBase()` según dónde
 corra la app, y si hay uno alcanzable intenta `GET {base}/api/products` al
-iniciar; si responde,
-reemplaza el catálogo embebido. Si el servidor no está disponible (o se abre por
-`file://`), la app sigue con los datos locales de `js/data.js` — la demo nunca se
-rompe por falta de backend.
+iniciar y lo vuelca en `PRODUCTS`. `js/data.js` ya no trae catálogo (fase 4):
+si el servidor no está disponible (o se abre por `file://`), la app y la web
+muestran la rejilla vacía con un aviso de que el catálogo necesita conexión. Las
+prendas de demostración viven solo en `prisma/seed.js`.
 
 `js/auth.js` sigue el mismo patrón para el login: si `backend.enabled`, envía
 el ID token de Google a `POST /api/auth/google` y usa el `user` verificado por

@@ -199,7 +199,7 @@ function renderCart(){
   }
   const days = rentalDays();
   sheetBody.innerHTML = dateBoxHTML() + cart.map(c=>{
-    const p = productById(c.id);
+    const p = productOrStub(c.id);
     return `
       <div class="cart-item">
         <div class="ci-thumb">${imgPlaceholder(p)}</div>
@@ -481,7 +481,7 @@ function renderPayment(){
  */
 function confirmItemsHTML(){
   return cart.map(c => {
-    const p = productById(c.id);
+    const p = productOrStub(c.id);
     return `
       <li class="oc-item">
         <span class="oc-thumb">${imgPlaceholder(p)}</span>

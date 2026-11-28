@@ -112,8 +112,8 @@ function returnByISO(start, end){
    El modelo de precios (tramos por día, volumen, piso de coste, garantía)
    vive SOLO en server/src/pricing.js. La API devuelve con cada prenda su
    escalera de 1 a 14 días (`p.price`) y `POST /api/quote` cotiza el carrito
-   (ver `quote` en state.js). Aquí solo se lee lo que llegó; con el catálogo
-   embebido (sin API) no hay precio que enseñar, y tampoco se puede alquilar.
+   (ver `quote` en state.js). Aquí solo se lee lo que llegó; una prenda sin
+   precio (respuesta vieja o incompleta) se pinta con "—" y no se alquila.
    ============================================================ */
 
 /** Textos de tarifas que llegan de GET /api/config (envío, volumen máximo). */
@@ -124,7 +124,7 @@ const reviewReasons = [];
 
 /**
  * Precio de una prenda suelta por `days` días, según la API, o null si el
- * catálogo no trae precios (embebido, sin conexión).
+ * catálogo no trae precios.
  * @param {object} p Prenda.
  * @param {number} days Días (1 a 14; más allá se usa el último tramo).
  * @returns {number|null} USD.
@@ -224,67 +224,17 @@ const WATER_GOALS = [
 const CATS = ["Todo", "Formal", "Fiesta", "Casual", "Invierno", "Disfraces", "Calzado"];
 
 /* ---- Catálogo ----
-   Las imágenes se sirven localmente desde img/products/ (webp optimizado ~600×800).
-   Alojarlas en el repo evita la dependencia de red de Unsplash: cargan también
-   en file:// y offline. Si alguna falta (onerror), queda el placeholder de imgPlaceholder().
-   - imgs        : lista de fotos, de la portada a la última. La PRIMERA es la que
-                   sale en tarjeta, carrito y pedidos; el resto solo en el detalle.
-                   Una sola foto es válido: la galería no dibuja controles.
-                   Convención de nombres: N.webp para la portada y N-2, N-3… para
-                   las demás, de modo que añadir fotos no toca más que esta lista.
-   - value       : coste de reponer la prenda en Ecuador, segunda mano (USD).
-                   Es la base de TODO el precio: el alquiler sale de rentalPrice()
-                   y el depósito de depositFor(). No hay precio fijo por prenda.
-   - stars       : calidad / desgaste (1 a 5). Además de informar al cliente,
-                   define cuántos alquileres le quedan a la prenda (garmentCycles).
-   - size        : talla de la prenda
-   - color       : color dominante de la prenda, tomado de la FOTO y no del
-                   nombre (la "gabardina beige" es el único caso en que ambos
-                   coinciden). Es una sola clave del banco COLOR_LABELS —el más
-                   cercano si el tono exacto no está—: el cliente filtra por el
-                   color que recuerda haber visto, no por la carta de tonos del
-                   fabricante.
-   - disponibles : unidades en stock. Al ser ropa de segunda mano, cada prenda
-                   es única: normalmente 1 (no hay varias instancias, colores ni modelos).
-   - material    : fibra principal (algodon/lana/cuero/lino/sintetico) → intensidad hídrica.
-   - weightKg    : peso aproximado de la prenda. material + weightKg definen el
-                   ahorro de agua por reutilizarla (ver garmentWater()). */
-const PRODUCTS = [
-  { id:1, name:"Blazer de lino", cat:"Formal", value:35, stars:5, size:"M",  color:"negro",  disponibles:1, material:"lino",      weightKg:0.5, imgs:["img/products/1.webp", "img/products/1-2.webp", "img/products/1-3.webp"],
-    desc:"Blazer de lino fresco, corte recto. Ideal para eventos formales y de oficina." },
-  { id:2, name:"Vestido de gala", cat:"Fiesta", value:45, stars:4, size:"S",  color:"blanco", disponibles:1, material:"sintetico", weightKg:0.4, imgs:["img/products/2.webp", "img/products/2-2.webp", "img/products/2-3.webp"],
-    desc:"Vestido largo de gala con caída elegante. Perfecto para bodas y galas." },
-  { id:3, name:"Jeans vintage", cat:"Casual", value:15, stars:3, size:"M",  color:"azul",   disponibles:1, material:"algodon",   weightKg:0.8, imgs:["img/products/3.webp"],
-    desc:"Jeans de tiro alto estilo retro. Cómodos para el día a día." },
-  { id:4, name:"Abrigo de lana", cat:"Invierno", value:55, stars:5, size:"L",  color:"beige",  disponibles:1, material:"lana",      weightKg:1.2, imgs:["img/products/4.webp"],
-    desc:"Abrigo de lana cálido y de gran caída. Abriga sin perder estilo." },
-  { id:5, name:"Camisa formal", cat:"Formal", value:14, stars:4, size:"M",  color:"blanco", disponibles:1, material:"algodon",   weightKg:0.2, imgs:["img/products/5.webp"],
-    desc:"Camisa formal de algodón, fácil de combinar para reuniones." },
-  { id:6, name:"Falda plisada", cat:"Casual", value:12, stars:3, size:"S",  color:"beige",  disponibles:1, material:"sintetico", weightKg:0.3, imgs:["img/products/6.webp"],
-    desc:"Falda plisada midi, ligera y versátil para cualquier ocasión." },
-  { id:7, name:"Esmoquin clásico", cat:"Fiesta", value:150, stars:5, size:"L",  color:"negro",  disponibles:1, material:"lana",      weightKg:1.0, imgs:["img/products/7.webp", "img/products/7-2.webp", "img/products/7-3.webp"],
-    desc:"Esmoquin negro clásico con solapa satinada. La opción para eventos de etiqueta." },
-  { id:8, name:"Chaqueta de cuero", cat:"Casual", value:45, stars:2, size:"M",  color:"negro",  disponibles:1, material:"cuero",     weightKg:1.3, imgs:["img/products/8.webp"],
-    desc:"Chaqueta de cuero con carácter; muestra desgaste natural que le da estilo." },
-  { id:9, name:"Sudadera bordada", cat:"Casual", value:12, stars:4, size:"L",  color:"blanco", disponibles:1, material:"algodon",   weightKg:0.5, imgs:["img/products/9.webp"],
-    desc:"Sudadera de algodón con bordado, súper cómoda para el día a día." },
-  { id:10, name:"Gabardina beige", cat:"Invierno", value:40, stars:4, size:"XL", color:"beige",  disponibles:1, material:"algodon",   weightKg:0.9, imgs:["img/products/10.webp"],
-    desc:"Gabardina beige atemporal, perfecta para días de lluvia y entretiempo." },
-  // Disfraces y calzado: piezas de muestra de las dos categorías nuevas. Como
-  // el resto del catálogo, el `color` sale de la FOTO y no del nombre.
-  { id:11, name:"Traje de catrina", cat:"Disfraces", value:30, stars:4, size:"M",  color:"beige",  disponibles:1, material:"sintetico", weightKg:0.6, imgs:["img/products/11.webp"],
-    desc:"Vestido y tocado de catrina, con bordado floral. Para Día de Muertos y fiestas de disfraces." },
-  { id:12, name:"Capa con capucha", cat:"Disfraces", value:18, stars:5, size:"L",  color:"rojo",   disponibles:1, material:"sintetico", weightKg:0.3, imgs:["img/products/12.webp"],
-    desc:"Capa larga con capucha y cierre al cuello. Ligera y de talla generosa; sirve de caperucita, vampiro o cuento a elección." },
-  { id:13, name:"Vestido de época", cat:"Disfraces", value:48, stars:4, size:"S",  color:"blanco", disponibles:1, material:"algodon",   weightKg:0.9, imgs:["img/products/13.webp"],
-    desc:"Vestido largo de inspiración victoriana, con botonadura en la espalda y encaje en puños y cuello." },
-  { id:14, name:"Botines de cuero", cat:"Calzado", value:40, stars:4, size:"39", color:"negro",  disponibles:1, material:"cuero",     weightKg:1.1, imgs:["img/products/14.webp"],
-    desc:"Botines de caña baja en cuero, con cordones y suela de goma. Combinan con todo." },
-  { id:15, name:"Tacones de fiesta", cat:"Calzado", value:25, stars:5, size:"37", color:"negro",  disponibles:1, material:"sintetico", weightKg:0.6, imgs:["img/products/15.webp"],
-    desc:"Tacón de aguja de 8 cm, punta fina. Cómodos para una noche entera de pie." },
-  { id:16, name:"Zapatos oxford", cat:"Calzado", value:35, stars:3, size:"42", color:"negro",  disponibles:1, material:"cuero",     weightKg:1.2, imgs:["img/products/16.webp"],
-    desc:"Oxford clásicos de cuero con acabado pulido. El complemento del traje formal." },
-];
+   Vive solo en la base y llega por GET /api/products (hydrateCatalog() en
+   api.js lo vuelca aquí con replaceCatalog()). Sin API no hay catálogo: la app
+   y la web lo dicen en vez de enseñar prendas que no se pueden alquilar. La
+   semilla de demostración está en server/prisma/seed.js.
+
+   Cada prenda trae, entre otros: id, name, cat, value (coste de reponerla, la
+   base del precio que pone el servidor), stars (calidad 1–5), size, color (una
+   clave de COLOR_LABELS, tomada de la foto), material + weightKg (el agua
+   ahorrada, garmentWater()), imgs (la primera es la portada), desc,
+   disponibles, price {ladder, nextDay, deposit} e items [{id, available}]. */
+const PRODUCTS = [];
 
 /* ---- Tallas ----
    Dos escalas, no una: el calzado se numera (EU 35–44) y la ropa se letrea, y
@@ -382,7 +332,7 @@ const colorCount = c => PRODUCTS.filter(p => p.color === c).length;
 /* ---- Taxonomía de la API (fase 3) ----
    Categorías, tallas, materiales y colores son DATOS en la base (los editará el
    panel en la fase 4) y llegan por GET /api/taxonomy. Las listas de arriba son
-   el respaldo para el catálogo embebido, sin API. Al llegar la taxonomía se
+   el respaldo mientras no llega la de la API. Al llegar la taxonomía se
    rellenan EN SU SITIO (mismos arreglos y objetos, contenido nuevo): así siguen
    siendo `const` y todo lo que ya las lee —los filtros de la app y de la web—
    se entera sin cambiar de referencia. */
@@ -400,7 +350,7 @@ function replaceInPlace(destino, origen){
 /**
  * Recalcula las listas que dependen del catálogo cargado (tallas y materiales
  * presentes). Antes se calculaban una sola vez al cargar el archivo y se
- * quedaban con el catálogo embebido aunque llegara otro de la API.
+ * quedaban vacías aunque después llegara el catálogo de la API.
  */
 function refreshCatalogLists(){
   SIZES.splice(0, SIZES.length, ...SIZE_ORDER.filter(sz => PRODUCTS.some(p => p.size === sz)));
@@ -490,6 +440,21 @@ function rewardById(id){ return REWARD_BY_ID.get(id); }
 /* Índice id → producto para acceso O(1) (evita PRODUCTS.find repetido). */
 const PRODUCT_BY_ID = new Map(PRODUCTS.map(p => [p.id, p]));
 function productById(id){ return PRODUCT_BY_ID.get(id); }
+
+/**
+ * Como productById, pero nunca undefined: para pintar un pedido o el carrito
+ * cuando la prenda aún no está en el catálogo cargado (llega después que la
+ * cuenta, o el modelo ya se retiró de la venta). Sin esto la vista se rompería
+ * entera por una sola prenda.
+ * @param {number} id Id del modelo.
+ * @returns {object} La prenda o una ficha mínima sin datos.
+ */
+function productOrStub(id){
+  return PRODUCT_BY_ID.get(id) || {
+    id, name: "Prenda", cat: "", value: 0, stars: 0, size: "—", color: "", material: "algodon",
+    weightKg: 0, imgs: [], desc: "", disponibles: 0, items: [], stub: true,
+  };
+}
 
 /* ---- Helpers de presentación ---- */
 
@@ -711,9 +676,8 @@ function monthGrid(ym){
 /**
  * Fotos de una prenda, siempre como lista y siempre con al menos un elemento.
  *
- * Normaliza en un solo sitio lo que puede llegar de tres sitios distintos: el
- * catálogo embebido (`imgs`), el backend (que serializa la lista) y una entrada
- * antigua con `img` suelto. Sin esto, cada vista tendría que repetir el mismo
+ * Normaliza en un solo sitio lo que puede llegar: la lista `imgs` del backend
+ * o una entrada antigua con `img` suelto. Sin esto, cada vista tendría que repetir el mismo
  * `?.` defensivo y una sola omisión rompería la galería.
  * @param {object} p Prenda del catálogo.
  * @returns {string[]} Rutas de las fotos; `[""]` si no hay ninguna (deja el

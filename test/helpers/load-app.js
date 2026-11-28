@@ -10,6 +10,7 @@
  * símbolos y los publica en `__APP__`, incluyendo setters para el estado mutable.
  */
 const vm = require("node:vm");
+const { CATALOG_FIXTURE_JS } = require("./catalog-fixture.js");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -82,6 +83,8 @@ function loadApp() {
 
   const source =
     fs.readFileSync(path.join(JS_DIR, "data.js"), "utf8") +
+    // El catálogo ya no viene en data.js: el de la semilla del servidor.
+    CATALOG_FIXTURE_JS +
     "\n" +
     fs.readFileSync(path.join(JS_DIR, "state.js"), "utf8") +
     "\n" +

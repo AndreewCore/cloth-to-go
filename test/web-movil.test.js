@@ -14,6 +14,7 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const { CATALOG_FIXTURE_JS } = require("./helpers/catalog-fixture.js");
 const vm = require("node:vm");
 const { JSDOM } = require("jsdom");
 
@@ -83,7 +84,7 @@ test("el filtro de calidad dibuja el medidor, no los glifos ▰▱", () => {
   const html = fs.readFileSync(path.join(ROOT, "web", "index.html"), "utf8");
   const dom = new JSDOM(html, { runScripts: "outside-only", url: "http://localhost/web/" });
   const archivos = ["js/icons.js", "js/data.js", "js/state.js", "js/api.js", "web/js/session.js", "web/js/catalog.js"];
-  const src = archivos.map(f => fs.readFileSync(path.join(ROOT, f), "utf8")).join("\n;\n");
+  const src = archivos.map(f => fs.readFileSync(path.join(ROOT, f), "utf8") + (f === "js/data.js" ? CATALOG_FIXTURE_JS : "")).join("\n;\n");
   dom.window.eval(src + "\n;renderFilters();");
 
   const panel = dom.window.document.getElementById("filterPanel");

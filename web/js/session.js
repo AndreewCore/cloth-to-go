@@ -90,7 +90,9 @@ function readGuestCart(){
   try {
     const raw = localStorage.getItem(GUEST_CART_KEY);
     const parsed = raw ? JSON.parse(raw) : null;
-    return Array.isArray(parsed) ? parsed.filter(c => productById(c && c.id)) : [];
+    // Solo la forma: el catálogo llega después, y filtrar por él aquí vaciaría
+    // el carrito en cada recarga. replaceCatalog() quita lo que ya no existe.
+    return Array.isArray(parsed) ? parsed.filter(c => c && Number.isInteger(c.id) && c.id > 0) : [];
   } catch(e){
     return [];
   }
