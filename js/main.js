@@ -158,7 +158,7 @@ function onSheetClick(e){
     case "setReviewRating": { const n = +el.dataset.n;
                               reviewRating = reviewRating === n ? 0 : n;
                               renderSheet(); break; }
-    case "clearReviewPhoto": reviewPhoto = ""; renderSheet(); break;
+    case "clearReviewPhoto": clearReviewPhotoDraft(); renderSheet(); break;
     case "saveReview":     submitReview(); break;
     case "galPrev":        moveGallery(-1); break;
     case "galNext":        moveGallery(1); break;

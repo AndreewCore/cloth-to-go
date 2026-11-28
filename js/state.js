@@ -37,17 +37,21 @@ let cart = [];                       // [{id}] — una unidad por prenda
 let orders = [];
 // RESEÑAS escritas por el usuario de esta sesión:
 //   { id, productId, orderId, rating:1..5, text, photo?, date }
-// `photo` es un data URL webp ya redimensionado (ver compressPhoto en
-// profile.js). Se guardan por usuario en localStorage como el resto del estado;
-// las de muestra (DEMO_REVIEWS) NO viven aquí y no se persisten nunca.
+// Reseñas del propio cliente, en cualquier estado, tal como las devuelve
+// GET /api/me/reviews. Viven en el servidor: aquí no se guardan.
 let reviews = [];
+// Reseñas publicadas de cada prenda (GET /api/products/:id/reviews), por id.
+// Las pide el detalle al abrirse; una prenda sin entrada aún no se cargó.
+let productReviewCache = {};
 // Prenda y pedido que se están reseñando, y el borrador del formulario.
 // Efímeros: un borrador a medias no merece sobrevivir a una recarga.
 let reviewOrderId = null;
 let reviewProductId = null;
 let reviewRating = 0;
 let reviewText = "";
+// Vista previa (URL de objeto) y archivo ya reducido de la foto del borrador.
 let reviewPhoto = "";
+let reviewPhotoBlob = null;
 // Perfil: contacto + puntos acumulados + canjes + donaciones.
 // `redeemed` es a la vez historial y cartera: cada canje es un premio con
 // nombre propio { id, rewardId, name, cost, date, usedIn } y sigue disponible
@@ -440,32 +444,34 @@ function isDelivered(o){ return !isCancelledOrder(o) && o.start <= isoOffset(0);
 function countsForRewards(o){ return isDelivered(o) && !canCancelOrder(o); }
 
 /* ---------------- Reseñas ----------------
-   Las de muestra (DEMO_REVIEWS) se mezclan al leer, nunca se guardan: así
-   conviven con las del usuario sin ensuciar su almacenamiento, y retirarlas el
-   día del backend es vaciar una constante. */
+   Viven en el servidor (fase 4) y todas pasan por moderación: el público solo
+   ve las aprobadas, y cada cliente ve además las suyas con su estado. */
+
+/** Cómo se llama, para su autor, una reseña propia que el público aún no ve. */
+const REVIEW_STATUS_LABEL = { PENDIENTE: "En revisión", RECHAZADA: "No publicada", OCULTA: "Oculta" };
 
 /**
- * Reseñas de una prenda, de la más reciente a la más antigua.
+ * Reseñas de una prenda, de la más reciente a la más antigua: las publicadas
+ * y, para su autor, las suyas que aún no lo están.
  * @param {number} id Id de la prenda.
- * @returns {object[]} Reseñas del usuario y las de muestra, mezcladas.
+ * @returns {object[]}
  */
 function productReviews(id){
-  return [...reviews, ...DEMO_REVIEWS]
-    .filter(r => r.productId === id)
-    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const publicadas = productReviewCache[id] ? productReviewCache[id].reviews : [];
+  const vistas = new Set(publicadas.map(r => r.id));
+  const mias = reviews.filter(r => r.productId === id && r.status !== "APROBADA" && !vistas.has(r.id));
+  return [...publicadas, ...mias].sort((a, b) => String(b.date).localeCompare(String(a.date)));
 }
 
 /**
- * Valoración media de una prenda. Se DERIVA, nunca se almacena: igual que el
- * precio y el descuento, para que borrar o editar una reseña no deje un
- * promedio mintiendo.
+ * Valoración media de una prenda, sobre lo publicado. Se deriva en el servidor
+ * a partir de las reseñas aprobadas y nunca se almacena: borrar o moderar una
+ * reseña no puede dejar un promedio mintiendo.
  * @param {number} id Id de la prenda.
- * @returns {number} Media de 1 a 5, o 0 si no tiene reseñas.
+ * @returns {number} Media de 1 a 5, o 0 si no tiene reseñas publicadas.
  */
 function productRating(id){
-  const rs = productReviews(id);
-  if(!rs.length) return 0;
-  return rs.reduce((s, r) => s + r.rating, 0) / rs.length;
+  return productReviewCache[id] ? productReviewCache[id].average || 0 : 0;
 }
 
 /** ¿Ya reseñó el usuario esta prenda en este pedido? */
@@ -493,33 +499,17 @@ function hasPendingReview(o){
 }
 
 /**
- * Guarda (o actualiza) la reseña del borrador y la persiste.
- * @returns {boolean} true si se guardó; false si faltaban datos.
+ * Retira una reseña propia (con su foto) en el servidor y la olvida aquí.
+ * @param {number} id Reseña.
+ * @returns {Promise<boolean>} true si se borró.
  */
-function saveReview(){
-  if(!reviewProductId || !reviewRating) return false;
-  const texto = reviewText.trim();
-  const existente = reviewFor(reviewOrderId, reviewProductId);
-  const datos = {
-    productId: reviewProductId,
-    orderId: reviewOrderId,
-    rating: reviewRating,
-    text: texto,
-    photo: reviewPhoto || "",
-    date: isoOffset(),
-  };
-  if(existente) Object.assign(existente, datos);
-  else reviews.push({ id: `r${Date.now()}`, ...datos });
-  saveState();
-  return true;
-}
-
-/** Borra una reseña propia. Las de muestra no se pueden tocar: no son de nadie. */
-function deleteReview(id){
+async function deleteReview(id){
   const i = reviews.findIndex(r => r.id === id);
   if(i < 0) return false;
-  reviews.splice(i, 1);
-  saveState();
+  const r = await apiFetch(`/api/reviews/${id}`, { method: "DELETE" });
+  if(!r.ok) return false;
+  const [quitada] = reviews.splice(reviews.findIndex(x => x.id === id), 1);
+  delete productReviewCache[quitada.productId];
   return true;
 }
 /* ---------------- Persistencia (localStorage) ----------------
@@ -584,6 +574,7 @@ function resetStateToDefaults(){
   orders = [];
   accountSynced = false;
   reviews = [];      // las de otra cuenta no pueden asomar en esta sesión
+  productReviewCache = {};
   profile = defaultProfile();
 }
 
@@ -593,7 +584,7 @@ function saveState(){
     // Ni los pedidos ni los puntos: los guarda la base, y una copia local solo
     // podría quedarse vieja (o editarse desde la consola) sin cambiar nada.
     const { points, redeemed, waterGoals, ...datos } = profile;
-    localStorage.setItem(activeStorageKey, JSON.stringify({ cart, profile: datos, reviews }));
+    localStorage.setItem(activeStorageKey, JSON.stringify({ cart, profile: datos }));
   } catch(e){ /* almacenamiento no disponible: continúa en memoria */ }
 }
 function loadState(){
@@ -603,7 +594,8 @@ function loadState(){
     if(!raw) return;
     const s = JSON.parse(raw);
     if(Array.isArray(s.cart)) cart = s.cart;
-    if(Array.isArray(s.reviews)) reviews = s.reviews;
+    // `s.reviews` (reseñas guardadas antes de la fase 4) se ignora: las reseñas
+    // viven en el servidor, con alquiler verificado y moderación.
     // `s.orders` (pedidos guardados antes de la fase 3) se ignora a propósito:
     // los pedidos viven en la base y llegan con applyAccount().
     if(s.profile && typeof s.profile === "object"){

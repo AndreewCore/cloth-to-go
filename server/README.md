@@ -61,6 +61,10 @@ pnpm dev                # levanta el servidor en http://localhost:3000
 | PATCH | `/api/taxonomy/:list/:key` | **Inventario**: nombre, hex o coste de lavado (**Administración**). Clave, prefijo y talla no cambian. |
 | PUT | `/api/taxonomy/:list/order` | **Inventario**: orden nuevo de una lista entera (`{keys}`; tallas, por escala con `ESCALA\|talla`). |
 | DELETE | `/api/taxonomy/:list/:key` | **Inventario**: borra si nada la usa (si no, 409 con cuántos). |
+| GET | `/api/products/:id/reviews` | **Pública** (con sesión, también las propias no publicadas): reseñas **aprobadas** de un modelo, su media y su número. |
+| GET | `/api/me/reviews` | Las reseñas del cliente, en cualquier estado. |
+| POST | `/api/reviews` | Reseña nueva (multipart: `orderId`, `productId`, `rating`, `text` y una foto opcional). Solo de un pedido propio ya cumplido; nace **pendiente** de moderación. |
+| DELETE | `/api/reviews/:id` | El autor retira su reseña, con su foto. |
 | GET | `/api/admin/activity` | **Administración**: bitácora general (catálogo, fotos, prendas, dinero, precio, personal, taxonomía) con filtros `category`, `action`, `actor` (id o `system`), `from`/`to`, `q`, `product` y paginación (`limit`, `before`+`beforeKey`). |
 | GET | `/api/admin/activity/meta` | **Administración**: categorías, acciones y personas para pintar los filtros. |
 | GET | `/media/…` | Solo con el conductor de **disco**: sirve `catalogo/` y, con firma, `ejemplares/`. |
@@ -189,6 +193,22 @@ subidas, **quitadas** (la foto quitada no se borra del almacenamiento, para pode
 enseñar cuál fue) y reordenadas, y toda la taxonomía. `GET /api/admin/activity`
 (`src/activity.js`) junta las cuatro tablas en una lista sin escribir nada dos
 veces.
+
+### Reseñas
+
+`src/reviews.js`. Pasaron del navegador a la base (`reviews`), con dos
+garantías que el navegador no podía dar:
+
+- **Alquiler verificado**: solo reseña quien tiene ese modelo en un pedido suyo
+  ya cumplido (`countsForRewards()`, la regla de los puntos). Una por modelo y
+  pedido.
+- **Moderación**: toda reseña nace `PENDIENTE`; el público solo ve las
+  `APROBADA`, y la media se calcula sobre ellas. El autor ve las suyas con su
+  estado («En revisión»). La cola para aprobar es la rama de Moderación.
+
+La foto pasa por la tubería de siempre y va al cubo **privado**
+(`resenas/<uuid>.webp`), servida con enlace firmado. Se firma como «Nombre I.»:
+nunca el nombre completo ni el correo.
 
 ### Fotos
 

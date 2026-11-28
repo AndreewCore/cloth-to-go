@@ -43,7 +43,7 @@ const APP_GLOBALS = {
     "PHONE_COUNTRY_CODE", "PHONE_NATIONAL_LEN", "isValidEcPhone", "phoneToE164", "NAME_CHANGE_DAYS",
     "isValidCardNumber", "isValidExpiry", "isValidCvv",
     "WATER_PER_KG", "LITERS_PER_GALLON", "garmentWater", "litersToGallons", "fmtLiters",
-    "WATER_GOALS", "DEMO_REVIEWS",
+    "WATER_GOALS",
     "MATERIAL_LABELS", "materialLabel", "MATERIAL_ORDER", "MATERIALS",
     "COLOR_LABELS", "COLOR_HEX", "COLORS", "colorLabel", "colorSwatch", "colorCount",
     "replaceInPlace", "refreshCatalogLists", "applyTaxonomy"
@@ -68,9 +68,10 @@ const APP_GLOBALS = {
     "toggleWaterGoalInfo", "celebrateWaterGoals",
     "orderDeposit", "orderItemPrice", "cartItemIds", "paymentStatusLabel", "isArchivedOrder",
     "isCancelledOrder", "isPastOrder", "canCancelOrder", "isDelivered",
-    "reviews", "reviewOrderId", "reviewProductId", "reviewRating", "reviewText", "reviewPhoto",
+    "reviews", "productReviewCache", "reviewOrderId", "reviewProductId", "reviewRating", "reviewText",
+    "reviewPhoto", "reviewPhotoBlob", "REVIEW_STATUS_LABEL",
     "productReviews", "productRating", "reviewFor", "reviewableItems", "hasPendingReview",
-    "saveReview", "deleteReview",
+    "deleteReview",
     "countsForRewards",
     "STORAGE_PREFIX", "activeStorageKey", "defaultProfile", "storageKeyFor",
     "daysUntilNameChange", "canChangeName", "emailIsManaged",
@@ -87,7 +88,7 @@ const APP_GLOBALS = {
     "renderFilters", "sortProducts", "filteredProducts", "anyFilterActive", "clearFilters",
     "activeFilterCount", "updateFilterBar", "renderFilterSheet",
     "filterGroupValue", "filterGroupHTML", "filterOptHTML", "toggleFilterGroup", "setFilterValue",
-    "renderGrid", "addToCart", "openDetail", "renderDetail", "reviewsHTML",
+    "renderGrid", "addToCart", "openDetail", "refreshProductReviews", "renderDetail", "reviewsHTML",
     "galleryIndex", "galleryHTML", "moveGallery", "showGalleryImage"
   ],
   checkout: [
@@ -105,7 +106,8 @@ const APP_GLOBALS = {
     "prefOptionsHTML", "prefToggleHTML", "renderSettings",
     "openDonate", "donateValid", "renderDonate", "submitDonation", "openWardrobe",
     "REVIEW_PHOTO_MAX_PX", "REVIEW_PHOTO_QUALITY", "REVIEW_PHOTO_MAX_BYTES",
-    "openReview", "reviewValid", "renderReview", "compressPhoto", "pickReviewPhoto", "submitReview"
+    "openReview", "reviewValid", "submittingReview", "clearReviewPhotoDraft", "renderReview", "compressPhoto",
+    "pickReviewPhoto", "submitReview"
   ],
   main: [
     "enter", "onSheetClick"
@@ -117,7 +119,7 @@ const APP_GLOBALS = {
     "resolveApiBase", "backend", "replaceCatalog", "hydrateCatalog", "hydrateCalendar", "verifyGoogleCredential",
     "fetchWaterImpact", "fetchChatStatus", "askChatbot",
     "catalogFromApi", "SESSION_KEY", "readSessionToken", "storeSessionToken", "clearSessionToken",
-    "canRentOnline", "apiFetch", "apiErrorText", "logoutSession", "localDayOf", "orderFromApi",
+    "canRentOnline", "apiFetch", "apiUpload", "loadMyReviews", "loadProductReviews", "apiErrorText", "logoutSession", "localDayOf", "orderFromApi",
     "couponFromApi", "refreshAccount", "quoteInFlight", "quotePromise", "requestQuote"
   ],
   // `google` lo aporta el SDK externo de Google Identity.

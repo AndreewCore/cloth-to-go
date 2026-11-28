@@ -181,8 +181,12 @@ globalThis.__APP__ = {
   addToCart, flyToCart, bumpBadge, updateBadge,
   // Reseñas.
   productReviews, productRating, reviewFor, reviewableItems, hasPendingReview,
-  openReview, reviewValid, submitReview, deleteReview, DEMO_REVIEWS,
+  openReview, reviewValid, submitReview, deleteReview, loadProductReviews, loadMyReviews, refreshProductReviews,
+  REVIEW_STATUS_LABEL,
   get reviews(){ return reviews; },               set reviews(v){ reviews = v; },
+  get productReviewCache(){ return productReviewCache; }, set productReviewCache(v){ productReviewCache = v; },
+  get reviewPhotoBlob(){ return reviewPhotoBlob; }, set reviewPhotoBlob(v){ reviewPhotoBlob = v; },
+  get submittingReview(){ return submittingReview; },
   get reviewProductId(){ return reviewProductId; }, set reviewProductId(v){ reviewProductId = v; },
   get reviewOrderId(){ return reviewOrderId; },
   get reviewRating(){ return reviewRating; },     set reviewRating(v){ reviewRating = v; },

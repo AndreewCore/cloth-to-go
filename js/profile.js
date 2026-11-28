@@ -661,17 +661,15 @@ function openWardrobe(){
 /* ---- Premios / canje de puntos ---- */
 /* ---------------- Reseñas ---------------- */
 
-// Lado máximo de la foto de una reseña y calidad del webp. Una cámara de móvil
-// entrega 3–5 MB por foto y localStorage da ~5 MB POR ORIGEN, compartidos con
-// carrito, perfil y pedidos: guardar el original en base64 llenaría la cuota con
-// una sola reseña y tumbaría el resto del estado. A 1000 px y calidad 0.7 la
-// foto baja a decenas de KB sin que se note en pantalla.
-const REVIEW_PHOTO_MAX_PX = 1000;
-const REVIEW_PHOTO_QUALITY = 0.7;
-// Techo duro por foto ya comprimida. Si aun así se pasa (una imagen enorme y muy
-// ruidosa), es preferible rechazarla y decirlo que reventar el almacenamiento en
-// silencio y perder el carrito del usuario.
-const REVIEW_PHOTO_MAX_BYTES = 400 * 1024;
+// Lado máximo y calidad JPEG con que la foto de una reseña sale del móvil. El
+// servidor la vuelve a recodificar (y le quita los metadatos); reducirla aquí
+// solo ahorra datos y evita el tope de 5 MB. JPEG porque es lo que el servidor
+// acepta, y cualquier navegador sabe producirlo desde un canvas.
+const REVIEW_PHOTO_MAX_PX = 1600;
+const REVIEW_PHOTO_QUALITY = 0.85;
+// Techo por foto ya reducida: el del servidor. Una foto que aun así lo pasa
+// (enorme y muy ruidosa) se rechaza aquí con un mensaje claro.
+const REVIEW_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
 
 /**
  * Abre el formulario de reseña de un pedido.
@@ -686,13 +684,23 @@ function openReview(orderId){
   reviewProductId = pendientes.length === 1 ? pendientes[0] : null;
   reviewRating = 0;
   reviewText = "";
-  reviewPhoto = "";
+  clearReviewPhotoDraft();
   view = "review";
   renderSheet();
 }
 
 /** ¿El borrador está listo para guardarse? */
 function reviewValid(){ return !!reviewProductId && reviewRating >= 1; }
+
+/** Mientras se envía la reseña: el botón no admite un segundo envío. */
+let submittingReview = false;
+
+/** Suelta la foto del borrador (y la URL de su vista previa). */
+function clearReviewPhotoDraft(){
+  if(reviewPhoto && reviewPhoto.startsWith("blob:")) URL.revokeObjectURL(reviewPhoto);
+  reviewPhoto = "";
+  reviewPhotoBlob = null;
+}
 
 /**
  * Formulario de reseña: elegir prenda (si hay varias), estrellas, texto y foto.
@@ -750,17 +758,17 @@ function renderReview(){
     </div>`;
 
   sheetFoot.innerHTML = `
-    <button class="pay-btn" data-action="saveReview" ${reviewValid() ? "" : "disabled"}>
-      Publicar reseña</button>`;
+    <p class="rev-note">Las reseñas se publican cuando el equipo las revisa.</p>
+    <button class="pay-btn" data-action="saveReview" ${reviewValid() && !submittingReview ? "" : "disabled"}>
+      ${submittingReview ? "Enviando…" : "Enviar reseña"}</button>`;
 }
 
 /**
- * Redimensiona y convierte a webp la foto elegida, devolviendo un data URL.
- *
- * El navegador hace todo el trabajo: no hay servidor donde subirla, y guardar el
- * original en base64 se comería la cuota de localStorage de una sentada.
+ * Reduce la foto elegida y la convierte a JPEG, que es lo que acepta el
+ * servidor (cualquier formato que el navegador sepa abrir, HEIC incluido,
+ * sale de aquí como JPEG).
  * @param {File} file Archivo elegido por el usuario.
- * @returns {Promise<string>} Data URL en webp, o "" si no se pudo procesar.
+ * @returns {Promise<Blob|null>} La foto lista para subir, o null si no se pudo leer.
  */
 function compressPhoto(file){
   return new Promise(resolve => {
@@ -773,12 +781,9 @@ function compressPhoto(file){
       canvas.width = Math.round(img.width * escala);
       canvas.height = Math.round(img.height * escala);
       canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
-      // webp comprime bastante mejor que jpeg a igual calidad percibida; si el
-      // navegador no lo soportara, toDataURL devuelve png y el techo de bytes
-      // se encarga de rechazarlo.
-      resolve(canvas.toDataURL("image/webp", REVIEW_PHOTO_QUALITY));
+      canvas.toBlob(b => resolve(b || null), "image/jpeg", REVIEW_PHOTO_QUALITY);
     };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(""); };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
     img.src = url;
   });
 }
@@ -789,22 +794,43 @@ function compressPhoto(file){
  */
 async function pickReviewPhoto(file){
   if(!file) return;
-  const dataUrl = await compressPhoto(file);
-  if(!dataUrl){ toast("No se pudo leer esa imagen."); return; }
-  // El data URL es base64: ~4 bytes por cada 3 del binario.
-  if(dataUrl.length * 3 / 4 > REVIEW_PHOTO_MAX_BYTES){
+  const blob = await compressPhoto(file);
+  if(!blob){ toast("No se pudo leer esa imagen."); return; }
+  if(blob.size > REVIEW_PHOTO_MAX_BYTES){
     toast("La foto es demasiado pesada. Prueba con otra.");
     return;
   }
-  reviewPhoto = dataUrl;
+  clearReviewPhotoDraft();
+  reviewPhotoBlob = blob;
+  reviewPhoto = URL.createObjectURL(blob);
   renderSheet();
 }
 
-/** Guarda la reseña del borrador y vuelve al perfil. */
-function submitReview(){
-  if(!reviewValid()) return;
-  saveReview();
-  toast("¡Gracias por tu reseña!");
+/**
+ * Envía la reseña del borrador (POST /api/reviews) y vuelve al perfil. Nace
+ * pendiente de revisión: se dice así, para que nadie la busque publicada ya.
+ */
+async function submitReview(){
+  if(!reviewValid() || submittingReview) return;
+  submittingReview = true;
+  renderSheet();
+  const form = new FormData();
+  form.append("orderId", String(reviewOrderId));
+  form.append("productId", String(reviewProductId));
+  form.append("rating", String(reviewRating));
+  form.append("text", reviewText.trim());
+  if(reviewPhotoBlob) form.append("photo", reviewPhotoBlob, "resena.jpg");
+  const r = await apiUpload("/api/reviews", form);
+  submittingReview = false;
+  if(!r.ok){
+    toast(apiErrorText(r));
+    renderSheet();
+    return;
+  }
+  reviews.unshift(r.data);
+  delete productReviewCache[r.data.productId];
+  clearReviewPhotoDraft();
+  toast("¡Gracias! Tu reseña se publicará cuando la revisemos.");
   view = "profile";
   renderSheet();
 }

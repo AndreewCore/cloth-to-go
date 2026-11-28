@@ -253,6 +253,7 @@ model Product {
   items           Item[]
   financeLogs     FinanceLog[]
   activity        ActivityLog[]
+  reviews         Review[]
 
   @@map("products")
 }
@@ -399,6 +400,7 @@ model User {
   sessions     Session[]
   received     OrderItem[]  @relation("OrderItemReceiver")
   photosTaken  ItemPhoto[]  @relation("ItemPhotoTaker")
+  reviews      Review[]
   activity     ActivityLog[]
   points       PointsEntry[]
   coupons      Coupon[]
@@ -464,6 +466,7 @@ model Order {
   itemLogs    ItemLog[]
   financeLogs FinanceLog[]
   itemPhotos  ItemPhoto[]
+  reviews     Review[]
 
   @@index([userId])
   @@map("orders")
@@ -815,4 +818,38 @@ model ActivityLog {
   @@index([createdAt])
   @@index([productId])
   @@map("activity_logs")
+}
+
+/// En qué punto está una reseña. Toda nace pendiente: se publica cuando la
+/// aprueba Moderación (decisiones transversales, «Reseñas»).
+enum ReviewStatus {
+  PENDIENTE
+  APROBADA
+  RECHAZADA
+  OCULTA
+}
+
+/// Reseña de un cliente sobre un modelo que alquiló de verdad: va atada al
+/// pedido, y solo se acepta si el pedido ya está cumplido (la misma regla que
+/// los puntos). Una por modelo y pedido.
+model Review {
+  id        Int          @id @default(autoincrement())
+  userId    Int
+  user      User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  orderId   Int
+  order     Order        @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  productId Int
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  /// 1 a 5 estrellas.
+  rating    Int
+  text      String       @default("")
+  /// Clave de la foto en el almacenamiento privado (`resenas/<uuid>.webp`).
+  photoKey  String?      @unique
+  status    ReviewStatus @default(PENDIENTE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([orderId, productId])
+  @@index([productId, status])
+  @@map("reviews")
 }

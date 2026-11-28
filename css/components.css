@@ -2071,3 +2071,10 @@ main::-webkit-scrollbar { display: none; }
   color: var(--muted); font-size: 12px; font-weight: 700;
 }
 .rev-photo-del:hover { color: var(--danger, #b3261e); }
+
+/* Estado de una reseña propia que el público aún no ve. */
+.rev-status {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 8px;
+  background: var(--line); color: var(--muted); font-size: 10px; font-weight: 700;
+}
+.rev-note { color: var(--muted); font-size: 11px; margin: 0 0 8px; text-align: center; }

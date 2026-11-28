@@ -13,7 +13,7 @@
  * prueba es lo que la API de verdad respondería.
  *
  * Lo que la prueba puede tocar está en `fake.state` (pedidos, saldo, canjes,
- * metas) y en `fake.failNext` (la próxima petición que coincida responde con
+ * metas, reseñas) y en `fake.failNext` (la próxima petición que coincida responde con
  * ese error). `fake.calls` registra cada petición: `{ method, path, body }`.
  */
 
@@ -62,7 +62,7 @@ function installFakeApi(win) {
   const fake = {
     calls: [],
     failNext: null,
-    state: { orders: [], balance: 0, coupons: [], reached: [], nextOrderId: 2001, nextCouponId: 1 },
+    state: { orders: [], balance: 0, coupons: [], reached: [], reviews: [], nextOrderId: 2001, nextCouponId: 1, nextReviewId: 1 },
   };
   const st = fake.state;
 
@@ -201,6 +201,45 @@ function installFakeApi(win) {
       return respond(201, { coupon: c, ...summary() });
     }],
     ["POST", /^\/api\/auth\/logout$/, () => respond(204, null)],
+    // Reseñas: como el servidor, nacen pendientes, y el público solo ve las
+    // aprobadas. Hay una sola cuenta en estas pruebas, así que «las mías» son
+    // todas las que no están aprobadas.
+    ["GET", /^\/api\/me\/reviews$/, () => respond(200, st.reviews.slice().reverse())],
+    ["GET", /^\/api\/products\/(\d+)\/reviews$/, (m) => {
+      const id = Number(m[1]);
+      const publicadas = st.reviews.filter((r) => r.productId === id && r.status === "APROBADA").reverse();
+      const media = publicadas.length ? Math.round(publicadas.reduce((s, r) => s + r.rating, 0) / publicadas.length * 10) / 10 : 0;
+      return respond(200, {
+        average: media,
+        count: publicadas.length,
+        reviews: publicadas,
+        mine: st.reviews.filter((r) => r.productId === id && r.status !== "APROBADA"),
+      });
+    }],
+    ["POST", /^\/api\/reviews$/, (m, body) => {
+      const orderId = Number(body.orderId);
+      const productId = Number(body.productId);
+      const rating = Number(body.rating);
+      if (!(rating >= 1 && rating <= 5)) return respond(400, { error: "La valoración va de 1 a 5 estrellas." });
+      if (st.reviews.some((r) => r.orderId === orderId && r.productId === productId)) {
+        return respond(409, { error: "Ya reseñaste esta prenda en este pedido." });
+      }
+      const id = st.nextReviewId++;
+      const r = {
+        id, orderId, productId, rating, text: String(body.text || "").trim(), author: "Ana",
+        date: today(), status: "PENDIENTE",
+        photo: body.photo ? `https://api.test/media/resenas/${id}.webp?exp=1&sig=x` : null,
+      };
+      st.reviews.push(r);
+      fake.lastUpload = body;
+      return respond(201, r);
+    }],
+    ["DELETE", /^\/api\/reviews\/(\d+)$/, (m) => {
+      const i = st.reviews.findIndex((r) => r.id === Number(m[1]));
+      if (i < 0) return respond(404, { error: "Reseña no encontrada." });
+      st.reviews.splice(i, 1);
+      return respond(204, null);
+    }],
   ];
 
   /**
@@ -226,7 +265,9 @@ function installFakeApi(win) {
   win.fetch = (url, opts = {}) => {
     const method = (opts.method || "GET").toUpperCase();
     const path = new URL(url).pathname;
-    const body = opts.body ? JSON.parse(opts.body) : undefined;
+    // Un envío multipart (fotos) llega como FormData: se lee campo a campo.
+    const body = opts.body instanceof win.FormData ? Object.fromEntries(opts.body.entries())
+      : opts.body ? JSON.parse(opts.body) : undefined;
     fake.calls.push({ method, path, body });
     if (fake.failNext) {
       const { status, error } = fake.failNext;
