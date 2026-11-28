@@ -708,6 +708,69 @@ async function showLog(id) {
   ], "Cerrar", { cancel: false });
 }
 
+/* ---------- Garantía ---------- */
+
+/**
+ * Devuelve la garantía de un pedido, entera o reteniendo una parte por la tabla
+ * del §6.2. Enseña las fotos de salida y llegada de cada prenda para decidir,
+ * propone «desperfecto» si alguna volvió así y calcula lo que se retiene y lo
+ * que vuelve; el importe definitivo lo calcula el servidor.
+ * @param {number} id Pedido.
+ */
+async function releaseDeposit(id) {
+  const o = findOrder(id);
+  const casos = state.calendar?.retentionCases ?? [];
+  const held = o.depositHeldCents;
+  const danada = o.lines.some((l) => l.status === "NO_ALQUILABLE");
+  const resumen = h("p.deposit-sum");
+  const otro = can("ADMINISTRACION")
+    ? h("input", { type: "number", name: "percent", min: 0, max: 100, step: 1, inputmode: "numeric", placeholder: "—" })
+    : null;
+  const pintar = (form) => {
+    const fd = new FormData(form);
+    const elegidos = fd.getAll("case");
+    const fuera = otro && otro.value !== "" ? Math.min(100, Math.max(0, Math.round(Number(otro.value)))) : null;
+    const pct = fuera ?? Math.min(100, elegidos.reduce((s, k) => s + (casos.find((c) => c.key === k)?.percent ?? 0), 0));
+    const retiene = Math.floor((held * pct) / 100);
+    // Esparcido: replaceChildren no aplana arreglos y pintaría «[object HTMLElement]».
+    resumen.replaceChildren(...(pct
+      ? ["Se retiene ", amt(retiene, "bad"), ` (${pct} %) y se devuelven `, amt(held - retiene), "."]
+      : ["Se devuelve completa: ", amt(held), "."]));
+  };
+  const campos = [
+    h("p", {}, `Garantía de ${customerName(o)}: `, h("strong", {}, money(held)), ". Revisa cómo salió y cómo volvió cada prenda."),
+    h("div.deposit-photos", {}, o.lines.map((l) => h("span", {}, `${l.productName} `, photoButton(l.itemId),
+      l.status === "NO_ALQUILABLE" ? h("span.chip.bad", {}, "Volvió con desperfecto") : null))),
+    h("fieldset", {}, h("legend", {}, "¿Qué le pasó? (tabla de retención)"),
+      casos.map((c) => h("label.check", {},
+        h("input", { type: "checkbox", name: "case", value: c.key, checked: danada && c.key === "DESPERFECTO_MENOR" || null }),
+        ` ${c.label} `, h("strong", {}, `${c.percent} %`))),
+      h("p.meta", {}, "Los casos se suman, con techo de 100 %. El atraso no se retiene: ya se cobró en días extra.")),
+    otro ? h("label", {}, "Otro porcentaje, fuera de la tabla (solo Administración)", otro) : null,
+    resumen,
+    h("label", {}, "Observación (la ve el cliente si se retiene algo)", h("textarea", { name: "note", maxlength: 500, rows: 2 })),
+  ];
+  const datos = await formDialog(`Garantía del pedido #${id}`, campos, "Confirmar", {
+    wide: true,
+    validate: (form) => {
+      const fd = new FormData(form);
+      const retiene = fd.getAll("case").length || (otro && otro.value !== "" && Number(otro.value) > 0);
+      return retiene && !String(fd.get("note") ?? "").trim() ? "Explica qué le pasó a la prenda: el cliente lo verá." : null;
+    },
+    onInput: pintar,
+  });
+  if (!datos) return;
+  const cases = datos.getAll("case");
+  const body = { note: datos.get("note") || undefined };
+  if (otro && otro.value !== "") body.percent = Math.round(Number(otro.value));
+  else if (cases.length) body.cases = cases;
+  await act(() => api(`/api/orders/${id}/deposit-release`, { method: "POST", body }), (res) => (res.deposit.retainedCents
+    ? ["Garantía de ", h("strong", {}, customerName(o)), ": se devuelven ", amt(res.deposit.refundedCents), " y se retienen ",
+      amt(res.deposit.retainedCents, "bad"), ` (${res.deposit.percent} %) · pedido #${id}. Se le avisó con el motivo.`]
+    : ["Garantía devuelta completa: ", amt(res.deposit.refundedCents), ` a ${customerName(o)} · pedido #${id}.`]),
+  (res) => ({ tone: res.deposit.retainedCents ? "warn" : "ok" }));
+}
+
 /* ---------- Hoy ---------- */
 
 /**
@@ -867,14 +930,8 @@ document.addEventListener("click", async (e) => {
         "Cobro confirmado: ", amt(cuanto), ` de ${customerName(o)} · pedido #${order}.`,
       ]);
     }
-    case "release": {
-      const o = findOrder(order);
-      const ok = await confirmWithNote("Devolver garantía",
-        `Se devuelven ${money(o.depositHeldCents)} de garantía a ${customerName(o)} (pedido #${order}).`, "Devolver");
-      return ok && act(() => api(`/api/orders/${order}/deposit-release`, { method: "POST", body: ok }), () => [
-        "Garantía devuelta: ", amt(o.depositHeldCents), ` a ${customerName(o)} · pedido #${order}.`,
-      ]);
-    }
+    case "release":
+      return releaseDeposit(order);
     case "cancel": {
       const o = findOrder(order);
       const prendas = o.lines.map((l) => l.productName).join(", ");

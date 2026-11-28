@@ -40,6 +40,9 @@ export const CHARGE_TYPE = Object.freeze({
   LATE_PENALTY: "LATE_PENALTY",
   DISCOUNT: "DISCOUNT",
   ADJUSTMENT: "ADJUSTMENT",
+  // Lo que el local se queda de la garantía por un desperfecto (§6.2). Cuenta
+  // como ingreso; la garantía en sí se libera entera con DEPOSIT_RELEASE.
+  RETENTION: "RETENTION",
 });
 
 /** Estados de una línea. VOID = anulada, no cuenta para nada. */
@@ -227,6 +230,32 @@ export function depositReleaseCharge(charges, note) {
     itemId: null,
     note: note ?? "Depósito devuelto: prenda recibida en buen estado",
   };
+}
+
+/**
+ * Líneas de devolver la garantía reteniendo una parte (§6.2): se libera la
+ * garantía ENTERA (la custodia se cierra) y lo que el local se queda entra
+ * como RETENTION, que es ingreso. Así `heldDepositCents` queda en 0 y
+ * `revenueCents` sube justo lo retenido; el cliente recibe el resto.
+ * @param {Array<object>} charges Líneas del pedido.
+ * @param {{retainedCents: number, note: string}} r Lo retenido y por qué.
+ * @returns {object[]} Líneas sin `orderId`; vacío si no hay garantía.
+ */
+export function retentionCharges(charges, { retainedCents, note }) {
+  const liberar = depositReleaseCharge(charges, `Garantía cerrada con retención: ${note}`);
+  if (!liberar) return [];
+  const held = -liberar.amountCents;
+  const queda = Math.max(0, Math.min(held, retainedCents));
+  if (queda === 0) return [{ ...liberar, note: note || liberar.note }];
+  const metodo = charges.find((c) => c.type === CHARGE_TYPE.DEPOSIT_HOLD)?.method ?? null;
+  return [liberar, {
+    type: CHARGE_TYPE.RETENTION,
+    amountCents: queda,
+    status: CHARGE_STATUS.SETTLED,
+    method: metodo,
+    itemId: null,
+    note: `Retención de garantía: ${note}`,
+  }];
 }
 
 /**

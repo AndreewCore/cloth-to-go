@@ -60,6 +60,7 @@ const ACTIONS = {
   },
   COBRO_CONFIRMADO: { label: "Cobro confirmado", category: "dinero", source: "finance" },
   GARANTIA_LIBERADA: { label: "Garantía liberada", category: "dinero", source: "finance" },
+  RETENCION: { label: "Garantía retenida", category: "dinero", source: "finance" },
   PENALIZACION: { label: "Penalización", category: "dinero", source: "finance" },
   ANULACION: { label: "Pedido anulado", category: "dinero", source: "finance" },
   DIAS_EXTRA: { label: "Días extra cobrados", category: "dinero", source: "finance" },

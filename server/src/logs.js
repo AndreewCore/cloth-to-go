@@ -15,6 +15,7 @@ export const FINANCE_EVENT = Object.freeze({
   CAPACIDADES: "CAPACIDADES",
   DIAS_EXTRA: "DIAS_EXTRA",
   PRECIO: "PRECIO",
+  RETENCION: "RETENCION",
 });
 
 /**
